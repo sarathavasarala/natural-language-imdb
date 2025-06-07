@@ -1,2 +1,19 @@
-flask
-openai
+# Core Framework
+flask==3.0.0
+gunicorn==21.2.0
+
+# AI & OpenAI
+openai==1.7.0
+
+# Database & Data Processing
+sqlite3  # Built into Python
+
+# Development & Logging
+python-dotenv==1.0.0
+
+# Security & Validation
+werkzeug==3.0.1
+
+# Optional: For extended functionality
+requests==2.31.0  # For potential external API calls
+jinja2==3.1.2     # Template engine (included with Flask)

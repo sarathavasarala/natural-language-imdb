@@ -2,78 +2,350 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Natural Language IMDb Search</title>
-    <!-- Bootstrap CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMDb Intelligence | Natural Language Movie Search</title>
+    
+    <!-- Modern CSS Framework -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
-
-    <!-- Include jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     <!-- DataTables CSS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.3/css/dataTables.dataTables.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <!-- DataTables JavaScript -->
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.3/css/dataTables.bootstrap5.min.css">
+    
+    <!-- Range Slider CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
 </head>
 <body>
-    <div class="container-sm py-5">
-        <h1 class="mb-4">Natural Language IMDb Search!</h1>
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="fas fa-film me-2 text-warning"></i>
+                IMDb Intelligence
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-robot me-1"></i>
+                    Powered by GPT-4.1
+                </span>
+            </div>
+        </div>
+    </nav>
 
-        <form method="POST" class="input-group mb-3">
-            <!-- Query Input -->
-            <input type="text" id="query" name="query" class="form-control" placeholder="What are some movies where Robert De Niro and Al Pacino have acted together?" value="{{ query or '' }}" required>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary">Search with GPT-4.1</button>
-        </form>
-
-
-        {% if results is not none %}
-            {% if results %}
-                <table id="resultsTable" class="table cell-border">
-                    <thead>
-                        <tr>
-                            {% for col in results[0].keys() %}
-                                <th>{{ col }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in results %}
-                            <tr>
-                                {% for col, value in row.items() %}
-                                    {% if col == "title_id" %}
-                                        <!-- Render as a hyperlink -->
-                                        <td><a href="https://www.imdb.com/title/{{ value }}/" target="_blank">{{ value }}</a></td>
-                                    {% else %}
-                                        <!-- Render as regular text -->
-                                        <td>{{ value }}</td>
-                                    {% endif %}
+    <div class="container-fluid">
+        <div class="row min-vh-100">
+            <!-- Sidebar with Suggestions -->
+            <div class="col-md-3 bg-light border-end sidebar">
+                <div class="p-4">
+                    <h5 class="text-muted mb-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Query Suggestions
+                    </h5>
+                    
+                    {% if suggested_queries %}
+                        {% for category, queries in suggested_queries|groupby('category') %}
+                            <div class="mb-4">
+                                <h6 class="text-secondary mb-2">{{ category }}</h6>
+                                {% for suggestion in queries %}
+                                    <button class="btn btn-outline-primary btn-sm mb-2 w-100 text-start suggestion-btn" 
+                                            data-query="{{ suggestion.text }}">
+                                        <i class="fas fa-search me-1"></i>
+                                        {{ suggestion.text }}
+                                    </button>
                                 {% endfor %}
-                            </tr>
-                        {% endfor %}    
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No results found.</p>
-            {% endif %}
-        {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <!-- Quick Stats -->
+                    <div class="mt-4 p-3 bg-white rounded shadow-sm">
+                        <h6 class="text-muted mb-2">Database Stats</h6>
+                        <div class="small text-secondary">
+                            <div><i class="fas fa-users me-1"></i> 9M+ People</div>
+                            <div><i class="fas fa-video me-1"></i> 5M+ Titles</div>
+                            <div><i class="fas fa-star me-1"></i> 850K+ Ratings</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 main-content">
+                <div class="p-4">
+                    <!-- Hero Section -->
+                    <div class="hero-section text-center mb-5">
+                        <h1 class="display-5 fw-bold text-dark mb-3">
+                            Ask anything about movies & TV shows
+                        </h1>
+                        <p class="lead text-muted mb-4">
+                            Use natural language to explore the complete IMDb database with AI-powered search
+                        </p>
+                    </div>
+
+                    <!-- Search Form -->
+                    <form method="POST" class="search-form mb-4">
+                        <div class="row g-2">
+                            <div class="col">
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" 
+                                           id="query" 
+                                           name="query" 
+                                           class="form-control form-control-lg" 
+                                           placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
+                                           value="{{ query or '' }}" 
+                                           required
+                                           autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary btn-lg px-4" id="searchBtn">
+                                    <i class="fas fa-magic me-2"></i>
+                                    Search with AI
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    Advanced Filters Section
+                    <div class="filters-section mb-4">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <button class="btn btn-link text-decoration-none p-0 fw-semibold" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#advancedFilters" 
+                                        aria-expanded="false" aria-controls="advancedFilters">
+                                    <i class="fas fa-filter me-2"></i>
+                                    Advanced Filters
+                                    <i class="fas fa-chevron-down ms-2 toggle-icon"></i>
+                                </button>
+                            </div>
+                            <div class="collapse" id="advancedFilters">
+                                <div class="card-body">
+                                    <div class="row g-4">
+                                        <!-- Year Range -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-calendar me-2"></i>Year Range
+                                            </label>
+                                            <div class="range-slider-container">
+                                                <input type="range" class="form-range" id="yearMin" min="1874" max="2032" value="1900" />
+                                                <input type="range" class="form-range" id="yearMax" min="1874" max="2032" value="2032" />
+                                                <div class="range-values d-flex justify-content-between">
+                                                    <span id="yearMinValue">1900</span>
+                                                    <span id="yearMaxValue">2032</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Rating Range -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-star me-2"></i>Rating Range
+                                            </label>
+                                            <div class="range-slider-container">
+                                                <input type="range" class="form-range" id="ratingMin" min="1" max="10" value="1" step="0.1" />
+                                                <input type="range" class="form-range" id="ratingMax" min="1" max="10" value="10" step="0.1" />
+                                                <div class="range-values d-flex justify-content-between">
+                                                    <span id="ratingMinValue">1.0</span>
+                                                    <span id="ratingMaxValue">10.0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Votes Range -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-thumbs-up me-2"></i>Minimum Votes
+                                            </label>
+                                            <div class="range-slider-container">
+                                                <input type="range" class="form-range" id="votesMin" min="0" max="6" value="0" step="0.1" />
+                                                <div class="range-values">
+                                                    <span id="votesMinValue">5</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Genre Selection -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-tags me-2"></i>Genres
+                                            </label>
+                                            <div class="genre-container">
+                                                <select multiple class="form-select" id="genreSelect" size="4">
+                                                    <!-- Options will be populated by JavaScript -->
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Content Type -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-film me-2"></i>Content Type
+                                            </label>
+                                            <div class="type-container">
+                                                <select multiple class="form-select" id="typeSelect" size="4">
+                                                    <!-- Options will be populated by JavaScript -->
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Text Search -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-search me-2"></i>Title Search
+                                            </label>
+                                            <input type="text" class="form-control" id="titleSearch" 
+                                                   placeholder="Search by title...">
+                                        </div>
+                                    </div>
+
+                                    <!-- Filter Controls -->
+                                    <div class="row mt-4">
+                                        <div class="col-12">
+                                            <div class="d-flex gap-2 justify-content-end">
+                                                <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                                                    <i class="fas fa-eraser me-2"></i>Clear Filters
+                                                </button>
+                                                <button type="button" class="btn btn-success" id="applyFilters">
+                                                    <i class="fas fa-search me-2"></i>Apply Filters
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="text-center py-5 d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="mt-3">
+                            <h5 class="text-muted">Analyzing your query...</h5>
+                            <p class="text-secondary">AI is generating the perfect database query</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Message -->
+                    {% if error_message %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Query Failed:</strong> {{ error_message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+
+                    <!-- SQL Query Display (Collapsed by default) -->
+                    {% if sql_query %}
+                        <div class="mb-4">
+                            <div class="card">
+                                <div class="card-header bg-dark text-white">
+                                    <button class="btn btn-link text-white text-decoration-none p-0 d-flex justify-content-between align-items-center w-100" 
+                                            type="button" data-bs-toggle="collapse" data-bs-target="#sqlQueryCollapse" 
+                                            aria-expanded="false" aria-controls="sqlQueryCollapse">
+                                        <span><i class="fas fa-code me-2"></i>Generated SQL Query</span>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-light copy-sql-btn me-2" data-sql="{{ sql_query }}" onclick="event.stopPropagation()">
+                                                <i class="fas fa-copy"></i> Copy
+                                            </button>
+                                            <i class="fas fa-chevron-down toggle-icon"></i>
+                                        </div>
+                                    </button>
+                                </div>
+                                <div class="collapse" id="sqlQueryCollapse">
+                                    <div class="card-body">
+                                        <pre class="mb-0"><code class="sql">{{ sql_query }}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Results Table -->
+                    {% if results is not none %}
+                        {% if results %}
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-table me-2 text-primary"></i>
+                                        Search Results
+                                        <span class="badge bg-primary ms-2">{{ results|length }}</span>
+                                    </h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table id="resultsTable" class="table table-hover table-striped mb-0">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    {% for col in results[0].keys() %}
+                                                        <th class="fw-semibold">{{ col|title|replace('_', ' ') }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in results %}
+                                                    <tr>
+                                                        {% for col, value in row.items() %}
+                                                            <td>
+                                                                {% if col == "title_id" and value %}
+                                                                    <a href="https://www.imdb.com/title/{{ value }}/" 
+                                                                       target="_blank" 
+                                                                       class="text-decoration-none">
+                                                                        <i class="fas fa-external-link-alt me-1"></i>
+                                                                        {{ value }}
+                                                                    </a>
+                                                                {% elif col == "rating" and value %}
+                                                                    <span class="badge bg-warning text-dark">
+                                                                        <i class="fas fa-star"></i> {{ value }}
+                                                                    </span>
+                                                                {% elif col == "votes" and value %}
+                                                                    <span class="text-muted">
+                                                                        {{ "{:,}".format(value) }} votes
+                                                                    </span>
+                                                                {% elif col == "premiered" and value %}
+                                                                    <span class="badge bg-secondary">{{ value }}</span>
+                                                                {% else %}
+                                                                    {{ value or '—' }}
+                                                                {% endif %}
+                                                            </td>
+                                                        {% endfor %}
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="text-muted mb-3">
+                                    <i class="fas fa-search fa-3x"></i>
+                                </div>
+                                <h5 class="text-muted">No results found</h5>
+                                <p class="text-secondary">Try rephrasing your query or use one of the suggestions.</p>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-    <script>
-        $(document).ready(function () {
-            // Initialize DataTable on the #resultsTable element
-            $('#resultsTable').DataTable({
-                // Add DataTable options here
-                // For default settings, you can leave this object empty,
-                // or customize as per your requirements. For example:
-                "pageLength": 25, // Specify the page length default
-                "ordering": true // Enable column ordering
-            });
-        });
-    </script>
-    <!-- Bootstrap JS with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

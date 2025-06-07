@@ -1,14 +1,31 @@
-# IMDB Natural Language Search
+# IMDb Intelligence | AI-Powered Movie Database Search
 
-A Flask web application that allows users to search an IMDB database using natural language queries, powered by Azure OpenAI GPT-4.1.
+A professional Flask web application that transforms natural language queries into intelligent IMDb database searches using Azure OpenAI GPT-4.1.
 
-## Features
+## 🚀 Enhanced Features
 
-- Natural language to SQL conversion using GPT-4.1
-- Interactive web interface with Bootstrap styling
-- Results displayed in searchable/sortable DataTables
-- Direct links to IMDB pages for movie titles
-- SQLite database with IMDB data
+### Core Features
+- **🧠 Advanced AI Query Processing** - Sophisticated natural language to SQL conversion
+- **🎨 Professional UI/UX** - Modern, responsive design with Bootstrap 5
+- **⚡ Smart Query Suggestions** - Contextual examples organized by category
+- **📊 Real-time Analytics** - Query performance metrics and database statistics
+- **🔍 Enhanced Search Results** - Interactive tables with advanced filtering and sorting
+- **📱 Responsive Design** - Optimized for desktop, tablet, and mobile
+- **🛡️ Security First** - SQL injection protection and query validation
+
+### Advanced Capabilities
+- **Fuzzy Name Matching** - Handles typos and partial names intelligently
+- **Complex Relationship Queries** - Multi-actor collaborations, director analysis
+- **Genre & Era Filtering** - Sophisticated filtering by genre, decade, ratings
+- **Performance Optimization** - Efficient database queries with proper indexing
+- **Query History** - Local storage of previous searches
+- **Copy-to-Clipboard** - Easy sharing of generated SQL queries
+
+### Technical Excellence
+- **Comprehensive Logging** - Detailed application and query logging
+- **Error Handling** - Graceful error recovery with user-friendly messages
+- **API Endpoints** - RESTful APIs for validation and statistics
+- **Code Quality** - Professional code structure with proper separation of concerns
 
 ## Setup Instructions
 
@@ -73,10 +90,23 @@ The application will be available at `http://localhost:5000`
 
 ### Example Queries
 
+**Basic Searches:**
 - "Find movies where Robert De Niro and Al Pacino acted together"
 - "Show me the highest rated movies from 2020"
 - "List all episodes of The Office TV show"
 - "What are Christopher Nolan's top rated movies?"
+
+**Advanced Searches:**
+- "Sci-fi movies from the 2010s with ratings above 8.0 starring actors who were also in Marvel movies"
+- "Directors who made both horror and comedy movies with their highest-rated film in each genre"
+- "TV shows that ran for exactly 5 seasons and had more than 100 episodes"
+- "Most popular movie genres by decade since 1990"
+- "Actors who appeared in both Oscar Best Picture winners and movies rated below 5.0"
+
+**Complex Analysis:**
+- "Find actors who worked with the same director more than 3 times"
+- "Movies with the biggest rating difference between critics and audience"
+- "Child actors who became successful adult actors with their career progression"
 
 ## Project Structure
 
