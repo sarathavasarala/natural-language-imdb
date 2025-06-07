@@ -18,8 +18,8 @@ $(document).ready(function() {
     // Initialize copy button functionality
     initializeCopyButtons();
     
-    // // Initialize filters
-    // initializeFilters();
+    // Initialize filters
+    initializeFilters();
     
     console.log('IMDb Intelligence initialized successfully');
 });
@@ -307,12 +307,6 @@ function initializeCopyButtons() {
 let filterOptions = {};
 let currentFilters = {};
 
-// Initialize filters when document is ready
-$(document).ready(function() {
-    // Initialize filters
-    initializeFilters();
-});
-
 function initializeFilters() {
     // Load filter options from API
     loadFilterOptions();
@@ -327,18 +321,18 @@ function initializeFilters() {
     setupCollapseAnimation();
 }
 
-// function loadFilterOptions() {
-//     $.get('/api/filter-options')
-//         .done(function(data) {
-//             filterOptions = data;
-//             populateFilterOptions();
-//             console.log('Filter options loaded:', data);
-//         })
-//         .fail(function(xhr, status, error) {
-//             console.error('Failed to load filter options:', error);
-//             showNotification('Failed to load filter options', 'error');
-//         });
-// }
+function loadFilterOptions() {
+    $.get('/api/filter-options')
+        .done(function(data) {
+            filterOptions = data;
+            populateFilterOptions();
+            console.log('Filter options loaded:', data);
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Failed to load filter options:', error);
+            showAlert('Failed to load filter options', 'error');
+        });
+}
 
 function populateFilterOptions() {
     // Update slider ranges
@@ -347,12 +341,15 @@ function populateFilterOptions() {
     $('#yearMinValue').text(filterOptions.years.min);
     $('#yearMaxValue').text(filterOptions.years.max);
     
-    $('#ratingMin').attr('min', filterOptions.ratings.min).attr('max', filterOptions.ratings.max).val(filterOptions.ratings.min);
-    $('#ratingMax').attr('min', filterOptions.ratings.min).attr('max', filterOptions.ratings.max).val(filterOptions.ratings.max);
+    $('#ratingMin').attr('min', filterOptions.ratings.min).attr('max', filterOptions.ratings.max).val(filterOptions.ratings.min).attr('step', 0.1);
+    $('#ratingMax').attr('min', filterOptions.ratings.min).attr('max', filterOptions.ratings.max).val(filterOptions.ratings.max).attr('step', 0.1);
     $('#ratingMinValue').text(filterOptions.ratings.min.toFixed(1));
     $('#ratingMaxValue').text(filterOptions.ratings.max.toFixed(1));
     
-    $('#votesMin').attr('min', Math.log10(filterOptions.votes.min)).attr('max', Math.log10(filterOptions.votes.max)).val(Math.log10(filterOptions.votes.min));
+    // Assuming filterOptions.votes.min is the actual minimum vote count
+    const minVotesLog = Math.log10(filterOptions.votes.min > 0 ? filterOptions.votes.min : 1); // Avoid log10(0)
+    const maxVotesLog = Math.log10(filterOptions.votes.max > 0 ? filterOptions.votes.max : 1);
+    $('#votesMin').attr('min', minVotesLog).attr('max', maxVotesLog).val(minVotesLog).attr('step', 0.1); // Adjust step if needed
     $('#votesMinValue').text(formatNumber(filterOptions.votes.min));
     
     // Populate genres
@@ -447,11 +444,11 @@ function applyFilters() {
         success: function(response) {
             displayFilteredResults(response);
             showAppliedFilters(filters);
-            showNotification(`Found ${response.count} results`, 'success');
+            showAlert(`Found ${response.count} results`, 'success');
         },
         error: function(xhr, status, error) {
             console.error('Filter search failed:', error);
-            showNotification('Filter search failed: ' + error, 'error');
+            showAlert('Filter search failed: ' + error, 'error');
         },
         complete: function() {
             showFilterLoading(false);
@@ -651,7 +648,7 @@ function clearFilters() {
     // Clear current filters
     currentFilters = {};
     
-    showNotification('Filters cleared', 'info');
+    showAlert('Filters cleared', 'info');
 }
 
 function showFilterLoading(show) {
@@ -664,30 +661,7 @@ function showFilterLoading(show) {
     }
 }
 
-function showNotification(message, type = 'info') {
-    const alertClass = type === 'error' ? 'alert-danger' : (type === 'success' ? 'alert-success' : 'alert-info');
-    const iconClass = type === 'error' ? 'fa-exclamation-triangle' : (type === 'success' ? 'fa-check-circle' : 'fa-info-circle');
-    
-    const notification = $(`
-        <div class="alert ${alertClass} alert-dismissible fade show notification-toast" role="alert">
-            <i class="fas ${iconClass} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `);
-    
-    // Remove existing notifications
-    $('.notification-toast').remove();
-    
-    // Add new notification
-    $('.main-content').prepend(notification);
-    
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-        notification.fadeOut();
-    }, 5000);
-}
-
+// Remove showNotification function definition as its calls are replaced by showAlert
 function formatNumber(num) {
     if (num >= 1000000) {
         return (num / 1000000).toFixed(1) + 'M';
@@ -698,8 +672,15 @@ function formatNumber(num) {
 }
 
 function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (text === null || text === undefined) {
+        return '';
+    }
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }

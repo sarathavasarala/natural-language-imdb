@@ -14,7 +14,7 @@
 
 /* Body and Layout */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Open Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Added Open Sans */
     background-color: #ffffff;
     color: var(--text-dark);
     line-height: 1.6;

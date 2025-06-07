@@ -64,7 +64,7 @@ def generate_response(user_query):
     - akas: title_id (VARCHAR), title (VARCHAR), region (VARCHAR), language (VARCHAR), types (VARCHAR), attributes (VARCHAR), is_original_title (INTEGER)
     - crew: title_id (VARCHAR), person_id (VARCHAR), category (VARCHAR), job (VARCHAR), characters (VARCHAR)
     - episodes: episode_title_id (VARCHAR), show_title_id (VARCHAR), season_number (INTEGER), episode_number (INTEGER)
-    - ratings: title_id (VARCHAR), rating (REAL), votes (INTEGER)
+    - ratings: title_id (VARCHAR), rating (REAL, stored as a value from 0 to 100), votes (INTEGER)
 
     CRITICAL: This is SQLite - do NOT use functions like PERCENTILE_CONT, PERCENTILE_DISC, or other advanced statistical functions that don't exist in SQLite.
 
@@ -85,6 +85,7 @@ def generate_response(user_query):
     5. Handle plural/singular variations (movie/movies, actor/actors)
     6. Consider alternative titles in akas table for international searches
     7. Use ONLY SQLite-compatible functions and syntax
+    8. RATING SCALE: The `ratings.rating` column is stored as a value from 0 to 100. To convert it to a standard 1-10 scale for comparison or display, use `CAST(r.rating AS REAL)/10.0`. When filtering by rating, assume the user-provided rating is on a 1-10 scale.
 
     ADVANCED EXAMPLES:
 
@@ -246,33 +247,6 @@ def api_suggestions():
         'suggestions': suggestions,
         'status': 'success'
     })
-
-@main.route('/api/validate', methods=['POST'])
-def api_validate_query():
-    """API endpoint to validate queries before submission"""
-    data = request.get_json()
-    query = data.get('query', '').strip()
-    
-    if not query:
-        return jsonify({
-            'valid': False,
-            'message': 'Query cannot be empty',
-            'suggestions': ['Try: "Movies with Tom Hanks"', 'Try: "Highest rated sci-fi movies"']
-        })
-    
-    if len(query) < 5:
-        return jsonify({
-            'valid': False,
-            'message': 'Query seems too short. Please be more specific.',
-            'suggestions': [f'Try: "{query} movies"', f'Try: "Best {query} films"']
-        })
-    
-    return jsonify({
-        'valid': True,
-        'message': 'Query looks good!',
-        'estimated_results': 'Analyzing...'
-    })
-
 
 @main.route('/api/filter-options')
 def get_filter_options():
