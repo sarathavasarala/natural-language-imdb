@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Query Results</title>
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+
+    <!-- Include jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.3/css/dataTables.dataTables.min.css">
+    <!-- DataTables JavaScript -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Query Results</h1>
+
+        <p class="user-query">User Query: "{{ query }}"</p>
+
+        {% if results %}
+            <table id="resultsTable" class="cell-border">
+                <thead>
+                    <tr>
+                        {% for col in results[0].keys() %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                        <tr>
+                            {% for value in row.values() %}
+                                <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}    
+                </tbody>
+           </table>
+        {% else %}
+            <p>No results found.</p>
+        {% endif %}
+        <a href="{{ url_for('main.home') }}">Back to Home</a>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            // Initialize DataTable on the #resultsTable element
+            $('#resultsTable').DataTable({
+                // Add DataTable options here
+                // For default settings, you can leave this object empty,
+                // or customize as per your requirements
+            });
+        });
+
+    </script>
+</body>
+</html>

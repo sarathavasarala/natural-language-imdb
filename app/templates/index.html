@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Natural Language IMDb Search</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+
+    <!-- Include jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.3/css/dataTables.dataTables.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- DataTables JavaScript -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
+</head>
+<body>
+    <div class="container-sm py-5">
+        <h1 class="mb-4">Natural Language IMDb Search!</h1>
+
+        <form method="POST" class="input-group mb-3">
+            <!-- Query Input -->
+            <input type="text" id="query" name="query" class="form-control" placeholder="What are some movies where Robert De Niro and Al Pacino have acted together?" value="{{ query or '' }}" required>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary">Search with GPT-4.1</button>
+        </form>
+
+
+        {% if results is not none %}
+            {% if results %}
+                <table id="resultsTable" class="table cell-border">
+                    <thead>
+                        <tr>
+                            {% for col in results[0].keys() %}
+                                <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in results %}
+                            <tr>
+                                {% for col, value in row.items() %}
+                                    {% if col == "title_id" %}
+                                        <!-- Render as a hyperlink -->
+                                        <td><a href="https://www.imdb.com/title/{{ value }}/" target="_blank">{{ value }}</a></td>
+                                    {% else %}
+                                        <!-- Render as regular text -->
+                                        <td>{{ value }}</td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}    
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No results found.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    <script>
+        $(document).ready(function () {
+            // Initialize DataTable on the #resultsTable element
+            $('#resultsTable').DataTable({
+                // Add DataTable options here
+                // For default settings, you can leave this object empty,
+                // or customize as per your requirements. For example:
+                "pageLength": 25, // Specify the page length default
+                "ordering": true // Enable column ordering
+            });
+        });
+    </script>
+    <!-- Bootstrap JS with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>
