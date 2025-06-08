@@ -1,3 +1,6 @@
+/* Import Open Sans font */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
 /* Professional IMDb Intelligence Styling */
 
 :root {
@@ -14,7 +17,7 @@
 
 /* Body and Layout */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Open Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #ffffff;
     color: var(--text-dark);
     line-height: 1.6;
@@ -64,10 +67,16 @@ body {
 
 .hero-section h1 {
     text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    color: white !important;
 }
 
 .hero-section .lead {
     opacity: 0.9;
+    color: white !important;
+}
+
+.hero-section p {
+    color: white !important;
 }
 
 /* Search Form */
