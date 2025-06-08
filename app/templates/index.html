@@ -24,7 +24,7 @@
 <body>
     <!-- Navigation Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="#">
                 <i class="fas fa-film me-2 text-warning"></i>
                 IMDb Intelligence
@@ -34,43 +34,8 @@
 
     <div class="container-fluid">
         <div class="row min-vh-100">
-            <!-- Sidebar with Suggestions -->
-            <div class="col-md-3 bg-light border-end sidebar">
-                <div class="p-4">
-                    <h5 class="text-muted mb-3">
-                        <i class="fas fa-lightbulb me-2"></i>
-                        Query Suggestions
-                    </h5>
-                    
-                    {% if suggested_queries %}
-                        {% for category, queries in suggested_queries|groupby('category') %}
-                            <div class="mb-4">
-                                <h6 class="text-secondary mb-2">{{ category }}</h6>
-                                {% for suggestion in queries %}
-                                    <button class="btn btn-outline-primary btn-sm mb-2 w-100 text-start suggestion-btn" 
-                                            data-query="{{ suggestion.text }}">
-                                        <i class="fas fa-search me-1"></i>
-                                        {{ suggestion.text }}
-                                    </button>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                    
-                    <!-- Quick Stats -->
-                    <div class="mt-4 p-3 bg-white rounded shadow-sm">
-                        <h6 class="text-muted mb-2">Database Stats</h6>
-                        <div class="small text-secondary">
-                            <div><i class="fas fa-users me-1"></i> 9M+ People</div>
-                            <div><i class="fas fa-video me-1"></i> 5M+ Titles</div>
-                            <div><i class="fas fa-star me-1"></i> 850K+ Ratings</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Main Content -->
-            <div class="col-md-9 main-content">
+            <div class="col-12 main-content">
                 <div class="p-4">
                     <!-- Hero Section -->
                     <div class="hero-section text-center mb-5">
@@ -138,12 +103,7 @@
                                             type="button" data-bs-toggle="collapse" data-bs-target="#sqlQueryCollapse" 
                                             aria-expanded="false" aria-controls="sqlQueryCollapse">
                                         <span><i class="fas fa-code me-2"></i>Generated SQL Query</span>
-                                        <div class="d-flex align-items-center">
-                                            <button class="btn btn-sm btn-outline-light copy-sql-btn me-3" data-sql="{{ sql_query }}" onclick="event.stopPropagation()">
-                                                <i class="fas fa-copy me-1"></i> Copy
-                                            </button>
-                                            <i class="fas fa-chevron-down toggle-icon transition-transform"></i>
-                                        </div>
+                                        <i class="fas fa-chevron-down toggle-icon transition-transform"></i>
                                     </button>
                                 </div>
                                 <div class="collapse" id="sqlQueryCollapse">
@@ -172,7 +132,11 @@
                                             <thead class="table-dark">
                                                 <tr>
                                                     {% for col in results[0].keys() %}
-                                                        <th class="fw-semibold">{{ col|title|replace('_', ' ') }}</th>
+                                                        <th class="fw-semibold" 
+                                                            data-column="{{ col }}"
+                                                            {% if col in ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number'] %}data-type="numeric"{% endif %}>
+                                                            {{ col|title|replace('_', ' ') }}
+                                                        </th>
                                                     {% endfor %}
                                                 </tr>
                                             </thead>
@@ -180,7 +144,7 @@
                                                 {% for row in results %}
                                                     <tr>
                                                         {% for col, value in row.items() %}
-                                                            <td>
+                                                            <td {% if col in ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number'] and value %}data-sort="{{ value }}"{% endif %}>
                                                                 {% if col == "title_id" and value %}
                                                                     <a href="https://www.imdb.com/title/{{ value }}/" 
                                                                        target="_blank" 

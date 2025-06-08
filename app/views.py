@@ -68,16 +68,33 @@ def generate_response(user_query):
 
     CRITICAL: This is SQLite - do NOT use functions like PERCENTILE_CONT, PERCENTILE_DISC, or other advanced statistical functions that don't exist in SQLite.
 
+    AVOIDING DUPLICATES:
+    - ALWAYS use SELECT DISTINCT when joining tables, especially with crew/people tables
+    - When multiple crew members are involved, use proper subqueries or GROUP BY with aggregation
+    - Be extra careful with queries involving actors, directors, or multiple people relationships
+
     IMPORTANT RULES:
-    1. ALWAYS include ratings and votes when available
-    2. Use proper JOINs for relationships
-    3. Handle fuzzy name matching with LIKE '%name%'
-    4. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
-    5. Handle plural/singular variations (movie/movies, actor/actors)
-    6. Consider alternative titles in akas table for international searches
-    7. Use ONLY SQLite-compatible functions and syntax
+    1. ALWAYS use SELECT DISTINCT to prevent duplicate results from JOINs
+    2. ALWAYS include ratings and votes when available
+    3. Use proper JOINs for relationships
+    4. Handle fuzzy name matching with LIKE '%name%'
+    5. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
+    6. Handle plural/singular variations (movie/movies, actor/actors)
+    7. Consider alternative titles in akas table for international searches
+    8. Use ONLY SQLite-compatible functions and syntax
 
     ADVANCED EXAMPLES:
+
+    Query: "Movies with Jim Carrey rated above 7"
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
+         FROM titles t 
+         JOIN crew c ON t.title_id = c.title_id 
+         JOIN people p ON c.person_id = p.person_id 
+         LEFT JOIN ratings r ON t.title_id = r.title_id 
+         WHERE p.name LIKE '%Jim Carrey%' 
+         AND t.type IN ('movie', 'tvMovie') 
+         AND r.rating > 7.0 
+         ORDER BY r.rating DESC, r.votes DESC;
 
     Query: "Movies where Leonardo DiCaprio and Kate Winslet worked together"
     SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
@@ -93,7 +110,7 @@ def generate_response(user_query):
          ORDER BY r.rating DESC, r.votes DESC;
 
     Query: "Highest rated sci-fi movies from 2010s"
-    SQL: SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
          FROM titles t 
          JOIN ratings r ON t.title_id = r.title_id 
          WHERE t.type IN ('movie', 'tvMovie') 
@@ -102,26 +119,9 @@ def generate_response(user_query):
          AND r.votes >= 1000 
          ORDER BY r.rating DESC, r.votes DESC;
 
-    Query: "Movies with 40th percentile votes but high ratings"
-    SQL: WITH vote_percentile AS (
-         SELECT votes, ROW_NUMBER() OVER (ORDER BY votes) as rn, COUNT(*) OVER () as total_count
-         FROM ratings
-         ),
-         percentile_40_votes AS (
-         SELECT votes as target_votes FROM vote_percentile 
-         WHERE rn = CAST(0.4 * total_count AS INTEGER)
-         )
-         SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM titles t 
-         JOIN ratings r ON t.title_id = r.title_id 
-         CROSS JOIN percentile_40_votes p
-         WHERE t.type IN ('movie', 'tvMovie') 
-         AND r.votes <= p.target_votes 
-         AND r.rating > 7.0 
-         ORDER BY r.rating DESC;
 
     Query: "Directors who made both horror and comedy movies"
-    SQL: SELECT p.name, p.person_id,
+    SQL: SELECT DISTINCT p.name, p.person_id,
          COUNT(CASE WHEN t.genres LIKE '%Horror%' THEN 1 END) as horror_count,
          COUNT(CASE WHEN t.genres LIKE '%Comedy%' THEN 1 END) as comedy_count,
          AVG(r.rating) as avg_rating

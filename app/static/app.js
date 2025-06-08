@@ -6,17 +6,11 @@ $(document).ready(function() {
         initializeDataTable();
     }
     
-    // Initialize suggestion buttons
-    initializeSuggestions();
-    
     // Initialize search form enhancements
     initializeSearchForm();
     
     // Initialize tooltips
     initializeTooltips();
-    
-    // Initialize copy button functionality
-    initializeCopyButtons();
     
     // Initialize SQL query collapse functionality
     initializeSQLCollapse();
@@ -25,7 +19,56 @@ $(document).ready(function() {
 });
 
 function initializeDataTable() {
-    $('#resultsTable').DataTable({
+    // First, determine which columns are numeric based on their headers
+    const table = $('#resultsTable');
+    const columnDefs = [];
+    
+    // Find numeric columns and set up proper sorting
+    table.find('thead th').each(function(index) {
+        const $th = $(this);
+        const columnName = $th.data('column');
+        const isNumeric = $th.data('type') === 'numeric';
+        
+        if (isNumeric) {
+            columnDefs.push({
+                targets: index,
+                type: 'num',
+                render: function(data, type, row, meta) {
+                    if (type === 'sort' || type === 'type') {
+                        // Use data-sort attribute if available
+                        const $cell = $(table.find('tbody tr').eq(meta.row).find('td').eq(meta.col));
+                        const sortValue = $cell.attr('data-sort');
+                        if (sortValue !== undefined) {
+                            return parseFloat(sortValue) || 0;
+                        }
+                        
+                        // Fallback: extract numeric value from formatted text
+                        if (columnName === 'votes') {
+                            if (typeof data === 'string') {
+                                const numMatch = data.match(/[\d,]+/);
+                                return numMatch ? parseInt(numMatch[0].replace(/,/g, '')) : 0;
+                            }
+                        } else if (columnName === 'rating') {
+                            if (typeof data === 'string') {
+                                const numMatch = data.match(/[\d.]+/);
+                                return numMatch ? parseFloat(numMatch[0]) : 0;
+                            }
+                        }
+                        return parseFloat(data) || 0;
+                    }
+                    return data; // Return original data for display
+                }
+            });
+        }
+        
+        // Add text-nowrap to all columns
+        columnDefs.push({
+            targets: index,
+            className: 'text-nowrap'
+        });
+    });
+    
+    table.DataTable({
         pageLength: 25,
         ordering: true,
         searching: true,
@@ -44,12 +87,7 @@ function initializeDataTable() {
             emptyTable: "No matching results found",
             zeroRecords: "No matching results found"
         },
-        columnDefs: [
-            {
-                targets: '_all',
-                className: 'text-nowrap'
-            }
-        ],
+        columnDefs: columnDefs,
         order: [], // No default ordering
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
              '<"row"<"col-sm-12"tr>>' +
@@ -60,44 +98,7 @@ function initializeDataTable() {
         }
     });
     
-    console.log('DataTable initialized with advanced features');
-}
-
-function initializeSuggestions() {
-    $('.suggestion-btn').click(function(e) {
-        e.preventDefault();
-        const query = $(this).data('query');
-        
-        // Animate button press
-        $(this).addClass('btn-primary').removeClass('btn-outline-primary');
-        setTimeout(() => {
-            $(this).removeClass('btn-primary').addClass('btn-outline-primary');
-        }, 200);
-        
-        // Update search input with animation
-        const $input = $('#query');
-        $input.val('').focus();
-        
-        // Type-writer effect
-        typeWriterEffect($input[0], query, 50);
-        
-        console.log('Suggestion selected:', query);
-    });
-}
-
-function typeWriterEffect(element, text, speed = 100) {
-    let i = 0;
-    element.value = '';
-    
-    function typeWriter() {
-        if (i < text.length) {
-            element.value += text.charAt(i);
-            i++;
-            setTimeout(typeWriter, speed);
-        }
-    }
-    
-    typeWriter();
+    console.log('DataTable initialized with enhanced numeric sorting');
 }
 
 function initializeSearchForm() {
@@ -255,7 +256,7 @@ $(window).on('load', function() {
     console.log(`Page loaded in ${loadTime}ms`);
     
     // Track user interactions
-    $('button, .suggestion-btn').click(function() {
+    $('button').click(function() {
         const element = $(this).text().trim();
         console.log('User interaction:', element);
     });
@@ -294,14 +295,6 @@ $(document).on('click', 'a[href*="imdb.com"]', function() {
         $this.html(originalText);
     }, 1000);
 });
-
-function initializeCopyButtons() {
-    // Handle copy SQL button clicks
-    $(document).on('click', '.copy-sql-btn', function() {
-        const sqlQuery = $(this).data('sql');
-        copyToClipboard(sqlQuery);
-    });
-}
 
 function initializeSQLCollapse() {
     // Handle SQL query collapse toggle
