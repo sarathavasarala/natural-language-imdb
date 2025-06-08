@@ -18,6 +18,9 @@ $(document).ready(function() {
     // Initialize copy button functionality
     initializeCopyButtons();
     
+    // Initialize SQL query collapse functionality
+    initializeSQLCollapse();
+    
     console.log('IMDb Intelligence initialized successfully');
 });
 
@@ -297,5 +300,16 @@ function initializeCopyButtons() {
     $(document).on('click', '.copy-sql-btn', function() {
         const sqlQuery = $(this).data('sql');
         copyToClipboard(sqlQuery);
+    });
+}
+
+function initializeSQLCollapse() {
+    // Handle SQL query collapse toggle
+    $('#sqlQueryCollapse').on('shown.bs.collapse', function() {
+        $('.toggle-icon').addClass('rotated');
+    });
+    
+    $('#sqlQueryCollapse').on('hidden.bs.collapse', function() {
+        $('.toggle-icon').removeClass('rotated');
     });
 }

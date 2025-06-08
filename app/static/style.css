@@ -58,11 +58,11 @@ body {
 
 /* Hero Section */
 .hero-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #136cb2 0%, #0056b3 100%);
     color: white;
-    padding: 4rem 2rem;
-    margin: -1.5rem -1.5rem 3rem -1.5rem;
-    border-radius: 0 0 1rem 1rem;
+    padding: 2rem 2rem;
+    margin: -1.5rem -1.5rem 2rem -1.5rem;
+    border-radius: 0;
 }
 
 .hero-section h1 {
@@ -235,7 +235,26 @@ a.text-decoration-none:hover {
 .dataTables_wrapper .dataTables_filter,
 .dataTables_wrapper .dataTables_info,
 .dataTables_wrapper .dataTables_paginate {
-    padding: 1rem;
+    padding: 0.75rem 1.5rem;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border: 2px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 0.375rem 2rem 0.375rem 0.75rem;
+    margin: 0 0.5rem;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    appearance: none;
+}
+
+.dataTables_wrapper .dataTables_length select:focus {
+    border-color: var(--accent-color);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(19, 108, 178, 0.25);
 }
 
 .dataTables_wrapper .dataTables_filter input {
@@ -314,6 +333,16 @@ a.text-decoration-none:hover {
     color: #81c784;
 }
 
+/* Chevron Animation */
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated,
+[aria-expanded="true"] .toggle-icon {
+    transform: rotate(180deg);
+}
+
 
 /* Enhanced Table Styling */
 .results-table .table th {
@@ -373,8 +402,8 @@ html {
     }
     
     .hero-section {
-        padding: 2rem 1rem;
-        margin: -1rem -1rem 2rem -1rem;
+        padding: 1.5rem 1rem;
+        margin: -1rem -1rem 1.5rem -1rem;
     }
     
     .search-form .row {
@@ -388,6 +417,10 @@ html {
     .search-form .btn {
         width: 100%;
         border-radius: 0.5rem;
+    }
+    
+    .table-responsive {
+        padding: 1rem !important;
     }
 }
 
