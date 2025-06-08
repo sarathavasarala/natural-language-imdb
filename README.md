@@ -1,31 +1,14 @@
-# IMDb Intelligence | AI-Powered Movie Database Search
+# IMDb Text-to-SQL Search
 
-A professional Flask web application that transforms natural language queries into intelligent IMDb database searches using Azure OpenAI GPT-4.1.
+A Flask web application that converts natural language queries into SQL searches against an IMDb database using Azure OpenAI.
 
-## 🚀 Core Features
+## Features
 
-### Main Capabilities
-- **🧠 Advanced AI Query Processing** - Sophisticated natural language to SQL conversion using GPT-4.1
-- **🎨 Professional UI/UX** - Clean, modern design with Bootstrap 5
-- **⚡ Smart Query Suggestions** - Contextual examples organized by category
-- **📊 Interactive Results** - DataTables integration with sorting, searching, and pagination
-- **📱 Responsive Design** - Optimized for desktop, tablet, and mobile devices
-- **🛡️ Security First** - SQL injection protection and comprehensive query validation
-
-### Advanced Capabilities
-- **Fuzzy Name Matching** - Handles typos and partial names intelligently
-- **Complex Relationship Queries** - Multi-actor collaborations, director analysis
-- **Genre & Era Analysis** - Sophisticated queries by genre, decade, ratings
-- **Performance Optimization** - Efficient database queries with proper indexing
-- **Query History** - Local storage of previous searches with typewriter effects
-- **Copy-to-Clipboard** - Easy sharing of generated SQL queries
-- **Real-time Validation** - Query validation before submission
-
-### Technical Excellence
-- **Comprehensive Logging** - Detailed application and query logging
-- **Error Handling** - Graceful error recovery with user-friendly messages
-- **API Endpoints** - RESTful APIs for suggestions and validation
-- **Clean Architecture** - Professional code structure with proper separation of concerns
+- Natural language to SQL conversion using models hosted on Azure OpenAI
+- Web interface for query input and results display
+- Query suggestions and examples
+- Interactive data tables for viewing results
+- Copy generated SQL queries for further analysis
 
 ## Setup Instructions
 
@@ -50,22 +33,19 @@ pip install -r requirements.txt
 
 ### 3. Database Setup
 
-The IMDB database (`db/imdb.db`) has been created using the `imdb-sqlite` package, which downloads and imports the latest IMDB data from their official TSV files. The database contains:
+The IMDb database (`db/imdb.db`) is created using the `imdb-sqlite` package, which downloads and imports the latest IMDb data from their official TSV files. The database contains:
 
-- **9+ million people** (actors, directors, writers, etc.)
-- **5+ million titles** (movies, TV shows, episodes, etc.)  
-- **3+ million alternative titles** (different languages/regions)
-- **29+ million crew relationships** (who worked on what)
-- **3+ million episode records**
-- **850k+ ratings**
+- 9+ million people (actors, directors, writers, etc.)
+- 5+ million titles (movies, TV shows, episodes, etc.)  
+- 3+ million alternative titles (different languages/regions)
+- 29+ million crew relationships (who worked on what)
+- 3+ million episode records
+- 850k+ ratings
 
-The database file is approximately 12GB and is excluded from version control via `.gitignore`.
+The database file is approximately 19GB and is excluded from version control.
 
-**Note**: If you need to regenerate the database with fresh IMDB data, you can use:
+**Note**: To regenerate the database with fresh IMDb data:
 ```bash
-# Activate the virtual environment
-source imdb_env/bin/activate
-
 # Remove old database and cache (optional)
 rm -f db/imdb.db
 rm -rf downloads/
@@ -86,8 +66,8 @@ The application will be available at `http://localhost:5001`
 
 1. Enter a natural language query in the search box
 2. Click "Search with AI" to process your query
-3. View results in the interactive DataTable below
-4. Use the sidebar suggestions for query inspiration
+3. View results in the table below
+4. Use the sidebar suggestions for query examples
 5. Copy generated SQL queries for analysis
 
 ### Example Queries
@@ -118,10 +98,10 @@ imdb_project/
 │   ├── __init__.py
 │   ├── views.py          # Main application logic and API endpoints
 │   ├── templates/
-│   │   └── index.html    # Clean, responsive web interface
+│   │   └── index.html    # Web interface
 │   └── static/
-│       ├── style.css     # Professional custom styles
-│       └── app.js        # Interactive frontend functionality
+│       ├── style.css     # Styles
+│       └── app.js        # Frontend functionality
 ├── db/
 │   └── imdb.db          # SQLite database (12GB, excluded from git)
 ├── config.py            # Configuration (API keys, excluded from git)
@@ -133,7 +113,7 @@ imdb_project/
 
 ## Database Schema
 
-The application uses the following IMDB database tables:
+The application uses the following IMDb database tables:
 
 - **people**: person_id, name, born, died
 - **titles**: title_id, type, primary_title, original_title, is_adult, premiered, ended, runtime_minutes, genres
@@ -142,27 +122,9 @@ The application uses the following IMDB database tables:
 - **episodes**: episode_title_id, show_title_id, season_number, episode_number
 - **ratings**: title_id, rating, votes
 
-## Recent Changes
+## Configuration
 
-### Version 2.0 - Simplified & Streamlined (June 2025)
-- **🗑️ Removed Complex Filters**: Eliminated advanced filter UI for cleaner, focused experience
-- **🧹 Code Cleanup**: Removed 600+ lines of filter-related code across frontend and backend
-- **⚡ Performance**: Lighter application with faster load times
-- **🎯 Focus**: Streamlined to core natural language search functionality
-- **📱 Mobile-First**: Enhanced responsive design without filter complexity
-
-### Version 1.0 - Foundation
-- **Database Created**: IMDB database successfully imported using `imdb-sqlite` package
-- **Added to .gitignore**: Database file, downloads cache, and virtual environment excluded
-- **Azure OpenAI Integration**: Simplified to use only Azure OpenAI GPT-4.1
-- **Externalized Configuration**: Moved API keys to separate `config.py` file
-- **Security Enhanced**: Created comprehensive `.gitignore` for API key protection
-
-## Security Notes
-
-- The `config.py` file contains sensitive API keys and is excluded from version control
-- Use the `config.template.py` as a reference for required configuration values
-- Never commit actual API keys to version control
+The `config.py` file contains API keys and is excluded from version control. Use `config.template.py` as a reference for required configuration values.
 
 ## Dependencies
 
