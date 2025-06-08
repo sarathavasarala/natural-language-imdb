@@ -267,109 +267,7 @@ a.text-decoration-none:hover {
     border-color: var(--accent-color);
 }
 
-/* Filter Section Styles */
-.filters-section {
-    margin-bottom: 2rem;
-}
 
-.filters-section .card {
-    border: 1px solid #e3e6f0;
-    border-radius: 0.75rem;
-    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-    transition: all 0.3s ease;
-}
-
-.filters-section .card:hover {
-    box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
-    transform: translateY(-2px);
-}
-
-.filters-section .card-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #e3e6f0;
-    border-radius: 0.75rem 0.75rem 0 0 !important;
-    padding: 1rem 1.5rem;
-}
-
-.filters-section .btn-link {
-    color: var(--text-dark) !important;
-    font-size: 1.1rem;
-    font-weight: 600;
-    text-decoration: none !important;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
-
-.filters-section .btn-link:hover {
-    color: var(--accent-color) !important;
-}
-
-.filters-section .toggle-icon {
-    transition: transform 0.3s ease;
-}
-
-.filters-section .btn-link[aria-expanded="true"] .toggle-icon {
-    transform: rotate(180deg);
-}
-
-/* Range Slider Styling */
-.range-slider-container {
-    position: relative;
-    padding: 1rem 0;
-}
-
-.range-slider-container .form-range {
-    width: 100%;
-    height: 6px;
-    background: linear-gradient(to right, #e9ecef 0%, var(--accent-color) 0%, var(--accent-color) 100%, #e9ecef 100%);
-    border-radius: 3px;
-    outline: none;
-    margin-bottom: 0.5rem;
-}
-
-.range-slider-container .form-range::-webkit-slider-thumb {
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    background: var(--accent-color);
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    transition: all 0.2s ease;
-}
-
-.range-slider-container .form-range::-webkit-slider-thumb:hover {
-    background: var(--primary-color);
-    transform: scale(1.1);
-}
-
-.range-slider-container .form-range::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    background: var(--accent-color);
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-
-.range-values {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--accent-color);
-    margin-top: 0.5rem;
-}
-
-.range-values span {
-    background: rgba(19, 108, 178, 0.1);
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    min-width: 3rem;
-    text-align: center;
-}
 
 /* Enhanced Select Styling */
 .form-select {
@@ -396,49 +294,6 @@ a.text-decoration-none:hover {
     color: white;
 }
 
-/* Filter Button Styling */
-.filters-section .btn-success {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    border: none;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-    box-shadow: 0 0.125rem 0.25rem rgba(40, 167, 69, 0.25);
-    transition: all 0.3s ease;
-}
-
-.filters-section .btn-success:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.25rem 0.5rem rgba(40, 167, 69, 0.35);
-}
-
-.filters-section .btn-outline-secondary {
-    border: 2px solid #6c757d;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.filters-section .btn-outline-secondary:hover {
-    background: #6c757d;
-    border-color: #6c757d;
-    transform: translateY(-2px);
-}
-
-/* Form Labels */
-.form-label.fw-semibold {
-    color: var(--text-dark);
-    font-size: 0.95rem;
-    margin-bottom: 0.75rem;
-    display: flex;
-    align-items: center;
-}
-
-.form-label.fw-semibold i {
-    color: var(--accent-color);
-    width: 16px;
-}
 
 /* SQL Query Collapsed Styling */
 #sqlQueryCollapse .card-body {
@@ -459,11 +314,6 @@ a.text-decoration-none:hover {
     color: #81c784;
 }
 
-/* Additional Visual Enhancements */
-.filters-section .card-body {
-    background: #fafbfc;
-    border-radius: 0 0 0.75rem 0.75rem;
-}
 
 /* Enhanced Table Styling */
 .results-table .table th {
@@ -489,57 +339,8 @@ a.text-decoration-none:hover {
     transition: all 0.2s ease;
 }
 
-/* Loading Animation */
-.filter-loading {
-    position: relative;
-    opacity: 0.6;
-    pointer-events: none;
-}
 
-.filter-loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
 
-@keyframes spin {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-/* Applied Filters Display */
-.applied-filters {
-    background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
-    border: 1px solid #bbdefb;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-.applied-filters h6 {
-    color: var(--accent-color);
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-.filter-tag {
-    display: inline-block;
-    background: var(--accent-color);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.8rem;
-    margin: 0.25rem 0.5rem 0.25rem 0;
-    font-weight: 500;
-}
 
 /* Smooth Transitions */
 .card, .btn, .form-control, .form-select, .form-range {
@@ -560,25 +361,8 @@ html {
 
 /* Mobile Optimizations */
 @media (max-width: 576px) {
-    .filters-section .card-header {
-        padding: 0.75rem 1rem;
-    }
-    
-    .filters-section .btn-link {
-        font-size: 1rem;
-    }
-    
-    .range-slider-container {
-        padding: 0.5rem 0;
-    }
-    
     .form-select {
         font-size: 0.85rem;
-    }
-    
-    .filter-tag {
-        font-size: 0.75rem;
-        padding: 0.2rem 0.6rem;
     }
 }
 
@@ -604,20 +388,6 @@ html {
     .search-form .btn {
         width: 100%;
         border-radius: 0.5rem;
-    }
-    
-    .range-slider-container {
-        margin-bottom: 1rem;
-    }
-    
-    .filters-section .row > div {
-        margin-bottom: 1rem;
-    }
-    
-    .genre-container select,
-    .type-container select {
-        height: auto;
-        min-height: 80px;
     }
 }
 

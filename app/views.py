@@ -68,15 +68,6 @@ def generate_response(user_query):
 
     CRITICAL: This is SQLite - do NOT use functions like PERCENTILE_CONT, PERCENTILE_DISC, or other advanced statistical functions that don't exist in SQLite.
 
-    For percentile calculations in SQLite, use this pattern:
-    WITH ordered_data AS (
-        SELECT votes, ROW_NUMBER() OVER (ORDER BY votes) as rn, COUNT(*) OVER () as total_count
-        FROM ratings
-    )
-    SELECT votes as percentile_40_votes
-    FROM ordered_data 
-    WHERE rn = CAST(0.4 * total_count AS INTEGER);
-
     IMPORTANT RULES:
     1. ALWAYS include ratings and votes when available
     2. Use proper JOINs for relationships
@@ -166,7 +157,7 @@ def generate_response(user_query):
                 {"role": "user", "content": user_query}
             ],
             temperature=0.3,  # Lower temperature for more consistent SQL
-            max_tokens=800,
+            max_tokens=1200,
             top_p=0.9
         )
         
@@ -274,157 +265,7 @@ def api_validate_query():
     })
 
 
-@main.route('/api/filter-options')
-def get_filter_options():
-    """API endpoint to get filter options for the UI"""
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        c = conn.cursor()
-        
-        # Get year range
-        c.execute("SELECT MIN(premiered) as min_year, MAX(premiered) as max_year FROM titles WHERE premiered IS NOT NULL AND premiered > 1800")
-        year_range = c.fetchone()
-        
-        # Get rating range
-        c.execute("SELECT MIN(CAST(rating AS REAL)/10.0) as min_rating, MAX(CAST(rating AS REAL)/10.0) as max_rating FROM ratings WHERE rating IS NOT NULL")
-        rating_range = c.fetchone()
-        
-        # Get votes range
-        c.execute("SELECT MIN(votes) as min_votes, MAX(votes) as max_votes FROM ratings WHERE votes IS NOT NULL")
-        votes_range = c.fetchone()
-        
-        # Get unique genres
-        c.execute("SELECT DISTINCT genres FROM titles WHERE genres IS NOT NULL AND genres != '' AND genres != 'N'")
-        genre_results = c.fetchall()
-        
-        # Parse genres (they are comma-separated)
-        all_genres = set()
-        for (genres_str,) in genre_results:
-            if genres_str:
-                for genre in genres_str.split(','):
-                    all_genres.add(genre.strip())
-        
-        # Get title types
-        c.execute("SELECT DISTINCT type FROM titles WHERE type IS NOT NULL ORDER BY type")
-        types = [row[0] for row in c.fetchall()]
-        
-        conn.close()
-        
-        return jsonify({
-            'years': {
-                'min': year_range[0] or 1900,
-                'max': year_range[1] or 2024
-            },
-            'ratings': {
-                'min': rating_range[0] or 1,
-                'max': rating_range[1] or 10
-            },
-            'votes': {
-                'min': votes_range[0] or 1,
-                'max': votes_range[1] or 1000000
-            },
-            'genres': sorted(list(all_genres)),
-            'types': types
-        })
-        
-    except Exception as e:
-        logger.error(f"Error getting filter options: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
-@main.route('/api/filtered-search', methods=['POST'])
-def filtered_search():
-    """API endpoint for filtered search"""
-    try:
-        data = request.get_json()
-        
-        # Build SQL query based on filters
-        base_query = """
-        SELECT DISTINCT t.title_id, t.primary_title, t.type, t.premiered, t.genres, 
-               t.runtime_minutes, CAST(r.rating AS REAL)/10.0 as rating, r.votes
-        FROM titles t
-        LEFT JOIN ratings r ON t.title_id = r.title_id
-        WHERE 1=1
-        """
-        
-        conditions = []
-        params = []
-        
-        # Year filter
-        if data.get('yearMin') and data.get('yearMax'):
-            conditions.append("t.premiered BETWEEN ? AND ?")
-            params.extend([data['yearMin'], data['yearMax']])
-        
-        # Rating filter
-        if data.get('ratingMin') and data.get('ratingMax'):
-            conditions.append("CAST(r.rating AS REAL)/10.0 BETWEEN ? AND ?")
-            params.extend([data['ratingMin'], data['ratingMax']])
-        
-        # Votes filter
-        if data.get('votesMin') and data.get('votesMax'):
-            conditions.append("r.votes BETWEEN ? AND ?")
-            params.extend([data['votesMin'], data['votesMax']])
-        
-        # Genre filter
-        if data.get('genres') and len(data['genres']) > 0:
-            genre_conditions = []
-            for genre in data['genres']:
-                genre_conditions.append("t.genres LIKE ?")
-                params.append(f"%{genre}%")
-            conditions.append(f"({' OR '.join(genre_conditions)})")
-        
-        # Type filter
-        if data.get('types') and len(data['types']) > 0:
-            type_placeholders = ','.join(['?' for _ in data['types']])
-            conditions.append(f"t.type IN ({type_placeholders})")
-            params.extend(data['types'])
-        
-        # Text search filter
-        if data.get('searchText'):
-            conditions.append("t.primary_title LIKE ?")
-            params.append(f"%{data['searchText']}%")
-        
-        # Add conditions to query
-        if conditions:
-            base_query += " AND " + " AND ".join(conditions)
-        
-        # Add ordering and limit
-        base_query += " ORDER BY CAST(r.rating AS REAL)/10.0 DESC, r.votes DESC, t.premiered DESC LIMIT 1000"
-        
-        # Execute query with parameters
-        conn = sqlite3.connect(DATABASE_PATH, timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute("PRAGMA query_only = ON")
-        c.execute("PRAGMA cache_size = 10000")
-        
-        start_time = time.time()
-        logger.info(f"Executing query with params: {params}")
-        c.execute(base_query, params)
-        results = c.fetchall()
-        execution_time = time.time() - start_time
-        
-        columns = [description[0] for description in c.description] if c.description else []
-        conn.close()
-        
-        logger.info(f"Filtered search executed in {execution_time:.2f}s: {len(results)} rows returned")
-        
-        # Convert results to list of dictionaries
-        results_list = []
-        for row in results:
-            row_dict = {}
-            for i, col in enumerate(columns):
-                row_dict[col] = row[i]
-            results_list.append(row_dict)
-        
-        return jsonify({
-            'results': results_list,
-            'count': len(results_list),
-            'sql_query': base_query
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in filtered search: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 
 def get_suggested_queries():

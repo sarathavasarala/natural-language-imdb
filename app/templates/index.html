@@ -12,9 +12,6 @@
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/2.0.3/css/dataTables.bootstrap5.min.css">
     
-    <!-- Range Slider CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
-    
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     
@@ -23,7 +20,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.3/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
 </head>
 <body>
     <!-- Navigation Header -->
@@ -112,116 +108,6 @@
                             </div>
                         </div>
                     </form>
-
-                    Advanced Filters Section
-                    <div class="filters-section mb-4">
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <button class="btn btn-link text-decoration-none p-0 fw-semibold" type="button" 
-                                        data-bs-toggle="collapse" data-bs-target="#advancedFilters" 
-                                        aria-expanded="false" aria-controls="advancedFilters">
-                                    <i class="fas fa-filter me-2"></i>
-                                    Advanced Filters
-                                    <i class="fas fa-chevron-down ms-2 toggle-icon"></i>
-                                </button>
-                            </div>
-                            <div class="collapse" id="advancedFilters">
-                                <div class="card-body">
-                                    <div class="row g-4">
-                                        <!-- Year Range -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-calendar me-2"></i>Year Range
-                                            </label>
-                                            <div class="range-slider-container">
-                                                <input type="range" class="form-range" id="yearMin" min="1874" max="2032" value="1900" />
-                                                <input type="range" class="form-range" id="yearMax" min="1874" max="2032" value="2032" />
-                                                <div class="range-values d-flex justify-content-between">
-                                                    <span id="yearMinValue">1900</span>
-                                                    <span id="yearMaxValue">2032</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Rating Range -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-star me-2"></i>Rating Range
-                                            </label>
-                                            <div class="range-slider-container">
-                                                <input type="range" class="form-range" id="ratingMin" min="1" max="10" value="1" step="0.1" />
-                                                <input type="range" class="form-range" id="ratingMax" min="1" max="10" value="10" step="0.1" />
-                                                <div class="range-values d-flex justify-content-between">
-                                                    <span id="ratingMinValue">1.0</span>
-                                                    <span id="ratingMaxValue">10.0</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Votes Range -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-thumbs-up me-2"></i>Minimum Votes
-                                            </label>
-                                            <div class="range-slider-container">
-                                                <input type="range" class="form-range" id="votesMin" min="0" max="6" value="0" step="0.1" />
-                                                <div class="range-values">
-                                                    <span id="votesMinValue">5</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Genre Selection -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-tags me-2"></i>Genres
-                                            </label>
-                                            <div class="genre-container">
-                                                <select multiple class="form-select" id="genreSelect" size="4">
-                                                    <!-- Options will be populated by JavaScript -->
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <!-- Content Type -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-film me-2"></i>Content Type
-                                            </label>
-                                            <div class="type-container">
-                                                <select multiple class="form-select" id="typeSelect" size="4">
-                                                    <!-- Options will be populated by JavaScript -->
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <!-- Text Search -->
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">
-                                                <i class="fas fa-search me-2"></i>Title Search
-                                            </label>
-                                            <input type="text" class="form-control" id="titleSearch" 
-                                                   placeholder="Search by title...">
-                                        </div>
-                                    </div>
-
-                                    <!-- Filter Controls -->
-                                    <div class="row mt-4">
-                                        <div class="col-12">
-                                            <div class="d-flex gap-2 justify-content-end">
-                                                <button type="button" class="btn btn-outline-secondary" id="clearFilters">
-                                                    <i class="fas fa-eraser me-2"></i>Clear Filters
-                                                </button>
-                                                <button type="button" class="btn btn-success" id="applyFilters">
-                                                    <i class="fas fa-search me-2"></i>Apply Filters
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Loading State -->
                     <div id="loadingState" class="text-center py-5 d-none">

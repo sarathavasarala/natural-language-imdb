@@ -2,30 +2,30 @@
 
 A professional Flask web application that transforms natural language queries into intelligent IMDb database searches using Azure OpenAI GPT-4.1.
 
-## 🚀 Enhanced Features
+## 🚀 Core Features
 
-### Core Features
-- **🧠 Advanced AI Query Processing** - Sophisticated natural language to SQL conversion
-- **🎨 Professional UI/UX** - Modern, responsive design with Bootstrap 5
+### Main Capabilities
+- **🧠 Advanced AI Query Processing** - Sophisticated natural language to SQL conversion using GPT-4.1
+- **🎨 Professional UI/UX** - Clean, modern design with Bootstrap 5
 - **⚡ Smart Query Suggestions** - Contextual examples organized by category
-- **📊 Real-time Analytics** - Query performance metrics and database statistics
-- **🔍 Enhanced Search Results** - Interactive tables with advanced filtering and sorting
-- **📱 Responsive Design** - Optimized for desktop, tablet, and mobile
-- **🛡️ Security First** - SQL injection protection and query validation
+- **📊 Interactive Results** - DataTables integration with sorting, searching, and pagination
+- **📱 Responsive Design** - Optimized for desktop, tablet, and mobile devices
+- **🛡️ Security First** - SQL injection protection and comprehensive query validation
 
 ### Advanced Capabilities
 - **Fuzzy Name Matching** - Handles typos and partial names intelligently
 - **Complex Relationship Queries** - Multi-actor collaborations, director analysis
-- **Genre & Era Filtering** - Sophisticated filtering by genre, decade, ratings
+- **Genre & Era Analysis** - Sophisticated queries by genre, decade, ratings
 - **Performance Optimization** - Efficient database queries with proper indexing
-- **Query History** - Local storage of previous searches
+- **Query History** - Local storage of previous searches with typewriter effects
 - **Copy-to-Clipboard** - Easy sharing of generated SQL queries
+- **Real-time Validation** - Query validation before submission
 
 ### Technical Excellence
 - **Comprehensive Logging** - Detailed application and query logging
 - **Error Handling** - Graceful error recovery with user-friendly messages
-- **API Endpoints** - RESTful APIs for validation and statistics
-- **Code Quality** - Professional code structure with proper separation of concerns
+- **API Endpoints** - RESTful APIs for suggestions and validation
+- **Clean Architecture** - Professional code structure with proper separation of concerns
 
 ## Setup Instructions
 
@@ -80,13 +80,15 @@ imdb-sqlite --db db/imdb.db --cache-dir downloads --verbose
 python run.py
 ```
 
-The application will be available at `http://localhost:5000`
+The application will be available at `http://localhost:5001`
 
 ## Usage
 
 1. Enter a natural language query in the search box
-2. Click "Search with GPT-4.1"
-3. View results in the interactive table below
+2. Click "Search with AI" to process your query
+3. View results in the interactive DataTable below
+4. Use the sidebar suggestions for query inspiration
+5. Copy generated SQL queries for analysis
 
 ### Example Queries
 
@@ -114,17 +116,19 @@ The application will be available at `http://localhost:5000`
 imdb_project/
 ├── app/
 │   ├── __init__.py
-│   ├── views.py          # Main application logic
+│   ├── views.py          # Main application logic and API endpoints
 │   ├── templates/
-│   │   └── index.html    # Web interface
+│   │   └── index.html    # Clean, responsive web interface
 │   └── static/
-│       └── style.css     # Custom styles
+│       ├── style.css     # Professional custom styles
+│       └── app.js        # Interactive frontend functionality
 ├── db/
-│   └── imdb.db          # SQLite database
-├── config.py            # Configuration (API keys)
+│   └── imdb.db          # SQLite database (12GB, excluded from git)
+├── config.py            # Configuration (API keys, excluded from git)
 ├── config.template.py   # Configuration template
 ├── requirements.txt     # Python dependencies
-└── run.py              # Application entry point
+├── run.py              # Application entry point
+└── README.md           # This file
 ```
 
 ## Database Schema
@@ -140,13 +144,19 @@ The application uses the following IMDB database tables:
 
 ## Recent Changes
 
-- **Database Created**: IMDB database has been successfully imported using `imdb-sqlite` package
-- **Added to .gitignore**: Database file, downloads cache, and virtual environment excluded from version control
-- **Removed Groq/LLaMA 3**: Simplified to use only Azure OpenAI GPT-4.1
+### Version 2.0 - Simplified & Streamlined (June 2025)
+- **🗑️ Removed Complex Filters**: Eliminated advanced filter UI for cleaner, focused experience
+- **🧹 Code Cleanup**: Removed 600+ lines of filter-related code across frontend and backend
+- **⚡ Performance**: Lighter application with faster load times
+- **🎯 Focus**: Streamlined to core natural language search functionality
+- **📱 Mobile-First**: Enhanced responsive design without filter complexity
+
+### Version 1.0 - Foundation
+- **Database Created**: IMDB database successfully imported using `imdb-sqlite` package
+- **Added to .gitignore**: Database file, downloads cache, and virtual environment excluded
+- **Azure OpenAI Integration**: Simplified to use only Azure OpenAI GPT-4.1
 - **Externalized Configuration**: Moved API keys to separate `config.py` file
-- **Simplified Code**: Removed model selection logic and streamlined functions
-- **Updated UI**: Removed model selector dropdown from the interface
-- **Added Security**: Created `.gitignore` to protect API keys from version control
+- **Security Enhanced**: Created comprehensive `.gitignore` for API key protection
 
 ## Security Notes
 
