@@ -100,36 +100,53 @@ def generate_response(user_query):
     1. ALWAYS use SELECT DISTINCT to prevent duplicate results from JOINs
     2. ALWAYS include ratings and votes when available
     3. Use proper JOINs for relationships
-    4. Handle name matching efficiently: For full names, try both exact match (p.name = 'Full Name') and fuzzy match (p.name LIKE '%name%') using OR condition
-    5. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
-    6. Handle plural/singular variations (movie/movies, actor/actors)
-    7. Consider alternative titles in akas table for international searches
-    8. Use ONLY SQLite-compatible functions and syntax
-    9. ESCAPE SINGLE QUOTES: Replace single quotes (') with double single quotes ('') in names (e.g., O'Brien becomes O''Brien)
+    4. OPTIMIZE for existing indices: Put most selective filters first in WHERE clause
+    5. For name searches: Try exact match first (uses ix_people_name index), then LIKE as fallback
+    6. For crew queries: Filter by category early (uses ix_crew_category index)
+    7. For title queries: Filter by type early (uses ix_titles_type index)
+    8. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
+    9. Handle plural/singular variations (movie/movies, actor/actors)
+    10. Consider alternative titles in akas table for international searches
+    11. Use ONLY SQLite-compatible functions and syntax
+    12. ESCAPE SINGLE QUOTES: Replace single quotes (') with double single quotes ('') in names (e.g., O'Brien becomes O''Brien)
 
-    ADVANCED EXAMPLES:
+    INDEX-OPTIMIZED EXAMPLES:
 
     Query: "Movies with Jim Carrey rated above 7"
     SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM titles t 
-         JOIN crew c ON t.title_id = c.title_id 
-         JOIN people p ON c.person_id = p.person_id 
-         LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE (p.name = 'Jim Carrey' OR p.name LIKE '%Jim Carrey%') 
+         FROM people p 
+         JOIN crew c ON p.person_id = c.person_id 
+         JOIN titles t ON c.title_id = t.title_id 
+         JOIN ratings r ON t.title_id = r.title_id 
+         WHERE p.name = 'Jim Carrey'
+         AND c.category IN ('actor', 'actress')
          AND t.type IN ('movie', 'tvMovie') 
          AND r.rating > 7.0 
          ORDER BY r.rating DESC, r.votes DESC;
 
+    Query: "Find actor by partial name (when exact name unknown)"
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
+         FROM people p 
+         JOIN crew c ON p.person_id = c.person_id 
+         JOIN titles t ON c.title_id = t.title_id 
+         LEFT JOIN ratings r ON t.title_id = r.title_id 
+         WHERE (p.name = 'Tom Hanks' OR p.name LIKE 'Tom Hanks%' OR p.name LIKE '%Tom Hanks')
+         AND c.category IN ('actor', 'actress')
+         AND t.type IN ('movie', 'tvMovie') 
+         ORDER BY r.rating DESC, r.votes DESC;
+
     Query: "Movies where Leonardo DiCaprio and Kate Winslet worked together"
     SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM titles t 
-         JOIN crew c1 ON t.title_id = c1.title_id 
+         FROM people p1 
+         JOIN crew c1 ON p1.person_id = c1.person_id 
+         JOIN titles t ON c1.title_id = t.title_id 
          JOIN crew c2 ON t.title_id = c2.title_id 
-         JOIN people p1 ON c1.person_id = p1.person_id 
          JOIN people p2 ON c2.person_id = p2.person_id 
-         LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE (p1.name = 'Leonardo DiCaprio' OR p1.name LIKE '%Leonardo DiCaprio%') 
-         AND (p2.name = 'Kate Winslet' OR p2.name LIKE '%Kate Winslet%') 
+         JOIN ratings r ON t.title_id = r.title_id 
+         WHERE p1.name = 'Leonardo DiCaprio'
+         AND p2.name = 'Kate Winslet'
+         AND c1.category IN ('actor', 'actress')
+         AND c2.category IN ('actor', 'actress')
          AND t.type IN ('movie', 'tvMovie') 
          ORDER BY r.rating DESC, r.votes DESC;
 
@@ -138,21 +155,20 @@ def generate_response(user_query):
          FROM titles t 
          JOIN ratings r ON t.title_id = r.title_id 
          WHERE t.type IN ('movie', 'tvMovie') 
+         AND t.premiered BETWEEN 2010 AND 2019
          AND t.genres LIKE '%Sci-Fi%' 
-         AND t.premiered BETWEEN 2010 AND 2019 
          AND r.votes >= 1000 
          ORDER BY r.rating DESC, r.votes DESC;
 
     Query: "Movies with Conan O'Brien"
     SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM titles t 
-         JOIN crew c ON t.title_id = c.title_id 
-         JOIN people p ON c.person_id = p.person_id 
+         FROM people p 
+         JOIN crew c ON p.person_id = c.person_id 
+         JOIN titles t ON c.title_id = t.title_id 
          LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE (p.name = 'Conan O''Brien' OR p.name LIKE '%Conan O''Brien%') 
+         WHERE p.name = 'Conan O''Brien'
          AND t.type IN ('movie', 'tvMovie') 
          ORDER BY r.rating DESC, r.votes DESC;
-
 
     Query: "Directors who made both horror and comedy movies"
     SQL: SELECT DISTINCT p.name, p.person_id,
@@ -163,12 +179,41 @@ def generate_response(user_query):
          JOIN crew c ON p.person_id = c.person_id 
          JOIN titles t ON c.title_id = t.title_id 
          LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE c.category = 'director' 
+         WHERE c.category = 'director'
          AND t.type IN ('movie', 'tvMovie') 
          AND (t.genres LIKE '%Horror%' OR t.genres LIKE '%Comedy%') 
          GROUP BY p.person_id, p.name 
          HAVING horror_count > 0 AND comedy_count > 0 
          ORDER BY avg_rating DESC;
+
+    Query: "Christopher Nolan movies"
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
+         FROM people p 
+         JOIN crew c ON p.person_id = c.person_id 
+         JOIN titles t ON c.title_id = t.title_id 
+         LEFT JOIN ratings r ON t.title_id = r.title_id 
+         WHERE p.name = 'Christopher Nolan'
+         AND c.category = 'director'
+         AND t.type IN ('movie', 'tvMovie') 
+         ORDER BY r.rating DESC, r.votes DESC;
+
+    Query: "Best movies from 2020"
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.genres, r.rating, r.votes 
+         FROM titles t 
+         JOIN ratings r ON t.title_id = r.title_id 
+         WHERE t.type IN ('movie', 'tvMovie')
+         AND t.premiered = 2020
+         AND r.votes >= 1000 
+         ORDER BY r.rating DESC, r.votes DESC;
+
+    PERFORMANCE OPTIMIZATION GUIDELINES:
+    - Start queries with the most selective table (usually people for name searches)
+    - Use exact name matches when possible (leverages ix_people_name index)
+    - Filter by crew.category early (leverages ix_crew_category index)
+    - Filter by titles.type early (leverages ix_titles_type index)
+    - Put year filters before genre filters (years are more selective)
+    - Use INNER JOIN instead of LEFT JOIN when you need the related data
+    - Avoid LIKE '%pattern%' when exact matches are possible
 
     GENRE MAPPING: Use these exact genre names from IMDb:
     Action, Adventure, Animation, Biography, Comedy, Crime, Documentary, Drama, Family, Fantasy, Film-Noir, History, Horror, Music, Musical, Mystery, Romance, Sci-Fi, Sport, Thriller, War, Western
