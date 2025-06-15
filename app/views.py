@@ -45,6 +45,29 @@ def get_azure_client():
         azure_endpoint=AZURE_OPENAI_ENDPOINT
     )
 
+def fix_single_quotes_in_sql(sql_query):
+    """
+    Post-process SQL to properly escape single quotes in string literals.
+    This is a safety net for cases where the AI doesn't properly escape quotes.
+    """
+    try:
+        # Pattern to find LIKE '%...%' patterns that might contain unescaped single quotes
+        # This regex looks for LIKE patterns and fixes single quotes within them
+        def fix_like_pattern(match):
+            like_content = match.group(1)
+            # Replace single quotes with double single quotes, but avoid double-escaping
+            fixed_content = re.sub(r"(?<!')\'(?!\')", "''", like_content)
+            return f"LIKE '{fixed_content}'"
+        
+        # Apply the fix to LIKE patterns
+        sql_query = re.sub(r"LIKE\s+'([^']*(?:'[^']*)*)'", fix_like_pattern, sql_query, flags=re.IGNORECASE)
+        
+        logger.info(f"SQL quote fixing applied")
+        return sql_query
+    except Exception as e:
+        logger.warning(f"Error in SQL quote fixing: {str(e)}, returning original query")
+        return sql_query
+
 def generate_response(user_query):
     """
     Generate SQL query response using Azure OpenAI GPT-4.1 with enhanced prompt engineering
@@ -77,11 +100,12 @@ def generate_response(user_query):
     1. ALWAYS use SELECT DISTINCT to prevent duplicate results from JOINs
     2. ALWAYS include ratings and votes when available
     3. Use proper JOINs for relationships
-    4. Handle fuzzy name matching with LIKE '%name%'
+    4. Handle name matching efficiently: For full names, try both exact match (p.name = 'Full Name') and fuzzy match (p.name LIKE '%name%') using OR condition
     5. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
     6. Handle plural/singular variations (movie/movies, actor/actors)
     7. Consider alternative titles in akas table for international searches
     8. Use ONLY SQLite-compatible functions and syntax
+    9. ESCAPE SINGLE QUOTES: Replace single quotes (') with double single quotes ('') in names (e.g., O'Brien becomes O''Brien)
 
     ADVANCED EXAMPLES:
 
@@ -91,7 +115,7 @@ def generate_response(user_query):
          JOIN crew c ON t.title_id = c.title_id 
          JOIN people p ON c.person_id = p.person_id 
          LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE p.name LIKE '%Jim Carrey%' 
+         WHERE (p.name = 'Jim Carrey' OR p.name LIKE '%Jim Carrey%') 
          AND t.type IN ('movie', 'tvMovie') 
          AND r.rating > 7.0 
          ORDER BY r.rating DESC, r.votes DESC;
@@ -104,8 +128,8 @@ def generate_response(user_query):
          JOIN people p1 ON c1.person_id = p1.person_id 
          JOIN people p2 ON c2.person_id = p2.person_id 
          LEFT JOIN ratings r ON t.title_id = r.title_id 
-         WHERE p1.name LIKE '%Leonardo DiCaprio%' 
-         AND p2.name LIKE '%Kate Winslet%' 
+         WHERE (p1.name = 'Leonardo DiCaprio' OR p1.name LIKE '%Leonardo DiCaprio%') 
+         AND (p2.name = 'Kate Winslet' OR p2.name LIKE '%Kate Winslet%') 
          AND t.type IN ('movie', 'tvMovie') 
          ORDER BY r.rating DESC, r.votes DESC;
 
@@ -117,6 +141,16 @@ def generate_response(user_query):
          AND t.genres LIKE '%Sci-Fi%' 
          AND t.premiered BETWEEN 2010 AND 2019 
          AND r.votes >= 1000 
+         ORDER BY r.rating DESC, r.votes DESC;
+
+    Query: "Movies with Conan O'Brien"
+    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
+         FROM titles t 
+         JOIN crew c ON t.title_id = c.title_id 
+         JOIN people p ON c.person_id = p.person_id 
+         LEFT JOIN ratings r ON t.title_id = r.title_id 
+         WHERE (p.name = 'Conan O''Brien' OR p.name LIKE '%Conan O''Brien%') 
+         AND t.type IN ('movie', 'tvMovie') 
          ORDER BY r.rating DESC, r.votes DESC;
 
 
@@ -168,6 +202,9 @@ def generate_response(user_query):
         sql_query = re.sub(r'^```\s*', '', sql_query)
         sql_query = re.sub(r'\s*```$', '', sql_query)
         sql_query = sql_query.strip()
+        
+        # Post-process to escape any unescaped single quotes in LIKE patterns
+        sql_query = fix_single_quotes_in_sql(sql_query)
         
         processing_time = time.time() - start_time
         logger.info(f"Generated SQL in {processing_time:.2f}s: {sql_query[:100]}...")
@@ -264,8 +301,70 @@ def api_validate_query():
         'estimated_results': 'Analyzing...'
     })
 
-
-
+@main.route('/api/generate-summary', methods=['POST'])
+def api_generate_summary():
+    """API endpoint to generate AI summary for a movie/TV show"""
+    logger.info("AI Summary API endpoint called")
+    
+    try:
+        # Log request details
+        logger.info(f"Request method: {request.method}")
+        logger.info(f"Request content type: {request.content_type}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        
+        data = request.get_json()
+        logger.info(f"Request data received: {data}")
+        
+        if data is None:
+            logger.error("No JSON data received in request")
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data received'
+            }), 400
+        
+        title_id = data.get('title_id', '').strip()
+        title_name = data.get('title_name', '').strip()
+        
+        logger.info(f"Extracted title_id: '{title_id}'")
+        logger.info(f"Extracted title_name: '{title_name}'")
+        
+        if not title_id or not title_name:
+            logger.error(f"Missing required fields - title_id: '{title_id}', title_name: '{title_name}'")
+            return jsonify({
+                'success': False,
+                'error': 'Missing title_id or title_name'
+            }), 400
+        
+        logger.info(f"Starting AI summary generation for: {title_name} (ID: {title_id})")
+        
+        # Get additional title information from database
+        logger.info("Fetching title info from database...")
+        title_info = get_title_info(title_id)
+        logger.info(f"Title info retrieved: {title_info}")
+        
+        # Generate AI summary
+        logger.info("Starting AI summary generation...")
+        summary = generate_title_summary(title_name, title_info)
+        logger.info(f"AI summary generated successfully. Length: {len(summary)} characters")
+        
+        response_data = {
+            'success': True,
+            'summary': summary,
+            'title_id': title_id,
+            'title_name': title_name
+        }
+        
+        logger.info(f"Returning successful response: {response_data}")
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error generating summary for {title_id}: {str(e)}", exc_info=True)
+        error_response = {
+            'success': False,
+            'error': f'Failed to generate summary: {str(e)}'
+        }
+        logger.error(f"Returning error response: {error_response}")
+        return jsonify(error_response), 500
 
 
 def get_suggested_queries():
@@ -358,4 +457,149 @@ def execute_sql_query(sql_query, db_path=None):
         if 'conn' in locals():
             conn.close()
         raise Exception(error_msg)
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        logger.error(f"Unexpected error during SQL execution: {error_msg}")
+        if 'conn' in locals():
+            conn.close()
+        raise Exception(error_msg)
+
+
+def get_title_info(title_id):
+    """Get additional information about a title from the database"""
+    logger.info(f"Fetching title info for title_id: {title_id}")
+    
+    try:
+        logger.info(f"Connecting to database: {DATABASE_PATH}")
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = """
+        SELECT t.primary_title, t.type, t.premiered, t.genres, t.runtime_minutes,
+               r.rating, r.votes
+        FROM titles t 
+        LEFT JOIN ratings r ON t.title_id = r.title_id 
+        WHERE t.title_id = ?
+        """
+        
+        logger.info(f"Executing query: {query}")
+        logger.info(f"Query parameters: {(title_id,)}")
+        
+        cursor.execute(query, (title_id,))
+        result = cursor.fetchone()
+        
+        logger.info(f"Query result: {dict(result) if result else 'No result found'}")
+        
+        conn.close()
+        
+        if result:
+            title_info = {
+                'title': result['primary_title'],
+                'type': result['type'],
+                'year': result['premiered'],
+                'genres': result['genres'],
+                'runtime': result['runtime_minutes'],
+                'rating': result['rating'],
+                'votes': result['votes']
+            }
+            logger.info(f"Returning title info: {title_info}")
+            return title_info
+        
+        logger.warning(f"No title found for title_id: {title_id}")
+        return {}
+        
+    except Exception as e:
+        logger.error(f"Error fetching title info for {title_id}: {str(e)}", exc_info=True)
+        return {}
+
+
+def generate_title_summary(title_name, title_info):
+    """Generate a spoiler-free AI summary of a movie or TV show"""
+    logger.info(f"Starting AI summary generation for: {title_name}")
+    logger.info(f"Title info provided: {title_info}")
+    
+    try:
+        logger.info("Getting Azure OpenAI client...")
+        client = get_azure_client()
+        logger.info("Azure client obtained successfully")
+        
+        # Build context from title information
+        context_parts = [f"Title: {title_name}"]
+        
+        if title_info.get('type'):
+            context_parts.append(f"Type: {title_info['type']}")
+        if title_info.get('year'):
+            context_parts.append(f"Year: {title_info['year']}")
+        if title_info.get('genres'):
+            context_parts.append(f"Genres: {title_info['genres']}")
+        if title_info.get('runtime'):
+            context_parts.append(f"Runtime: {title_info['runtime']} minutes")
+        if title_info.get('rating'):
+            context_parts.append(f"IMDb Rating: {title_info['rating']}/10")
+        
+        context = " | ".join(context_parts)
+        logger.info(f"Built context: {context}")
+        
+        system_message = """
+            You're an expert film and television critic known for engaging, spoiler-free summaries that help audiences decide if a film or show suits their tastes.
+
+            Your task is to craft a compelling, vivid, and informative summary following these detailed guidelines:
+
+            CONTENT GUIDELINES:
+
+            - Provide a spoiler-free description highlighting themes, tone, filmmaking style, general premise, and overall quality.
+            - Clearly mention notable cast/crew members (such as directors, actors, writers) if they are widely recognized or celebrated.
+            - Include interesting trivia or behind-the-scenes insights, if applicable.
+            - Honestly discuss the overall quality: if the movie/show is genuinely poor or disappointing, clearly say so without hesitation—be honest but fair.
+            - Highlight what makes this title noteworthy, unique, or memorable within its specific genre or type of storytelling.
+            - Keep your writing engaging and concise, vivid yet completely spoiler-free. Avoid clichés, vague statements, or overly generic descriptions.
+            - Limit your summary to under 150 words to keep readers engaged.
+
+            FORMATTING INSTRUCTIONS (in clean HTML):
+
+            - Use <p> tags for each main section or paragraph.
+            - Italicize title names of movies or shows using the <em> tag.
+            - Feel free to use <br> tags for line breaks within paragraphs if needed.
+            - Add a "Similar Movies/Shows" section with relevant, thoughtful recommendations, formatted clearly with bullet points or line breaks as appropriate.
+
+            STRICTLY AVOID:
+
+            - Specific plot twists, character deaths, surprises, climaxes, or endings.
+            - Vague or overly generic descriptions; be precise, thoughtful, and engaging.
+            - Spoiling the viewing experience in any way. Your goal is to intrigue, not reveal.
+        """
+        
+        user_prompt = f"""
+        Please write a spoiler-free summary for: {context}
+        """
+        
+        logger.info("Calling Azure OpenAI API...")
+        logger.info(f"Model: {AZURE_OPENAI_MODEL}")
+        logger.info(f"System message length: {len(system_message)} characters")
+        logger.info(f"User prompt length: {len(user_prompt)} characters")
+        
+        response = client.chat.completions.create(
+            model=AZURE_OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,  # Slightly higher for more creative writing
+            max_tokens=300,
+            top_p=0.9
+        )
+        
+        logger.info("Azure OpenAI API call completed successfully")
+        logger.info(f"Response object: {response}")
+        
+        summary = response.choices[0].message.content.strip()
+        logger.info(f"Generated summary for '{title_name}': {len(summary)} characters")
+        logger.info(f"Summary content: {summary[:200]}{'...' if len(summary) > 200 else ''}")
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error generating summary for '{title_name}': {str(e)}", exc_info=True)
+        raise Exception(f"Failed to generate AI summary: {str(e)}")
 

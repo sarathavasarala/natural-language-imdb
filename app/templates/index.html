@@ -32,21 +32,21 @@
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row min-vh-100">
-            <!-- Main Content -->
-            <div class="col-12 main-content">
-                <div class="p-4">
-                    <!-- Hero Section -->
-                    <div class="hero-section text-center mb-5">
-                        <h1 class="display-5 fw-bold text-dark mb-3">
-                            Ask anything about movies & TV shows
-                        </h1>
-                        <p class="lead text-muted mb-4">
-                            Use natural language to explore the complete IMDb database with AI-powered search
-                        </p>
-                    </div>
+    <!-- Hero Section (Full Width) -->
+    <div class="hero-section text-center mb-5">
+        <h1 class="display-5 fw-bold text-dark mb-3">
+            Ask anything about movies & TV shows
+        </h1>
+        <p class="lead text-muted mb-4">
+            Use natural language to explore the complete IMDb database with AI-powered search
+        </p>
+    </div>
 
+    <!-- Main Content Container -->
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="px-4 py-2">
                     <!-- Search Form -->
                     <form method="POST" class="search-form mb-4">
                         <div class="row g-2">
@@ -67,8 +67,8 @@
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-primary btn-lg px-4" id="searchBtn">
-                                    <i class="fas fa-magic me-2"></i>
-                                    Search with AI
+                                    <i class="fas fa-search me-2"></i>
+                                    Search!
                                 </button>
                             </div>
                         </div>
@@ -152,6 +152,18 @@
                                                                         <i class="fas fa-external-link-alt me-1"></i>
                                                                         {{ value }}
                                                                     </a>
+                                                                {% elif col == "primary_title" and value %}
+                                                                    <div class="d-flex align-items-center">
+                                                                        <span class="me-2">{{ value }}</span>
+                                                                        <button class="btn btn-sm btn-outline-primary ai-summary-btn" 
+                                                                                data-title-id="{{ row.get('title_id', '') }}"
+                                                                                data-title-name="{{ value }}"
+                                                                                data-bs-toggle="tooltip" 
+                                                                                data-bs-placement="top" 
+                                                                                title="Generate AI Summary">
+                                                                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                                                        </button>
+                                                                    </div>
                                                                 {% elif col == "rating" and value %}
                                                                     <span class="badge bg-warning text-dark">
                                                                         <i class="fas fa-star"></i> {{ value }}
@@ -184,6 +196,47 @@
                             </div>
                         {% endif %}
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Summary Modal -->
+    <div class="modal fade" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="aiSummaryModalLabel">
+                        <i class="fas fa-sparkles me-2"></i>
+                        AI Summary
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="aiSummaryLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Generating summary...</span>
+                        </div>
+                        <h6 class="text-muted">Generating AI summary...</h6>
+                        <p class="text-secondary small mb-0">Creating a spoiler-free analysis</p>
+                    </div>
+                    <div id="aiSummaryContent" class="d-none">
+                        <h6 id="aiSummaryTitle" class="fw-bold mb-3"></h6>
+                        <div id="aiSummaryText" class="lh-base"></div>
+                    </div>
+                    <div id="aiSummaryError" class="d-none">
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error:</strong> <span id="aiSummaryErrorMessage"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="regenerateSummary" style="display: none;">
+                        <i class="fas fa-redo me-2"></i>
+                        Regenerate
+                    </button>
                 </div>
             </div>
         </div>

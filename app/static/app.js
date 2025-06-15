@@ -1,19 +1,43 @@
 // Professional IMDb Intelligence JavaScript
 
 $(document).ready(function() {
+    console.log('IMDb Intelligence JavaScript loading...');
+    
     // Initialize enhanced DataTable
     if ($('#resultsTable').length) {
+        console.log('Results table found, initializing DataTable...');
         initializeDataTable();
+    } else {
+        console.log('No results table found');
     }
     
     // Initialize search form enhancements
+    console.log('Initializing search form...');
     initializeSearchForm();
     
     // Initialize tooltips
+    console.log('Initializing tooltips...');
     initializeTooltips();
     
     // Initialize SQL query collapse functionality
+    console.log('Initializing SQL collapse...');
     initializeSQLCollapse();
+    
+    // Initialize AI summary functionality
+    console.log('Initializing AI Summary...');
+    initializeAISummary();
+    
+    // Check for AI summary buttons on the page
+    const aiButtons = $('.ai-summary-btn');
+    console.log(`Found ${aiButtons.length} AI summary buttons on the page`);
+    aiButtons.each(function(index) {
+        const $btn = $(this);
+        console.log(`AI Button ${index + 1}:`, {
+            titleId: $btn.data('title-id'),
+            titleName: $btn.data('title-name'),
+            element: $btn[0]
+        });
+    });
     
     console.log('IMDb Intelligence initialized successfully');
 });
@@ -22,12 +46,18 @@ function initializeDataTable() {
     // First, determine which columns are numeric based on their headers
     const table = $('#resultsTable');
     const columnDefs = [];
+    let votesColumnIndex = -1;
     
     // Find numeric columns and set up proper sorting
     table.find('thead th').each(function(index) {
         const $th = $(this);
         const columnName = $th.data('column');
         const isNumeric = $th.data('type') === 'numeric';
+        
+        // Track votes column index for default sorting
+        if (columnName === 'votes') {
+            votesColumnIndex = index;
+        }
         
         if (isNumeric) {
             columnDefs.push({
@@ -88,7 +118,7 @@ function initializeDataTable() {
             zeroRecords: "No matching results found"
         },
         columnDefs: columnDefs,
-        order: [], // No default ordering
+        order: votesColumnIndex >= 0 ? [[votesColumnIndex, 'desc']] : [], // Default sort by votes desc if available
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
              '<"row"<"col-sm-12"tr>>' +
              '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
@@ -305,4 +335,202 @@ function initializeSQLCollapse() {
     $('#sqlQueryCollapse').on('hidden.bs.collapse', function() {
         $('.toggle-icon').removeClass('rotated');
     });
+}
+
+function initializeAISummary() {
+    console.log('Initializing AI Summary functionality...');
+    
+    // Handle AI summary button clicks
+    $(document).on('click', '.ai-summary-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('AI Summary button clicked');
+        
+        const $btn = $(this);
+        const titleId = $btn.data('title-id');
+        const titleName = $btn.data('title-name');
+        
+        console.log('Title ID:', titleId);
+        console.log('Title Name:', titleName);
+        console.log('Button data attributes:', $btn.data());
+        
+        if (!titleId || !titleName) {
+            console.error('Missing title information - titleId:', titleId, 'titleName:', titleName);
+            showAlert('Missing title information', 'error');
+            return;
+        }
+        
+        console.log('Showing AI Summary modal...');
+        
+        // Show modal and start loading - using simpler Bootstrap method
+        const $modal = $('#aiSummaryModal');
+        console.log('Modal element found:', $modal.length > 0);
+        
+        if ($modal.length === 0) {
+            console.error('AI Summary modal not found in DOM');
+            showAlert('Modal not found. Please refresh the page.', 'error');
+            return;
+        }
+        
+        // Use Bootstrap modal show method
+        try {
+            $modal.modal('show');
+            console.log('Modal shown successfully');
+        } catch (modalError) {
+            console.error('Error showing modal:', modalError);
+            showAlert('Failed to show modal', 'error');
+            return;
+        }
+        
+        // Reset modal state
+        $('#aiSummaryLoading').removeClass('d-none');
+        $('#aiSummaryContent').addClass('d-none');
+        $('#aiSummaryError').addClass('d-none');
+        $('#regenerateSummary').hide();
+        
+        console.log('Generating AI summary for:', titleName, 'with ID:', titleId);
+        
+        // Generate summary
+        generateAISummary(titleId, titleName);
+    });
+    
+    // Handle regenerate button
+    $('#regenerateSummary').click(function() {
+        const titleId = $(this).data('title-id');
+        const titleName = $(this).data('title-name');
+        
+        if (titleId && titleName) {
+            $('#aiSummaryLoading').removeClass('d-none');
+            $('#aiSummaryContent').addClass('d-none');
+            $('#aiSummaryError').addClass('d-none');
+            $(this).hide();
+            
+            generateAISummary(titleId, titleName);
+        }
+    });
+}
+
+function generateAISummary(titleId, titleName) {
+    console.log('Starting AJAX request for AI summary...');
+    console.log('Request URL: /api/generate-summary');
+    console.log('Request data:', {
+        title_id: titleId,
+        title_name: titleName
+    });
+    
+    $.ajax({
+        url: '/api/generate-summary',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            title_id: titleId,
+            title_name: titleName
+        }),
+        timeout: 30000, // 30 second timeout
+        beforeSend: function(xhr) {
+            console.log('Sending AJAX request...');
+        },
+        success: function(response) {
+            console.log('AI Summary API response received:', response);
+            
+            if (response.success) {
+                console.log('Summary generation successful');
+                displayAISummary(response.title_name, response.summary, titleId, titleName);
+            } else {
+                console.error('Summary generation failed:', response.error);
+                showAISummaryError(response.error || 'Unknown error occurred', titleId, titleName);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX request failed');
+            console.error('Status:', status);
+            console.error('Error:', error);
+            console.error('Response Text:', xhr.responseText);
+            console.error('Response Status:', xhr.status);
+            console.error('XHR object:', xhr);
+            
+            let errorMessage = 'Failed to generate summary';
+            
+            if (status === 'timeout') {
+                errorMessage = 'Request timed out. Please try again.';
+                console.error('Request timed out after 30 seconds');
+            } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+                console.error('Server returned error:', xhr.responseJSON.error);
+            } else if (error) {
+                errorMessage = error;
+                console.error('JavaScript error:', error);
+            }
+            
+            console.error('Final error message:', errorMessage);
+            showAISummaryError(errorMessage, titleId, titleName);
+        }
+    });
+}
+
+function displayAISummary(titleName, summary, titleId, originalTitleName) {
+    console.log('Displaying AI summary for:', titleName);
+    console.log('Summary length:', summary.length, 'characters');
+    
+    $('#aiSummaryLoading').addClass('d-none');
+    $('#aiSummaryError').addClass('d-none');
+    
+    $('#aiSummaryTitle').text(titleName);
+    $('#aiSummaryText').html(formatSummaryText(summary));
+    $('#aiSummaryContent').removeClass('d-none');
+    
+    // Setup regenerate button
+    $('#regenerateSummary')
+        .data('title-id', titleId)
+        .data('title-name', originalTitleName)
+        .show();
+    
+    console.log('AI summary displayed successfully');
+}
+
+function showAISummaryError(errorMessage, titleId, titleName) {
+    console.error('Showing AI summary error:', errorMessage);
+    
+    $('#aiSummaryLoading').addClass('d-none');
+    $('#aiSummaryContent').addClass('d-none');
+    
+    $('#aiSummaryErrorMessage').text(errorMessage);
+    $('#aiSummaryError').removeClass('d-none');
+    
+    // Setup regenerate button
+    $('#regenerateSummary')
+        .data('title-id', titleId)
+        .data('title-name', titleName)
+        .show();
+    
+    console.log('Error display complete');
+}
+
+function formatSummaryText(summary) {
+    // Since the AI now generates HTML, we need to handle it properly
+    // First, clean up any potential issues and ensure proper formatting
+    
+    // Remove any markdown artifacts that might slip through
+    let formattedText = summary
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Convert **text** to <strong>text</strong>
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Convert *text* to <em>text</em>
+        .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>') // Convert ### Header to <strong>Header</strong>
+        .trim();
+    
+    // If the text doesn't already have paragraph tags, wrap sections in paragraphs
+    if (!formattedText.includes('<p>')) {
+        // Split by double line breaks and wrap each section in <p> tags
+        formattedText = formattedText
+            .split(/\n\s*\n/)
+            .map(section => section.trim())
+            .filter(section => section.length > 0)
+            .map(section => `<p>${section.replace(/\n/g, '<br>')}</p>`)
+            .join('');
+    } else {
+        // If already has paragraph tags, just clean up line breaks
+        formattedText = formattedText.replace(/\n/g, ' ');
+    }
+    
+    return formattedText;
 }
