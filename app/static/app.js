@@ -65,11 +65,12 @@ function initializeDataTable() {
                 type: 'num',
                 render: function(data, type, row, meta) {
                     if (type === 'sort' || type === 'type') {
-                        // Use data-sort attribute if available
+                        // Use data-sort attribute if available (this is the most reliable method)
                         const $cell = $(table.find('tbody tr').eq(meta.row).find('td').eq(meta.col));
                         const sortValue = $cell.attr('data-sort');
-                        if (sortValue !== undefined) {
-                            return parseFloat(sortValue) || 0;
+                        if (sortValue !== undefined && sortValue !== '') {
+                            const numericValue = parseFloat(sortValue);
+                            return isNaN(numericValue) ? 0 : numericValue;
                         }
                         
                         // Fallback: extract numeric value from formatted text
@@ -80,11 +81,16 @@ function initializeDataTable() {
                             }
                         } else if (columnName === 'rating') {
                             if (typeof data === 'string') {
-                                const numMatch = data.match(/[\d.]+/);
+                                // Remove HTML tags and extract numeric value
+                                const cleanText = data.replace(/<[^>]*>/g, '');
+                                const numMatch = cleanText.match(/[\d.]+/);
                                 return numMatch ? parseFloat(numMatch[0]) : 0;
                             }
                         }
-                        return parseFloat(data) || 0;
+                        
+                        // Final fallback
+                        const numericValue = parseFloat(data);
+                        return isNaN(numericValue) ? 0 : numericValue;
                     }
                     return data; // Return original data for display
                 }
