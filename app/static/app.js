@@ -8,24 +8,24 @@ function showSimpleSearch() {
 }
 
 function showAIChat() {
-    console.log('=== showAIChat() called ===');
-    console.log('Before changes:');
-    console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
-    console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
+    // console.log('=== showAIChat() called ===');
+    // console.log('Before changes:');
+    // console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
+    // console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
     
     $('#simpleSearchSection').addClass('d-none');
     $('#aiChatSection').removeClass('d-none');
     $('#aiChatNav').addClass('active');
     $('#simpleSearchNav').removeClass('active');
     
-    console.log('After changes:');
-    console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
-    console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
-    console.log('- aiChatSection visible:', $('#aiChatSection').is(':visible'));
-    console.log('- aiChatSection display style:', $('#aiChatSection').css('display'));
+    // console.log('After changes:');
+    // console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
+    // console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
+    // console.log('- aiChatSection visible:', $('#aiChatSection').is(':visible'));
+    // console.log('- aiChatSection display style:', $('#aiChatSection').css('display'));
     
     initializeChatInterface();
-    console.log('=== showAIChat() completed ===');
+    // console.log('=== showAIChat() completed ===');
 }
 
 function initializeNavigation() {
@@ -43,98 +43,98 @@ function initializeNavigation() {
 }
 
 $(document).ready(function() {
-    console.log('=== DOCUMENT READY EVENT TRIGGERED ===');
-    console.log('IMDb Intelligence JavaScript loading...');
-    console.log('Current URL:', window.location.href);
-    console.log('DOM ready state:', document.readyState);
-    console.log('Page load time:', new Date().toISOString());
+    // console.log('=== DOCUMENT READY EVENT TRIGGERED ===');
+    // console.log('IMDb Intelligence JavaScript loading...');
+    // console.log('Current URL:', window.location.href);
+    // console.log('DOM ready state:', document.readyState);
+    // console.log('Page load time:', new Date().toISOString());
     
     // Check if main sections exist
     const simpleSearchSection = document.getElementById('simpleSearchSection');
     const aiChatSection = document.getElementById('aiChatSection');
-    console.log('Section availability check:');
-    console.log('- simpleSearchSection found:', !!simpleSearchSection);
-    console.log('- aiChatSection found:', !!aiChatSection);
+    // console.log('Section availability check:');
+    // console.log('- simpleSearchSection found:', !!simpleSearchSection);
+    // console.log('- aiChatSection found:', !!aiChatSection);
     
     if (simpleSearchSection) {
-        console.log('- simpleSearchSection classes:', simpleSearchSection.className);
-        console.log('- simpleSearchSection visible:', !simpleSearchSection.classList.contains('d-none'));
+        // console.log('- simpleSearchSection classes:', simpleSearchSection.className);
+        // console.log('- simpleSearchSection visible:', !simpleSearchSection.classList.contains('d-none'));
     }
     
     if (aiChatSection) {
-        console.log('- aiChatSection classes:', aiChatSection.className);
-        console.log('- aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
-        console.log('- aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
+        // console.log('- aiChatSection classes:', aiChatSection.className);
+        // console.log('- aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
+        // console.log('- aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
         
         // Check for chat elements within aiChatSection
         const chatInput = aiChatSection.querySelector('#chatInput');
         const sendButton = aiChatSection.querySelector('#sendChatBtn');
         const chatMessages = aiChatSection.querySelector('#chatMessages');
-        console.log('Chat elements within aiChatSection:');
-        console.log('- chatInput found:', !!chatInput);
-        console.log('- sendButton found:', !!sendButton);
-        console.log('- chatMessages found:', !!chatMessages);
+        // console.log('Chat elements within aiChatSection:');
+        // console.log('- chatInput found:', !!chatInput);
+        // console.log('- sendButton found:', !!sendButton);
+        // console.log('- chatMessages found:', !!chatMessages);
     }
     
     // Check navigation elements
     const simpleSearchNav = document.getElementById('simpleSearchNav');
     const aiChatNav = document.getElementById('aiChatNav');
-    console.log('Navigation elements:');
-    console.log('- simpleSearchNav found:', !!simpleSearchNav);
-    console.log('- aiChatNav found:', !!aiChatNav);
+    // console.log('Navigation elements:');
+    // console.log('- simpleSearchNav found:', !!simpleSearchNav);
+    // console.log('- aiChatNav found:', !!aiChatNav);
     
     if (aiChatNav) {
-        console.log('- aiChatNav onclick attribute:', aiChatNav.getAttribute('onclick'));
-        console.log('- aiChatNav href:', aiChatNav.getAttribute('href'));
-        console.log('- aiChatNav classes:', aiChatNav.className);
+        // console.log('- aiChatNav onclick attribute:', aiChatNav.getAttribute('onclick'));
+        // console.log('- aiChatNav href:', aiChatNav.getAttribute('href'));
+        // console.log('- aiChatNav classes:', aiChatNav.className);
     }
     
     // Initialize enhanced DataTable
     if ($('#resultsTable').length) {
-        console.log('Results table found, initializing DataTable...');
+        // console.log('Results table found, initializing DataTable...');
         initializeDataTable();
     } else {
-        console.log('No results table found');
+        // console.log('No results table found');
     }
     
     // Initialize search form enhancements
-    console.log('Initializing search form...');
+    // console.log('Initializing search form...');
     initializeSearchForm();
     
     // Initialize tooltips
-    console.log('Initializing tooltips...');
+    // console.log('Initializing tooltips...');
     initializeTooltips();
     
     // Initialize SQL query collapse functionality
-    console.log('Initializing SQL collapse...');
+    // console.log('Initializing SQL collapse...');
     initializeSQLCollapse();
     
     // Initialize AI summary functionality
-    console.log('Initializing AI Summary...');
+    // console.log('Initializing AI Summary...');
     initializeAISummary();
     
     // Check for AI summary buttons on the page
     const aiButtons = $('.ai-summary-btn');
-    console.log(`Found ${aiButtons.length} AI summary buttons on the page`);
+    // console.log(`Found ${aiButtons.length} AI summary buttons on the page`);
     aiButtons.each(function(index) {
         const $btn = $(this);
-        console.log(`AI Button ${index + 1}:`, {
-            titleId: $btn.data('title-id'),
-            titleName: $btn.data('title-name'),
-            element: $btn[0]
-        });
+        // console.log(`AI Button ${index + 1}:`, {
+        //     titleId: $btn.data('title-id'),
+        //     titleName: $btn.data('title-name'),
+        //     element: $btn[0]
+        // });
     });
     
     // Initialize AI Chat Interface
-    console.log('Calling initializeChatInterface...');
+    // console.log('Calling initializeChatInterface...');
     initializeChatInterface();
     
     // Initialize Navigation
-    console.log('Calling initializeNavigation...');
+    // console.log('Calling initializeNavigation...');
     initializeNavigation();
     
-    console.log('✅ IMDb Intelligence initialized successfully');
-    console.log('=== DOCUMENT READY INITIALIZATION COMPLETED ===');
+    console.log('✅ IMDb Intelligence initialized successfully'); // Keep one summary log
+    // console.log('=== DOCUMENT READY INITIALIZATION COMPLETED ===');
 });
 
 function initializeDataTable() {
@@ -229,7 +229,7 @@ function initializeDataTable() {
         }
     });
     
-    console.log('DataTable initialized with enhanced numeric sorting');
+    // console.log('DataTable initialized with enhanced numeric sorting');
 }
 
 function initializeSearchForm() {
@@ -254,7 +254,7 @@ function initializeSearchForm() {
         // Store query in localStorage for history
         addToQueryHistory(query);
         
-        console.log('Search initiated:', query);
+        // console.log('Search initiated:', query);
     });
     
     // Auto-save draft queries
@@ -391,13 +391,13 @@ $(document).on('click', 'a[href^="#"]:not([onclick])', function(e) {
 // Performance monitoring
 $(window).on('load', function() {
     const loadTime = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.navigationStart;
-    console.log(`Page loaded in ${loadTime}ms`);
+    // console.log(`Page loaded in ${loadTime}ms`);
     
     // Track user interactions
-    $('button').click(function() {
-        const element = $(this).text().trim();
-        console.log('User interaction:', element);
-    });
+    // $('button').click(function() {
+    //     const element = $(this).text().trim();
+    //     console.log('User interaction:', element);
+    // });
 });
 
 // Add visual feedback for form validation
@@ -446,22 +446,22 @@ function initializeSQLCollapse() {
 }
 
 function initializeAISummary() {
-    console.log('Initializing AI Summary functionality...');
+    // console.log('Initializing AI Summary functionality...');
     
     // Handle AI summary button clicks
     $(document).on('click', '.ai-summary-btn', function(e) {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log('AI Summary button clicked');
+        // console.log('AI Summary button clicked');
         
         const $btn = $(this);
         const titleId = $btn.data('title-id');
         const titleName = $btn.data('title-name');
         
-        console.log('Title ID:', titleId);
-        console.log('Title Name:', titleName);
-        console.log('Button data attributes:', $btn.data());
+        // console.log('Title ID:', titleId);
+        // console.log('Title Name:', titleName);
+        // console.log('Button data attributes:', $btn.data());
         
         if (!titleId || !titleName) {
             console.error('Missing title information - titleId:', titleId, 'titleName:', titleName);
@@ -469,11 +469,11 @@ function initializeAISummary() {
             return;
         }
         
-        console.log('Showing AI Summary modal...');
+        // console.log('Showing AI Summary modal...');
         
         // Show modal and start loading - using simpler Bootstrap method
         const $modal = $('#aiSummaryModal');
-        console.log('Modal element found:', $modal.length > 0);
+        // console.log('Modal element found:', $modal.length > 0);
         
         if ($modal.length === 0) {
             console.error('AI Summary modal not found in DOM');
@@ -484,7 +484,7 @@ function initializeAISummary() {
         // Use Bootstrap modal show method
         try {
             $modal.modal('show');
-            console.log('Modal shown successfully');
+            // console.log('Modal shown successfully');
         } catch (modalError) {
             console.error('Error showing modal:', modalError);
             showAlert('Failed to show modal', 'error');
@@ -497,7 +497,7 @@ function initializeAISummary() {
         $('#aiSummaryError').addClass('d-none');
         $('#regenerateSummary').hide();
         
-        console.log('Generating AI summary for:', titleName, 'with ID:', titleId);
+        // console.log('Generating AI summary for:', titleName, 'with ID:', titleId);
         
         // Generate summary
         generateAISummary(titleId, titleName);
@@ -520,12 +520,12 @@ function initializeAISummary() {
 }
 
 function generateAISummary(titleId, titleName) {
-    console.log('Starting AJAX request for AI summary...');
-    console.log('Request URL: /api/generate-summary');
-    console.log('Request data:', {
-        title_id: titleId,
-        title_name: titleName
-    });
+    // console.log('Starting AJAX request for AI summary...');
+    // console.log('Request URL: /api/generate-summary');
+    // console.log('Request data:', {
+    //     title_id: titleId,
+    //     title_name: titleName
+    // });
     
     $.ajax({
         url: '/api/generate-summary',
@@ -537,13 +537,13 @@ function generateAISummary(titleId, titleName) {
         }),
         timeout: 30000, // 30 second timeout
         beforeSend: function(xhr) {
-            console.log('Sending AJAX request...');
+            // console.log('Sending AJAX request...');
         },
         success: function(response) {
-            console.log('AI Summary API response received:', response);
+            // console.log('AI Summary API response received:', response);
             
             if (response.success) {
-                console.log('Summary generation successful');
+                // console.log('Summary generation successful');
                 displayAISummary(response.title_name, response.summary, titleId, titleName);
             } else {
                 console.error('Summary generation failed:', response.error);
@@ -551,35 +551,35 @@ function generateAISummary(titleId, titleName) {
             }
         },
         error: function(xhr, status, error) {
-            console.error('AJAX request failed');
-            console.error('Status:', status);
-            console.error('Error:', error);
-            console.error('Response Text:', xhr.responseText);
-            console.error('Response Status:', xhr.status);
-            console.error('XHR object:', xhr);
+            // console.error('AJAX request failed');
+            // console.error('Status:', status);
+            // console.error('Error:', error);
+            // console.error('Response Text:', xhr.responseText);
+            // console.error('Response Status:', xhr.status);
+            // console.error('XHR object:', xhr);
             
             let errorMessage = 'Failed to generate summary';
             
             if (status === 'timeout') {
                 errorMessage = 'Request timed out. Please try again.';
-                console.error('Request timed out after 30 seconds');
+                // console.error('Request timed out after 30 seconds');
             } else if (xhr.responseJSON && xhr.responseJSON.error) {
                 errorMessage = xhr.responseJSON.error;
-                console.error('Server returned error:', xhr.responseJSON.error);
+                // console.error('Server returned error:', xhr.responseJSON.error);
             } else if (error) {
                 errorMessage = error;
-                console.error('JavaScript error:', error);
+                // console.error('JavaScript error:', error);
             }
             
-            console.error('Final error message:', errorMessage);
+            console.error('Final error message for AI Summary:', errorMessage); // Keep one error log
             showAISummaryError(errorMessage, titleId, titleName);
         }
     });
 }
 
 function displayAISummary(titleName, summary, titleId, originalTitleName) {
-    console.log('Displaying AI summary for:', titleName);
-    console.log('Summary length:', summary.length, 'characters');
+    // console.log('Displaying AI summary for:', titleName);
+    // console.log('Summary length:', summary.length, 'characters');
     
     $('#aiSummaryLoading').addClass('d-none');
     $('#aiSummaryError').addClass('d-none');
@@ -594,11 +594,11 @@ function displayAISummary(titleName, summary, titleId, originalTitleName) {
         .data('title-name', originalTitleName)
         .show();
     
-    console.log('AI summary displayed successfully');
+    // console.log('AI summary displayed successfully');
 }
 
 function showAISummaryError(errorMessage, titleId, titleName) {
-    console.error('Showing AI summary error:', errorMessage);
+    // console.error('Showing AI summary error:', errorMessage);
     
     $('#aiSummaryLoading').addClass('d-none');
     $('#aiSummaryContent').addClass('d-none');
@@ -612,7 +612,7 @@ function showAISummaryError(errorMessage, titleId, titleName) {
         .data('title-name', titleName)
         .show();
     
-    console.log('Error display complete');
+    // console.log('Error display complete');
 }
 
 function formatSummaryText(summary) {
@@ -655,104 +655,104 @@ function initializeChatInterface() {
     if (chatInitialized) {
         return;
     }
-    console.log('=== initializeChatInterface() called ===');
-    console.log('DOM ready state:', document.readyState);
-    console.log('Page URL:', window.location.href);
-    console.log('Current time:', new Date().toISOString());
+    // console.log('=== initializeChatInterface() called ===');
+    // console.log('DOM ready state:', document.readyState);
+    // console.log('Page URL:', window.location.href);
+    // console.log('Current time:', new Date().toISOString());
     
     const chatInput = $('#chatInput');
     const sendButton = $('#sendChatBtn');
     const chatMessages = $('#chatMessages');
-    const statusPanel = $('#statusPanel');
+    // const statusPanel = $('#statusPanel'); // statusPanel not used, can be removed if not planned
     
-    console.log('jQuery elements search results:');
-    console.log('- chatInput length:', chatInput.length);
-    console.log('- sendButton length:', sendButton.length);
-    console.log('- chatMessages length:', chatMessages.length);
-    console.log('- statusPanel length:', statusPanel.length);
+    // console.log('jQuery elements search results:');
+    // console.log('- chatInput length:', chatInput.length);
+    // console.log('- sendButton length:', sendButton.length);
+    // console.log('- chatMessages length:', chatMessages.length);
+    // console.log('- statusPanel length:', statusPanel.length);
     
     // Also check with vanilla JavaScript
-    const chatInputVanilla = document.getElementById('chatInput');
-    const sendButtonVanilla = document.getElementById('sendChatBtn');
-    const chatMessagesVanilla = document.getElementById('chatMessages');
+    // const chatInputVanilla = document.getElementById('chatInput');
+    // const sendButtonVanilla = document.getElementById('sendChatBtn');
+    // const chatMessagesVanilla = document.getElementById('chatMessages');
     
-    console.log('Vanilla JS elements search results:');
-    console.log('- chatInput found:', !!chatInputVanilla);
-    console.log('- sendButton found:', !!sendButtonVanilla);
-    console.log('- chatMessages found:', !!chatMessagesVanilla);
+    // console.log('Vanilla JS elements search results:');
+    // console.log('- chatInput found:', !!chatInputVanilla);
+    // console.log('- sendButton found:', !!sendButtonVanilla);
+    // console.log('- chatMessages found:', !!chatMessagesVanilla);
     
     // Check if aiChatSection exists and its state
-    const aiChatSection = document.getElementById('aiChatSection');
-    console.log('aiChatSection found:', !!aiChatSection);
-    if (aiChatSection) {
-        console.log('aiChatSection classes:', aiChatSection.className);
-        console.log('aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
-        console.log('aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
-    }
+    // const aiChatSection = document.getElementById('aiChatSection');
+    // console.log('aiChatSection found:', !!aiChatSection);
+    // if (aiChatSection) {
+        // console.log('aiChatSection classes:', aiChatSection.className);
+        // console.log('aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
+        // console.log('aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
+    // }
     
     // Check if chat elements exist
     if (!chatInput.length || !sendButton.length || !chatMessages.length) {
-        console.log('❌ Chat elements not found, skipping chat initialization');
-        console.log('Missing elements details:');
-        if (!chatInput.length) console.log('- chatInput missing');
-        if (!sendButton.length) console.log('- sendButton missing');
-        if (!chatMessages.length) console.log('- chatMessages missing');
+        console.error('❌ Chat elements not found, skipping chat initialization'); // Keep error log
+        // console.log('Missing elements details:');
+        // if (!chatInput.length) console.log('- chatInput missing');
+        // if (!sendButton.length) console.log('- sendButton missing');
+        // if (!chatMessages.length) console.log('- chatMessages missing');
         return;
     }
     
-    console.log('✅ All chat elements found, proceeding with initialization');
+    // console.log('✅ All chat elements found, proceeding with initialization');
     
     // Send message on button click
     sendButton.on('click', function() {
-        console.log('Send button clicked via jQuery event');
+        // console.log('Send button clicked via jQuery event');
         sendChatMessage();
     });
     
     // Send message on Enter key press
     chatInput.on('keypress', function(e) {
         if (e.which === 13) { // Enter key
-            console.log('Enter key pressed in chat input');
+            // console.log('Enter key pressed in chat input');
             sendChatMessage();
         }
     });
     
-    console.log('✅ Chat event listeners attached successfully');
-    console.log('=== initializeChatInterface() completed ===');
+    // console.log('✅ Chat event listeners attached successfully');
+    // console.log('=== initializeChatInterface() completed ===');
     chatInitialized = true;
 }
 
 function sendChatMessage() {
-    console.log('=== sendChatMessage() called ===');
+    // console.log('=== sendChatMessage() called ===');
     
     const chatInput = $('#chatInput');
     const message = chatInput.val().trim();
     
-    console.log('Message from input:', message);
-    console.log('Message length:', message.length);
+    // console.log('Message from input:', message);
+    // console.log('Message length:', message.length);
     
     if (!message) {
-        console.log('❌ Empty message, returning early');
+        // console.log('❌ Empty message, returning early');
         return;
     }
     
-    console.log('✅ Valid message, proceeding with chat');
+    // console.log('✅ Valid message, proceeding with chat');
     
     // Clear input and disable send button
     chatInput.val('');
     $('#sendChatBtn').prop('disabled', true);
-    console.log('Input cleared and button disabled');
+    // console.log('Input cleared and button disabled');
     
     // Add user message to chat
-    console.log('Adding user message to chat');
+    // console.log('Adding user message to chat');
     addMessageToChat('user', message);
     
     // Show typing indicator
-    console.log('Showing typing indicator');
+    // console.log('Showing typing indicator');
     showTypingIndicator();
     
     // Send request to API
-    console.log('Sending AJAX request to /api/chat');
-    console.log('Request payload:', { query: message });
+    // console.log('Sending AJAX request to /api/chat');
+    // console.log('Request payload:', { query: message });
     
     $.ajax({
         url: '/api/chat',
@@ -762,54 +762,50 @@ function sendChatMessage() {
             query: message
         }),
         beforeSend: function(xhr) {
-            console.log('AJAX request starting...');
-            console.log('Request headers:', xhr.getAllResponseHeaders());
+            // console.log('AJAX request starting...');
+            // console.log('Request headers:', xhr.getAllResponseHeaders());
         },
         success: function(response) {
-            console.log('✅ AJAX request successful');
-            console.log('Response:', response);
+            // console.log('✅ AJAX request successful');
+            // console.log('Response:', response);
             hideTypingIndicator();
             
             if (response.success) {
-                console.log('Response indicates success');
+                // console.log('Response indicates success');
                 // Add AI response to chat
                 addMessageToChat('ai', response.ai_response);
                 
                 // Handle search results if present
                 if (response.search_results && response.search_results.success && response.search_results.results.length > 0) {
-                    console.log('Displaying search results:', response.search_results.results.length, 'items');
+                    // console.log('Displaying search results:', response.search_results.results.length, 'items');
                     displaySearchResults(response.search_results);
                 }
                 
                 // Handle chart data if present
                 if (response.chart_data && response.chart_data.success) {
-                    console.log('Displaying chart data');
+                    // console.log('Displaying chart data');
                     displayChart(response.chart_data);
                 }
             } else {
-                console.log('❌ Response indicates failure:', response.error);
+                console.error('❌ Chat API Response indicates failure:', response.error); // Keep error log
                 addMessageToChat('ai', 'Sorry, I encountered an error processing your request: ' + (response.error || 'Unknown error'));
             }
         },
         error: function(xhr, status, error) {
-            console.log('❌ AJAX request failed');
-            console.log('Status:', status);
-            console.log('Error:', error);
-            console.log('Response status:', xhr.status);
-            console.log('Response text:', xhr.responseText);
+            console.error('❌ Chat AJAX request failed. Status:', status, 'Error:', error, 'Response:', xhr.responseText); // Keep error log
             
             hideTypingIndicator();
             addMessageToChat('ai', 'Sorry, I\'m having trouble connecting right now. Please try again.');
         },
         complete: function() {
-            console.log('AJAX request completed, re-enabling send button');
+            // console.log('AJAX request completed, re-enabling send button');
             // Re-enable send button
             $('#sendChatBtn').prop('disabled', false);
             chatInput.focus();
         }
     });
     
-    console.log('=== sendChatMessage() setup completed ===');
+    // console.log('=== sendChatMessage() setup completed ===');
 }
 
 function addMessageToChat(sender, content) {

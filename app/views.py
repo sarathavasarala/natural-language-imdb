@@ -7,7 +7,6 @@ import time
 import re
 from openai import AzureOpenAI
 import sys
-import os
 from datetime import datetime
 import uuid
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,6 +35,16 @@ except ImportError:
 
 # Initialize the Flask Blueprint
 main = Blueprint('main', __name__)
+
+DB_SCHEMA_PROMPT = """
+DATABASE SCHEMA:
+- people: person_id (VARCHAR), name (VARCHAR), born (INTEGER), died (INTEGER)
+- titles: title_id (VARCHAR), type (VARCHAR), primary_title (VARCHAR), original_title (VARCHAR), is_adult (INTEGER), premiered (INTEGER), ended (INTEGER), runtime_minutes (INTEGER), genres (VARCHAR)
+- akas: title_id (VARCHAR), title (VARCHAR), region (VARCHAR), language (VARCHAR), types (VARCHAR), attributes (VARCHAR), is_original_title (INTEGER)
+- crew: title_id (VARCHAR), person_id (VARCHAR), category (VARCHAR), job (VARCHAR), characters (VARCHAR)
+- episodes: episode_title_id (VARCHAR), show_title_id (VARCHAR), season_number (INTEGER), episode_number (INTEGER)
+- ratings: title_id (VARCHAR), rating (REAL), votes (INTEGER)
+"""
 
 def get_azure_client():
     """
@@ -152,16 +161,10 @@ def generate_response(user_query):
     client = get_azure_client()
     
     # Enhanced system message with comprehensive examples and edge cases
-    system_message = """
+    system_message = f"""
     You are an expert SQL query generator for IMDb database analysis. Your task is to convert natural language queries into precise SQLite queries.
 
-    DATABASE SCHEMA:
-    - people: person_id (VARCHAR), name (VARCHAR), born (INTEGER), died (INTEGER)
-    - titles: title_id (VARCHAR), type (VARCHAR), primary_title (VARCHAR), original_title (VARCHAR), is_adult (INTEGER), premiered (INTEGER), ended (INTEGER), runtime_minutes (INTEGER), genres (VARCHAR)
-    - akas: title_id (VARCHAR), title (VARCHAR), region (VARCHAR), language (VARCHAR), types (VARCHAR), attributes (VARCHAR), is_original_title (INTEGER)
-    - crew: title_id (VARCHAR), person_id (VARCHAR), category (VARCHAR), job (VARCHAR), characters (VARCHAR)
-    - episodes: episode_title_id (VARCHAR), show_title_id (VARCHAR), season_number (INTEGER), episode_number (INTEGER)
-    - ratings: title_id (VARCHAR), rating (REAL), votes (INTEGER)
+    {DB_SCHEMA_PROMPT}
 
     CRITICAL: This is SQLite - do NOT use functions like PERCENTILE_CONT, PERCENTILE_DISC, or other advanced statistical functions that don't exist in SQLite.
 
@@ -515,6 +518,18 @@ def search_imdb_database(query_type, search_terms, chart_request=False, filters=
             logger.info("Using regular SQL generation")
             sql_query = generate_response(search_terms)
         
+        # Validate the generated SQL query before execution
+        if not validate_sql_query(sql_query):
+            logger.error(f"Generated SQL query failed validation: {sql_query}")
+            return {
+                "success": False,
+                "error": "Generated SQL query is invalid or disallowed.",
+                "sql_query": sql_query,
+                "results": [],
+                "column_names": [],
+                "row_count": 0
+            }
+
         # Execute the query
         logger.info("Executing SQL query...")
         results, column_names = execute_sql_query(sql_query)
