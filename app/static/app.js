@@ -686,8 +686,9 @@ function sendChatMessage() {
             
             if (response.success) {
                 // console.log('Response indicates success');
-                // Add AI response to chat
-                addMessageToChat('ai', response.ai_response);
+                // Format and add AI response to chat
+                const formattedResponse = formatAIResponse(response.ai_response);
+                addMessageToChat('ai', formattedResponse);
                 
                 // Handle search results if present
                 if (response.search_results && response.search_results.success && response.search_results.results.length > 0) {
@@ -800,49 +801,125 @@ function displaySearchResults(searchResults) {
     if (!results || results.length === 0) {
         return;
     }
+
+    // Determine the type of results for smarter presentation
+    const firstResult = results[0];
+    const hasMovieData = 'title' in firstResult || 'primary_title' in firstResult;
+    const hasPersonData = 'person_name' in firstResult || 'name' in firstResult;
+    const hasRatings = 'average_rating' in firstResult || 'rating' in firstResult;
+    const hasYears = 'premiered' in firstResult || 'year' in firstResult || 'start_year' in firstResult;
     
-    // Create a compact table for chat results
-    let tableHtml = `
-        <div class="chat-results-container mt-3">
-            <h6><i class="fas fa-table me-2"></i>Search Results (${rowCount} items)</h6>
+    // Create contextual results display
+    let resultsHtml = `
+        <div class="search-results-container mt-3">
+            <div class="results-header mb-3">
+                <h6 class="mb-2">
+                    <i class="fas fa-list-ul me-2 text-primary"></i>
+                    <span class="results-count badge bg-primary me-2">${rowCount}</span>
+                    ${rowCount === 1 ? 'Result' : 'Results'} Found
+                </h6>
+            </div>
+    `;
+
+    // For movie/show results, show as cards for better visual appeal
+    if (hasMovieData && results.length <= 6) {
+        resultsHtml += '<div class="row g-3">';
+        
+        results.slice(0, 6).forEach((result, index) => {
+            const title = result.title || result.primary_title || result.original_title || 'Unknown Title';
+            const year = result.premiered || result.start_year || result.year || '';
+            const rating = result.average_rating || result.rating || result.imdb_rating || '';
+            const genres = result.genres || '';
+            const type = result.title_type || 'Movie';
+            
+            resultsHtml += `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm hover-card">
+                        <div class="card-body p-3">
+                            <h6 class="card-title text-primary mb-2" title="${escapeHtml(title)}">
+                                ${escapeHtml(title.length > 40 ? title.substring(0, 40) + '...' : title)}
+                            </h6>
+                            <div class="movie-details">
+                                ${year ? `<small class="text-muted d-block"><i class="fas fa-calendar me-1"></i>${escapeHtml(year)}</small>` : ''}
+                                ${rating ? `<small class="text-warning d-block"><i class="fas fa-star me-1"></i>${escapeHtml(rating)}</small>` : ''}
+                                ${genres ? `<small class="text-info d-block"><i class="fas fa-tags me-1"></i>${escapeHtml(genres.length > 30 ? genres.substring(0, 30) + '...' : genres)}</small>` : ''}
+                                ${type ? `<span class="badge bg-secondary mt-1">${escapeHtml(type)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsHtml += '</div>';
+        
+        if (results.length > 6) {
+            resultsHtml += `
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Showing first 6 of ${rowCount} results
+                    </small>
+                </div>
+            `;
+        }
+    } 
+    // For large datasets or person data, use compact table
+    else {
+        resultsHtml += `
             <div class="table-responsive">
-                <table class="table table-sm table-striped">
+                <table class="table table-sm table-hover">
                     <thead class="table-dark">
                         <tr>
-    `;
-    
-    // Add headers
-    const columns = Object.keys(results[0]);
-    columns.forEach(col => {
-        tableHtml += `<th>${escapeHtml(col)}</th>`;
-    });
-    tableHtml += '</tr></thead><tbody>';
-    
-    // Add rows (limit to first 10 for chat display)
-    const displayResults = results.slice(0, 10);
-    displayResults.forEach(row => {
-        tableHtml += '<tr>';
+        `;
+        
+        // Add headers
+        const columns = Object.keys(results[0]);
         columns.forEach(col => {
-            let value = row[col];
-            if (value === null || value === undefined) {
-                value = '-';
-            }
-            tableHtml += `<td>${escapeHtml(String(value))}</td>`;
+            const displayCol = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            resultsHtml += `<th class="fw-semibold">${escapeHtml(displayCol)}</th>`;
         });
-        tableHtml += '</tr>';
-    });
-    
-    tableHtml += '</tbody></table>';
-    
-    if (results.length > 10) {
-        tableHtml += `<small class="text-muted">Showing first 10 of ${rowCount} results</small>`;
+        resultsHtml += '</tr></thead><tbody>';
+        
+        // Add rows (limit to first 10 for chat display)
+        const displayResults = results.slice(0, 10);
+        displayResults.forEach((row, index) => {
+            resultsHtml += `<tr class="table-row-hover">`;
+            columns.forEach(col => {
+                let value = row[col];
+                if (value === null || value === undefined || value === '') {
+                    value = '—';
+                } else if (col.includes('rating') && !isNaN(value)) {
+                    value = `⭐ ${value}`;
+                } else if (col.includes('year') && !isNaN(value)) {
+                    value = `📅 ${value}`;
+                }
+                resultsHtml += `<td>${escapeHtml(String(value))}</td>`;
+            });
+            resultsHtml += '</tr>';
+        });
+        
+        resultsHtml += '</tbody></table>';
+        
+        if (results.length > 10) {
+            resultsHtml += `
+                <div class="text-center mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-ellipsis-h me-1"></i>
+                        Showing first 10 of ${rowCount} results
+                    </small>
+                </div>
+            `;
+        }
+        
+        resultsHtml += '</div>';
     }
     
-    tableHtml += '</div></div>';
+    resultsHtml += '</div>';
     
     // Add to the last AI message
     const lastAiMessage = $('.message.ai-message').last().find('.message-content');
-    lastAiMessage.append(tableHtml);
+    lastAiMessage.append(resultsHtml);
 }
 
 function displayChart(chartData) {
@@ -851,11 +928,28 @@ function displayChart(chartData) {
     }
     
     const chartId = 'chat-chart-' + Date.now();
+    const chartTitle = chartData.chart_data.options?.plugins?.title?.text || 'Data Visualization';
+    
+    // Create more engaging chart presentation
     const chartHtml = `
-        <div class="chat-chart-container mt-3">
-            <h6><i class="fas fa-chart-bar me-2"></i>Data Visualization</h6>
-            <div class="chart-wrapper">
-                <canvas id="${chartId}" width="400" height="200"></canvas>
+        <div class="chat-chart-container mt-4">
+            <div class="chart-header mb-3">
+                <h6 class="mb-1">
+                    <i class="fas fa-chart-line me-2 text-primary"></i>
+                    <span class="chart-title">${escapeHtml(chartTitle)}</span>
+                </h6>
+                <small class="text-muted">
+                    <i class="fas fa-magic me-1"></i>Here's the visual breakdown you requested!
+                </small>
+            </div>
+            <div class="chart-wrapper bg-white p-3 rounded shadow-sm border">
+                <canvas id="${chartId}" width="400" height="250"></canvas>
+            </div>
+            <div class="chart-footer mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    <em>What patterns do you notice? Feel free to ask for more analysis!</em>
+                </small>
             </div>
         </div>
     `;
@@ -864,11 +958,39 @@ function displayChart(chartData) {
     const lastAiMessage = $('.message.ai-message').last().find('.message-content');
     lastAiMessage.append(chartHtml);
     
-    // Initialize the chart
+    // Initialize the chart with enhanced styling
     setTimeout(() => {
         const ctx = document.getElementById(chartId);
         if (ctx) {
-            new Chart(ctx, chartData.chart_data);
+            // Enhance chart configuration for better visual appeal
+            const chartConfig = chartData.chart_data;
+            if (chartConfig.options) {
+                chartConfig.options.responsive = true;
+                chartConfig.options.maintainAspectRatio = false;
+                
+                // Add subtle animations
+                chartConfig.options.animation = {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
+                };
+                
+                // Enhance grid styling
+                if (chartConfig.options.scales) {
+                    if (chartConfig.options.scales.y) {
+                        chartConfig.options.scales.y.grid = {
+                            color: 'rgba(0,0,0,0.05)',
+                            lineWidth: 1
+                        };
+                    }
+                    if (chartConfig.options.scales.x) {
+                        chartConfig.options.scales.x.grid = {
+                            display: false
+                        };
+                    }
+                }
+            }
+            
+            new Chart(ctx, chartConfig);
         }
     }, 100);
 }
@@ -883,4 +1005,34 @@ function escapeHtml(unsafe) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// Add click handlers for example cards in welcome message
+$(document).on('click', '.example-card', function() {
+    const exampleText = $(this).find('small').text().replace(/['"]/g, '');
+    const chatInput = $('#chatInput');
+    
+    if (chatInput.length && exampleText) {
+        chatInput.val(exampleText);
+        chatInput.focus();
+        
+        // Add a subtle animation to indicate the text was added
+        chatInput.addClass('example-filled');
+        setTimeout(() => {
+            chatInput.removeClass('example-filled');
+        }, 1000);
+    }
+});
+
+// Helper function to make AI responses feel more natural
+function formatAIResponse(response) {
+    // Add some personality to responses if they seem too robotic
+    if (response && typeof response === 'string') {
+        // Add conversational touches to common patterns
+        response = response.replace(/^Here are the results:?/i, 'Here\'s what I found for you:');
+        response = response.replace(/^The search returned/i, 'I discovered');
+        response = response.replace(/Found (\d+) results?/i, 'Great! I found $1 matches');
+        response = response.replace(/No results found/i, 'Hmm, I couldn\'t find anything matching that. Want to try a different search?');
+    }
+    return response;
 }
