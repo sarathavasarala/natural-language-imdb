@@ -127,7 +127,7 @@ $(document).ready(function() {
     
     // Initialize AI Chat Interface
     // console.log('Calling initializeChatInterface...');
-    initializeChatInterface();
+    // initializeChatInterface(); // Defer this to showAIChat()
     
     // Initialize Navigation
     // console.log('Calling initializeNavigation...');
