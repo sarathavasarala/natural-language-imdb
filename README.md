@@ -9,6 +9,9 @@ A Flask web application that converts natural language queries into SQL searches
 - Query suggestions and examples
 - Interactive data tables for viewing results
 - Copy generated SQL queries for further analysis
+- AI-powered chat interface for conversational search and data exploration
+- Dynamic chart generation for visualizing data (e.g., movies per year for an actor)
+- AI-generated summaries for individual movie/TV show titles
 
 ## Setup Instructions
 
@@ -64,15 +67,25 @@ The application will be available at `http://localhost:5001`
 
 ## Usage
 
-1. Enter a natural language query in the search box
-2. Click "Search with AI" to process your query
-3. View results in the table below
-4. Use the sidebar suggestions for query examples
-5. Copy generated SQL queries for analysis
+The application offers two main modes of interaction:
+
+**1. Simple Search (Default Tab):**
+   1. Enter a natural language query in the search box (e.g., "Highest rated movies from 2023").
+   2. Click "Search with AI" to process your query.
+   3. View results in the interactive table that appears below the search box.
+   4. Use the sidebar suggestions for query examples.
+   5. You can copy the generated SQL query for further analysis.
+   6. Click on the "AI Summary" button next to a title in the results to get an AI-generated summary for that movie or show.
+
+**2. AI Chat (Navigate to "AI Chat" Tab):**
+   1. Use the chat interface to ask questions or give instructions conversationally (e.g., "Can you find sci-fi movies starring Keanu Reeves?").
+   2. The AI will respond, potentially asking clarifying questions or providing results directly in the chat.
+   3. For queries that can be visualized, you can ask for charts (e.g., "Plot Harrison Ford's movies by year"). The AI will generate and display the chart in the chat.
+   4. Search results from the chat may also be displayed in a compact table within the chat interface.
 
 ### Example Queries
 
-**Basic Searches:**
+**Basic Searches (Can be used in Simple Search or AI Chat):**
 - "Find movies where Robert De Niro and Al Pacino acted together"
 - "Show me the highest rated movies from 2020"
 - "List all episodes of The Office TV show"
@@ -89,6 +102,12 @@ The application will be available at `http://localhost:5001`
 - "Find actors who worked with the same director more than 3 times"
 - "Movies with the biggest rating difference between critics and audience"
 - "Child actors who became successful adult actors with their career progression"
+
+**Chart Generation (Primarily for AI Chat):**
+- "Plot Tom Hanks movies by year"
+- "Show a chart of Christopher Nolan's film ratings over time"
+- "Visualize the number of movies released each year in the 1990s"
+- "Draw a graph of movie counts for Harrison Ford by decade"
 
 ## Project Structure
 
