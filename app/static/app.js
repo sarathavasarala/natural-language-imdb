@@ -1,93 +1,11 @@
 // Professional IMDb Intelligence JavaScript
 
-function showSimpleSearch() {
-    $('#aiChatSection').addClass('d-none');
-    $('#simpleSearchSection').removeClass('d-none');
-    $('#simpleSearchNav').addClass('active');
-    $('#aiChatNav').removeClass('active');
-}
-
-function showAIChat() {
-    // console.log('=== showAIChat() called ===');
-    // console.log('Before changes:');
-    // console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
-    // console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
-    
-    $('#simpleSearchSection').addClass('d-none');
-    $('#aiChatSection').removeClass('d-none');
-    $('#aiChatNav').addClass('active');
-    $('#simpleSearchNav').removeClass('active');
-    
-    // console.log('After changes:');
-    // console.log('- simpleSearchSection classes:', $('#simpleSearchSection')[0]?.className);
-    // console.log('- aiChatSection classes:', $('#aiChatSection')[0]?.className);
-    // console.log('- aiChatSection visible:', $('#aiChatSection').is(':visible'));
-    // console.log('- aiChatSection display style:', $('#aiChatSection').css('display'));
-    
-    initializeChatInterface();
-    // console.log('=== showAIChat() completed ===');
-}
-
-function initializeNavigation() {
-    $('#simpleSearchNav, #homeNav').on('click', function(e) {
-        e.preventDefault();
-        showSimpleSearch();
-    });
-
-    $('#aiChatNav').on('click', function(e) {
-        e.preventDefault();
-        showAIChat();
-    });
-
-    showSimpleSearch();
-}
-
 $(document).ready(function() {
     // console.log('=== DOCUMENT READY EVENT TRIGGERED ===');
     // console.log('IMDb Intelligence JavaScript loading...');
     // console.log('Current URL:', window.location.href);
     // console.log('DOM ready state:', document.readyState);
     // console.log('Page load time:', new Date().toISOString());
-    
-    // Check if main sections exist
-    const simpleSearchSection = document.getElementById('simpleSearchSection');
-    const aiChatSection = document.getElementById('aiChatSection');
-    // console.log('Section availability check:');
-    // console.log('- simpleSearchSection found:', !!simpleSearchSection);
-    // console.log('- aiChatSection found:', !!aiChatSection);
-    
-    if (simpleSearchSection) {
-        // console.log('- simpleSearchSection classes:', simpleSearchSection.className);
-        // console.log('- simpleSearchSection visible:', !simpleSearchSection.classList.contains('d-none'));
-    }
-    
-    if (aiChatSection) {
-        // console.log('- aiChatSection classes:', aiChatSection.className);
-        // console.log('- aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
-        // console.log('- aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
-        
-        // Check for chat elements within aiChatSection
-        const chatInput = aiChatSection.querySelector('#chatInput');
-        const sendButton = aiChatSection.querySelector('#sendChatBtn');
-        const chatMessages = aiChatSection.querySelector('#chatMessages');
-        // console.log('Chat elements within aiChatSection:');
-        // console.log('- chatInput found:', !!chatInput);
-        // console.log('- sendButton found:', !!sendButton);
-        // console.log('- chatMessages found:', !!chatMessages);
-    }
-    
-    // Check navigation elements
-    const simpleSearchNav = document.getElementById('simpleSearchNav');
-    const aiChatNav = document.getElementById('aiChatNav');
-    // console.log('Navigation elements:');
-    // console.log('- simpleSearchNav found:', !!simpleSearchNav);
-    // console.log('- aiChatNav found:', !!aiChatNav);
-    
-    if (aiChatNav) {
-        // console.log('- aiChatNav onclick attribute:', aiChatNav.getAttribute('onclick'));
-        // console.log('- aiChatNav href:', aiChatNav.getAttribute('href'));
-        // console.log('- aiChatNav classes:', aiChatNav.className);
-    }
     
     // Initialize enhanced DataTable
     if ($('#resultsTable').length) {
@@ -125,13 +43,9 @@ $(document).ready(function() {
         // });
     });
     
-    // Initialize AI Chat Interface
+    // Initialize AI Chat Interface (only on chat page)
     // console.log('Calling initializeChatInterface...');
-    // initializeChatInterface(); // Defer this to showAIChat()
-    
-    // Initialize Navigation
-    // console.log('Calling initializeNavigation...');
-    initializeNavigation();
+    // initializeChatInterface(); // This will be called from the chat.html page
     
     console.log('✅ IMDb Intelligence initialized successfully'); // Keep one summary log
     // console.log('=== DOCUMENT READY INITIALIZATION COMPLETED ===');

@@ -30,15 +30,15 @@
     <!-- Navigation Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="#" id="homeNav">
+            <a class="navbar-brand fw-bold" href="{{ url_for('main.home') }}">
                 <i class="fas fa-film me-2 text-warning"></i>
                 IMDb Intelligence
             </a>
             <div class="navbar-nav ms-auto">
-                <a class="nav-link active" href="#" id="simpleSearchNav">
+                <a class="nav-link active" href="{{ url_for('main.home') }}">
                     <i class="fas fa-search me-2"></i>Simple Search
                 </a>
-                <a class="nav-link" href="#" id="aiChatNav">
+                <a class="nav-link" href="{{ url_for('main.chat') }}">
                     <i class="fas fa-comments me-2"></i>AI Chat
                 </a>
             </div>
@@ -220,77 +220,6 @@
                             </div>
                         {% endif %}
                     {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- AI Chat Section (Hidden by default) -->
-    <div id="aiChatSection" class="main-section d-none">
-        <!-- Full-width container for AI Chat -->
-        <div class="container-fluid px-4 py-4">
-            <div class="row justify-content-center">
-                <div class="col-12 col-xl-10">
-                    <!-- AI Chat Header -->
-                    <div class="text-center mb-4">
-                        <h2 class="display-6 fw-bold text-dark mb-3">
-                            <i class="fas fa-robot me-3 text-primary"></i>
-                            AI Movie Assistant
-                        </h2>
-                        <p class="lead text-muted">
-                            Chat with AI to search movies, analyze data, and create interactive charts
-                        </p>
-                    </div>
-
-                    <!-- Chat Container -->
-                    <div class="chat-container mb-4">
-                        <div class="chat-messages" id="chatMessages">
-                            <div class="message ai-message">
-                                <div class="message-avatar">
-                                    <i class="fas fa-robot"></i>
-                                </div>
-                                <div class="message-content">
-                                    <strong>IMDb AI Assistant</strong>
-                                    <p>Hello! I can help you search for movies, TV shows, analyze data, and even create charts. Try asking:</p>
-                                    <ul class="mb-0">
-                                        <li>"Movies with Tom Hanks"</li>
-                                        <li>"Draw a chart of Christopher Nolan movies by year"</li>
-                                        <li>"Highest rated sci-fi movies from 2010s"</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Chat Input -->
-                        <div class="chat-input-container">
-                            <div class="input-group">
-                                <input type="text" 
-                                       id="chatInput" 
-                                       class="form-control form-control-lg" 
-                                       placeholder="Ask me anything about movies, TV shows, or request a chart..."
-                                       autocomplete="off">
-                                <button type="button" class="btn btn-primary btn-lg" id="sendChatBtn">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Status Panel -->
-                    <div id="statusPanel" class="status-panel d-none mb-4">
-                        <div class="card border-info">
-                            <div class="card-body">
-                                <h6 class="card-title">
-                                    <i class="fas fa-cog fa-spin me-2"></i>
-                                    Processing...
-                                </h6>
-                                <div id="statusText">Analyzing your request...</div>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 50%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

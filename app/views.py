@@ -990,6 +990,11 @@ def home():
                          error_message=error_message,
                          suggested_queries=suggested_queries)
 
+@main.route('/chat')
+def chat():
+    """AI Chat page route"""
+    return render_template('chat.html')
+
 
 # API Routes for dynamic features
 @main.route('/api/suggestions', methods=['GET'])

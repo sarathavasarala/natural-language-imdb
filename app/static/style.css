@@ -791,26 +791,15 @@ html {
     border-bottom-left-radius: 0;
 }
 
-/* Debug: Force AI Chat Section to be visible when d-none is removed */
+/* AI Chat Section Styles */
 #aiChatSection {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    min-height: 200px !important; /* Debug: Ensure it has height */
+    min-height: 200px;
 }
 
-#aiChatSection.d-none {
-    display: none !important;
-}
-
-#aiChatSection .chat-container,
-#aiChatSection #chatInput,
-#aiChatSection #sendChatBtn {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+#aiChatSection .chat-container {
+    max-width: 100%;
 }
 
 #aiChatSection #sendChatBtn {
-    display: inline-block !important;
+    white-space: nowrap;
 }
