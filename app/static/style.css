@@ -693,6 +693,7 @@ html {
     justify-content: center;
     margin: 0 0.5rem;
     font-size: 1.2rem;
+    flex-shrink: 0;
 }
 
 .ai-message .message-avatar {
@@ -710,10 +711,11 @@ html {
     padding: 0.75rem 1rem;
     border-radius: 12px;
     position: relative;
+    word-wrap: break-word;
 }
 
 .ai-message .message-content {
-    background: white;
+    background: #f8f9fa;
     border: 1px solid #e9ecef;
     border-bottom-left-radius: 4px;
 }
@@ -726,16 +728,50 @@ html {
 
 .message-content strong {
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.125rem;
     display: block;
+    font-size: 0.9rem;
+}
+
+.message-content .text-muted {
+    font-size: 0.7rem;
+    display: block;
+    margin-bottom: 0.75rem;
+    opacity: 0.8;
+}
+
+.user-message .message-content .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
 }
 
 .message-content p {
     margin-bottom: 0.5rem;
+    line-height: 1.4;
 }
 
 .message-content p:last-child {
     margin-bottom: 0;
+}
+
+.message-content ul {
+    margin: 0.5rem 0 0 1rem;
+    padding: 0;
+}
+
+.message-content li {
+    margin-bottom: 0.25rem;
+}
+
+/* Message timestamp - simple approach */
+.message-timestamp {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+    text-align: right;
+}
+
+.ai-message .message-timestamp {
+    text-align: left;
 }
 
 /* Chart messages in chat */
@@ -775,20 +811,38 @@ html {
 }
 
 .chat-input-container {
-    padding: 1rem;
+    padding: 1.25rem;
     background: white;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 12px 12px;
 }
 
 .chat-input-container .form-control {
+    border: 2px solid #e9ecef;
     border-right: none;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+    border-radius: 25px 0 0 25px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+}
+
+.chat-input-container .form-control:focus {
+    border-color: var(--accent-color);
+    box-shadow: none;
 }
 
 .chat-input-container .btn {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
+    border: 2px solid var(--accent-color);
+    border-left: none;
+    border-radius: 0 25px 25px 0;
+    padding: 0.75rem 1.5rem;
+    background: var(--accent-color);
+    transition: all 0.2s ease;
+}
+
+.chat-input-container .btn:hover {
+    background: #0056b3;
+    border-color: #0056b3;
 }
 
 /* AI Chat Section Styles */
