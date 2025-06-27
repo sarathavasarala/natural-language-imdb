@@ -1174,7 +1174,9 @@ def api_generate_summary():
     
     if not title_name or not title_id:
         return jsonify({
+            'success': False,
             'status': 'error',
+            'error': 'Title name and ID are required',
             'message': 'Title name and ID are required'
         }), 400
     
@@ -1182,7 +1184,9 @@ def api_generate_summary():
         # For safety, validate title ID format (simple check)
         if not re.match(r'^[\w-]+$', title_id):
             return jsonify({
+                'success': False,
                 'status': 'error',
+                'error': 'Invalid Title ID format',
                 'message': 'Invalid Title ID format'
             }), 400
         
@@ -1191,7 +1195,9 @@ def api_generate_summary():
         
         if not title_info:
             return jsonify({
+                'success': False,
                 'status': 'error',
+                'error': 'Title not found',
                 'message': 'Title not found'
             }), 404
         
@@ -1199,14 +1205,18 @@ def api_generate_summary():
         summary = generate_title_summary(title_name, title_info)
         
         return jsonify({
+            'success': True,
             'status': 'success',
+            'title_name': title_name,
             'summary': summary
         }), 200
     
     except Exception as e:
         logger.error(f"Error generating summary: {str(e)}", exc_info=True)
         return jsonify({
+            'success': False,
             'status': 'error',
+            'error': str(e),
             'message': str(e)
         }), 500
 

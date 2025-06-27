@@ -435,14 +435,14 @@ function initializeAISummary() {
 
 function generateAISummary(titleId, titleName) {
     // console.log('Starting AJAX request for AI summary...');
-    // console.log('Request URL: /api/generate-summary');
+    // console.log('Request URL: /api/generate_summary');
     // console.log('Request data:', {
     //     title_id: titleId,
     //     title_name: titleName
     // });
     
     $.ajax({
-        url: '/api/generate-summary',
+        url: '/api/generate_summary',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
