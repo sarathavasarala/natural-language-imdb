@@ -4,13 +4,13 @@ A Flask web application that converts natural language queries into SQL searches
 
 ## Features
 
-- Natural language to SQL conversion using models hosted on Azure OpenAI
+- Natural language to SQL conversion using Azure OpenAI GPT-4.1
 - Web interface for query input and results display
 - Query suggestions and examples
-- Interactive data tables for viewing results
+- Interactive data tables with sorting and filtering
 - Copy generated SQL queries for further analysis
-- AI-powered chat interface for conversational search and data exploration
-- Dynamic chart generation for visualizing data (e.g., movies per year for an actor)
+- AI-powered chat interface for conversational search
+- Bar chart generation for temporal data (e.g., actor's movies by year)
 - AI-generated summaries for individual movie/TV show titles
 
 ## Setup Instructions
@@ -90,24 +90,24 @@ The application offers two main modes of interaction:
 - "Show me the highest rated movies from 2020"
 - "List all episodes of The Office TV show"
 - "What are Christopher Nolan's top rated movies?"
+- "Movies with Tom Hanks"
+- "Best sci-fi movies from the 2010s"
 
 **Advanced Searches:**
-- "Sci-fi movies from the 2010s with ratings above 8.0 starring actors who were also in Marvel movies"
-- "Directors who made both horror and comedy movies with their highest-rated film in each genre"
-- "TV shows that ran for exactly 5 seasons and had more than 100 episodes"
-- "Most popular movie genres by decade since 1990"
-- "Actors who appeared in both Oscar Best Picture winners and movies rated below 5.0"
-
-**Complex Analysis:**
-- "Find actors who worked with the same director more than 3 times"
-- "Movies with the biggest rating difference between critics and audience"
-- "Child actors who became successful adult actors with their career progression"
+- "Sci-fi movies from the 2010s with ratings above 8.0"
+- "Directors who made both horror and comedy movies"
+- "Actors who worked with Steven Spielberg multiple times"
+- "Movies from 2015-2020 with ratings above 7.5"
+- "All Martin Scorsese movies sorted by rating"
+- "Horror movies from the 1980s"
 
 **Chart Generation (Primarily for AI Chat):**
 - "Plot Tom Hanks movies by year"
-- "Show a chart of Christopher Nolan's film ratings over time"
-- "Visualize the number of movies released each year in the 1990s"
-- "Draw a graph of movie counts for Harrison Ford by decade"
+- "Show a chart of Harrison Ford's career timeline"
+- "Chart Meryl Streep's films over time"
+- "Visualize Christopher Nolan's filmography by year"
+
+**Note:** The IMDb database contains movie/TV metadata, ratings, and crew information. It does not include award data (Oscars, etc.), franchise associations (Marvel, DC), or separate critic/audience scores. Queries requiring this external data may not produce expected results.
 
 ## Project Structure
 
