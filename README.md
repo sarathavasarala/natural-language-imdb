@@ -2,6 +2,8 @@
 
 A Flask web application that converts natural language queries into SQL searches against an IMDb database using Azure OpenAI.
 
+![IMDb Intelligence Interface](natural%20language%20imdb.jpeg)
+
 ## Features
 
 - Natural language to SQL conversion using Azure OpenAI GPT-4.1
