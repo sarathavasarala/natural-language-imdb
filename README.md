@@ -6,7 +6,7 @@ A Flask web application that converts natural language queries into SQL searches
 
 ## Features
 
-- Natural language to SQL conversion using Azure OpenAI GPT-4.1
+- Natural language to SQL conversion using any LLM deployed on Azure OpenAI
 - Web interface for query input and results display
 - Query suggestions and examples
 - Interactive data tables with sorting and filtering
