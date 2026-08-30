@@ -86,14 +86,18 @@ The following views are mapped automatically to `azure://imdb-data/*.parquet`:
 
 1. **`titles`**:
    - `title_id` (TEXT, e.g. `'tt0111161'`)
-   - `type` (TEXT: `'movie'`, `'tvSeries'`, `'short'`, `'tvEpisode'`, etc.)
+   - `type` (TEXT: `'movie'`, `'tvMovie'`, `'tvSeries'`, `'tvMiniSeries'`, `'tvSpecial'`)
    - `primary_title` (TEXT)
    - `original_title` (TEXT)
+   - `original_language` (TEXT: ISO 639-1 code e.g. `'en'`, `'es'`, `'fr'`, `'de'`, `'ja'`, `'ko'`, `'it'`, `'zh'`, `'hi'`, `'te'`, `'ta'`, `'ml'`, `'kn'`, etc.)
+   - `origin_country` (TEXT: ISO 3166-1 country code e.g. `'US'`, `'GB'`, `'IN'`, `'KR'`, `'JP'`, `'FR'`, `'DE'`, `'IT'`, `'CA'`, `'AU'`, `'ES'`, etc.)
    - `is_adult` (INTEGER: 0 or 1)
    - `premiered` (INTEGER: release year)
    - `ended` (INTEGER: end year for series)
    - `runtime_minutes` (INTEGER)
    - `genres` (TEXT: comma-separated, e.g. `'Drama,Crime'`)
+   - `overview` (TEXT: plot synopsis)
+   - `poster_path` (TEXT: TMDb poster path, e.g. `'/qJ2tW6WMUDux911r6m7haRef0WH.jpg'`)
 
 2. **`ratings`**:
    - `title_id` (TEXT)
@@ -106,20 +110,14 @@ The following views are mapped automatically to `azure://imdb-data/*.parquet`:
    - `born` (INTEGER: birth year)
    - `died` (INTEGER: death year or NULL)
 
-4. **`crew`**:
+4. **`crew_lookup` & `crew`**:
    - `title_id` (TEXT)
    - `person_id` (TEXT)
    - `category` (TEXT: `'actor'`, `'actress'`, `'director'`, `'writer'`, `'producer'`, etc.)
    - `job` (TEXT)
-   - `characters` (TEXT: JSON or character string)
+   - `characters` (TEXT)
 
-5. **`episodes`**:
-   - `episode_title_id` (TEXT)
-   - `show_title_id` (TEXT)
-   - `season_number` (INTEGER)
-   - `episode_number` (INTEGER)
-
-6. **`akas`**:
+5. **`akas`**:
    - `title_id` (TEXT)
    - `title` (TEXT)
    - `region` (TEXT: e.g. `'US'`, `'GB'`, `'FR'`)

@@ -141,28 +141,40 @@ Restart the App Service after publishing a refreshed artifact.
 
 ## 📊 Dataset Schema
 
-| Table | Source artifact | Schema Fields |
+The database combines the authoritative depth of **IMDb** ratings, cast, and crew with **TMDb (The Movie Database)** open metadata for universal language, country of origin, plot summaries, and posters, while pruning ~10 million individual TV episode rows for ultra-fast queries:
+
+| Table | Description | Key Schema Fields |
 | :--- | :--- | :--- |
-| **`titles`** | `azure://imdb-data/titles.parquet` | `title_id`, `type`, `primary_title`, `original_title`, `is_adult`, `premiered`, `ended`, `runtime_minutes`, `genres` |
-| **`ratings`** | `azure://imdb-data/ratings.parquet` | `title_id`, `rating`, `votes` |
-| **`people`** | `azure://imdb-data/people.parquet` | `person_id`, `name`, `born`, `died` |
-| **`crew`** | `azure://imdb-data/crew.parquet` | `title_id`, `person_id`, `category`, `job`, `characters` |
-| **`episodes`** | `azure://imdb-data/episodes.parquet` | `episode_title_id`, `show_title_id`, `season_number`, `episode_number` |
-| **`akas`** | `azure://imdb-data/akas.parquet` | `title_id`, `title`, `region`, `language`, `types`, `attributes`, `is_original_title` |
+| **`titles`** | Movies & TV Series catalog (~1.3M titles) | `title_id`, `type`, `primary_title`, `original_title`, `original_language` (ISO 639-1: `en`, `es`, `fr`, `de`, `ja`, `ko`, `it`, `zh`, `hi`, `te`, `ta`, etc.), `origin_country` (ISO 3166-1: `US`, `GB`, `IN`, `KR`, `JP`, `FR`, `DE`, etc.), `premiered`, `ended`, `runtime_minutes`, `genres`, `overview`, `poster_path` |
+| **`ratings`** | Official IMDb Ratings (1.7M+ ratings) | `title_id`, `rating` (1.0 to 10.0), `votes` |
+| **`people`** | Actors, Directors & Writers (15.6M people) | `person_id`, `name`, `born`, `died` |
+| **`crew_lookup`** | Fast indexed person-to-title credits (10.3M rows) | `person_id`, `category` (`director`, `actor`, `actress`, `writer`, `producer`), `title_id` |
+| **`akas`** | Localized & alternative release titles (5.4M rows) | `title_id`, `title`, `region`, `language`, `types`, `attributes`, `is_original_title` |
 
 ---
 
 ## 💡 Example Natural Language Queries
 
+### Global Cinema & Country Filters:
+- *"Highest rated movies from India released after 2000 with at least 30k votes"*
+- *"Best Korean thriller movies from the 2010s"*
+- *"Top rated French comedy movies"*
+- *"Japanese anime movies with rating above 8"*
+- *"Best Spanish horror movies"*
+
+### People, Pairings & Filmographies:
 - *"Movies where Leonardo DiCaprio and Kate Winslet worked together"*
-- *"Highest rated sci-fi movies from 2010s"*
-- *"Christopher Nolan movies"*
-- *"Best movies from 2020 with over 50,000 votes"*
+- *"Christopher Nolan movies sorted by rating"*
+- *"Movies directed by S.S. Rajamouli"*
+- *"Best Tom Hanks movies from 1990s"*
+
+### Genre & Analytical Queries:
+- *"Highest rated sci-fi movies from 2010s with over 100k votes"*
+- *"Best drama TV series with at least 500,000 votes"*
 - *"Directors who made both horror and comedy movies"*
-- *"Draw a chart of Tom Hanks movies by year"*
 
 ---
 
 ## 📄 License
 
-IMDb datasets are provided for personal and non-commercial use only by IMDb.
+IMDb datasets are provided for personal and non-commercial use only by IMDb. TMDb metadata is provided via TMDb open export feeds.

@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger("build_duckdb_database")
 logging.getLogger("azure").setLevel(logging.WARNING)
 
-TABLES = ("ratings", "titles", "people", "crew", "episodes", "akas")
+TABLES = ("ratings", "titles", "people", "crew", "akas")
 
 
 def build_database(connection_string, container_name, output_path):
@@ -67,11 +67,16 @@ def build_database(connection_string, container_name, output_path):
                     time.perf_counter() - started,
                 )
 
-        logger.info("Creating person lookup indexes...")
+        logger.info("Creating person and title lookup indexes...")
         connection.execute("CREATE INDEX people_name_idx ON people(name)")
         connection.execute("CREATE INDEX people_id_idx ON people(person_id)")
         connection.execute("CREATE INDEX titles_id_idx ON titles(title_id)")
         connection.execute("CREATE INDEX ratings_id_idx ON ratings(title_id)")
+        try:
+            connection.execute("CREATE INDEX titles_lang_idx ON titles(original_language)")
+            connection.execute("CREATE INDEX titles_country_idx ON titles(origin_country)")
+        except Exception:
+            pass
         logger.info("Creating sorted crew lookup table...")
         connection.execute(
             """

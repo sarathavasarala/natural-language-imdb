@@ -44,12 +44,17 @@ DATASETS = {
                 titleType AS type,
                 primaryTitle AS primary_title,
                 originalTitle AS original_title,
+                NULL::VARCHAR AS original_language,
+                NULL::VARCHAR AS origin_country,
                 TRY_CAST(isAdult AS INTEGER) AS is_adult,
                 TRY_CAST(startYear AS INTEGER) AS premiered,
                 TRY_CAST(endYear AS INTEGER) AS ended,
                 TRY_CAST(runtimeMinutes AS INTEGER) AS runtime_minutes,
-                genres
+                genres,
+                NULL::VARCHAR AS overview,
+                NULL::VARCHAR AS poster_path
             FROM read_csv('{tsv_path}', delim='\t', nullstr='\\N', header=True, quote='', ignore_errors=True)
+            WHERE titleType IN ('movie', 'tvMovie', 'tvSeries', 'tvMiniSeries', 'tvSpecial')
         """
     },
     "people": {
@@ -74,18 +79,6 @@ DATASETS = {
                 category,
                 job,
                 characters
-            FROM read_csv('{tsv_path}', delim='\t', nullstr='\\N', header=True, quote='', ignore_errors=True)
-        """
-    },
-    "episodes": {
-        "url": "https://datasets.imdbws.com/title.episode.tsv.gz",
-        "parquet_name": "episodes.parquet",
-        "sql": """
-            SELECT 
-                tconst AS episode_title_id,
-                parentTconst AS show_title_id,
-                TRY_CAST(seasonNumber AS INTEGER) AS season_number,
-                TRY_CAST(episodeNumber AS INTEGER) AS episode_number
             FROM read_csv('{tsv_path}', delim='\t', nullstr='\\N', header=True, quote='', ignore_errors=True)
         """
     },

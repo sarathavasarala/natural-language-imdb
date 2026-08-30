@@ -611,10 +611,14 @@ $(document).ready(function () {
                     $td.html(`<a href="https://www.imdb.com/title/${escapeHtml(val)}/" target="_blank" rel="noopener noreferrer" class="imdb-link-badge"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${escapeHtml(val)}</a>`);
                 } else if ((col === 'primary_title' || col === 'original_title' || col === 'title' || col === 'name') && val) {
                     const titleId = row['title_id'] || '';
+                    const posterPath = row['poster_path'] || '';
                     $td.addClass('col-title-cell');
                     $td.html(`
                         <div class="d-flex align-items-center justify-content-between gap-2">
-                            <span class="title-text-cell">${escapeHtml(val)}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                ${posterPath ? `<img src="https://image.tmdb.org/t/p/w92${escapeHtml(posterPath)}" class="movie-poster-thumb" alt="Poster" loading="lazy">` : ''}
+                                <span class="title-text-cell">${escapeHtml(val)}</span>
+                            </div>
                             ${titleId ? `<button class="btn-ai-synopsis flex-shrink-0" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
                         </div>
                     `);
@@ -626,6 +630,10 @@ $(document).ready(function () {
                     $td.addClass('col-votes-cell');
                     $td.html(`<span class="votes-count-cell">${Number(val).toLocaleString()}</span>`);
                     $td.attr('data-sort', val);
+                } else if ((col === 'original_language' || col === 'origin_country') && val) {
+                    $td.html(`<span class="badge-country-lang">${escapeHtml(String(val).toUpperCase())}</span>`);
+                } else if (col === 'poster_path' && val) {
+                    $td.html(`<img src="https://image.tmdb.org/t/p/w92${escapeHtml(val)}" class="movie-poster-thumb" alt="Poster" loading="lazy">`);
                 } else if ((col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') && val) {
                     $td.addClass('col-year-cell');
                     $td.html(`<span class="badge-year">${val}</span>`);

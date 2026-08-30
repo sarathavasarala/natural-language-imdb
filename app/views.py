@@ -55,11 +55,10 @@ main = Blueprint('main', __name__)
 DB_SCHEMA_PROMPT = """
 DATABASE SCHEMA:
 - people: person_id (VARCHAR), name (VARCHAR), born (INTEGER), died (INTEGER)
-- titles: title_id (VARCHAR), type (VARCHAR), primary_title (VARCHAR), original_title (VARCHAR), is_adult (INTEGER), premiered (INTEGER), ended (INTEGER), runtime_minutes (INTEGER), genres (VARCHAR)
+- titles: title_id (VARCHAR), type (VARCHAR: 'movie', 'tvMovie', 'tvSeries', 'tvMiniSeries', 'tvSpecial'), primary_title (VARCHAR), original_title (VARCHAR), original_language (VARCHAR: 2-letter ISO 639-1 code e.g. 'en', 'es', 'fr', 'de', 'ja', 'ko', 'it', 'zh', 'hi', 'te', 'ta', 'ml', 'kn', 'pt', 'ru', 'ar', 'sv', 'nl', 'tr', 'pl', etc.), origin_country (VARCHAR: 2-letter ISO 3166-1 country code e.g. 'US', 'GB', 'IN', 'KR', 'JP', 'FR', 'DE', 'IT', 'CA', 'AU', 'ES', 'MX', 'BR', 'CN', 'SE', 'DK', etc.), is_adult (INTEGER), premiered (INTEGER), ended (INTEGER), runtime_minutes (INTEGER), genres (VARCHAR), overview (VARCHAR: plot synopsis), poster_path (VARCHAR)
 - akas: title_id (VARCHAR), title (VARCHAR), region (VARCHAR), language (VARCHAR), types (VARCHAR), attributes (VARCHAR), is_original_title (INTEGER)
 - crew: title_id (VARCHAR), person_id (VARCHAR), category (VARCHAR), job (VARCHAR), characters (VARCHAR)
 - crew_lookup: person_id (VARCHAR), category (VARCHAR), title_id (VARCHAR), sorted for fast person-credit lookups
-- episodes: episode_title_id (VARCHAR), show_title_id (VARCHAR), season_number (INTEGER), episode_number (INTEGER)
 - ratings: title_id (VARCHAR), rating (REAL), votes (INTEGER)
 """
 
@@ -666,9 +665,14 @@ RULES:
 5. For multiple named people, group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of names.
 6. Include title_id, primary_title, premiered, genres, rating, and votes when they fit the request.
 7. Prevent genuine duplicate titles with DISTINCT or GROUP BY.
-8. Use movie types IN ('movie', 'tvMovie') when the user asks for movies.
-9. Add a deterministic ORDER BY and LIMIT 100 unless the user requests an aggregate or a smaller limit.
-10. Escape apostrophes inside string literals by doubling them.
+8. Filter title types:
+   - For movies: WHERE t.type IN ('movie', 'tvMovie')
+   - For TV shows / series: WHERE t.type IN ('tvSeries', 'tvMiniSeries')
+9. Filter country of origin & language (universal):
+   - When user searches for movies from a country (e.g. 'movies from France', 'Japanese movies', 'movies from India', 'Korean movies', 'British films'): Use t.origin_country = '<COUNTRY_CODE>' (e.g. 'FR', 'JP', 'IN', 'KR', 'GB', 'US', 'DE', 'IT', 'ES', etc.).
+   - When user searches for movies in a specific language (e.g. 'Spanish movies', 'Telugu movies', 'French movies', 'German movies', 'Korean movies'): Use t.original_language = '<LANG_CODE>' (e.g. 'es', 'te', 'fr', 'de', 'ko', 'ja', 'it', 'hi', 'ta', etc.).
+10. Add a deterministic ORDER BY and LIMIT 100 unless the user requests an aggregate or a smaller limit.
+11. Escape apostrophes inside string literals by doubling them.
 
 EXAMPLES:
 
@@ -685,6 +689,31 @@ JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
+
+User: Highest rated movies from India released after 2000 with at least 30k votes
+SQL:
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+FROM titles t
+JOIN ratings r ON r.title_id = t.title_id
+WHERE t.type IN ('movie', 'tvMovie')
+  AND t.origin_country = 'IN'
+  AND t.premiered > 2000
+  AND r.rating > 8.0
+  AND r.votes >= 30000
+ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
+LIMIT 100;
+
+User: Best Korean thriller movies
+SQL:
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+FROM titles t
+JOIN ratings r ON r.title_id = t.title_id
+WHERE t.type IN ('movie', 'tvMovie')
+  AND t.original_language = 'ko'
+  AND t.genres LIKE '%Thriller%'
+  AND r.votes >= 5000
+ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
 LIMIT 100;
 
 User: Movies where Leonardo DiCaprio and Kate Winslet worked together
@@ -707,18 +736,6 @@ FROM shared_titles s
 JOIN titles t ON t.title_id = s.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
-LIMIT 100;
-
-User: Highest rated sci-fi movies from the 2010s
-SQL:
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
-FROM titles t
-JOIN ratings r ON r.title_id = t.title_id
-WHERE t.type IN ('movie', 'tvMovie')
-  AND t.premiered BETWEEN 2010 AND 2019
-  AND t.genres LIKE '%Sci-Fi%'
-  AND r.votes >= 1000
-ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
 LIMIT 100;
 """
     

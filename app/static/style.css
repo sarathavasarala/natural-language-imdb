@@ -975,6 +975,29 @@ code, kbd, samp, pre {
     border-color: var(--gold-primary);
 }
 
+.badge-country-lang {
+    display: inline-block;
+    background: rgba(168, 85, 247, 0.12);
+    color: #C084FC;
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+}
+
+.movie-poster-thumb {
+    width: 32px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+}
+
 /* AI Summary Trigger Button */
 .btn-ai-synopsis {
     background: rgba(245, 197, 24, 0.1);
