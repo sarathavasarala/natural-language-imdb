@@ -304,16 +304,13 @@ def fix_single_quotes_in_sql(sql_query):
 _has_tmdb_columns = None
 
 def _check_tmdb_columns_available():
-    global _has_tmdb_columns
+    global _has_tmdb_columns, _duckdb_con
     if _has_tmdb_columns is not None:
         return _has_tmdb_columns
     if _duckdb_con is None:
-        db_path = DUCKDB_DATABASE_PATH or "db/imdb.duckdb"
-        if not os.path.exists(db_path):
-            return False
+        return False
     try:
-        cursor = get_database_connection()
-        cols = [c[0] for c in cursor.execute("DESCRIBE titles").fetchall()]
+        cols = [c[0] for c in _duckdb_con.execute("DESCRIBE titles").fetchall()]
         _has_tmdb_columns = ("original_language" in cols)
     except Exception:
         _has_tmdb_columns = False
