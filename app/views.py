@@ -620,21 +620,21 @@ def api_search_stream():
 
         logger.info(f"[{request_id}] Streaming search: '{user_query}'")
 
-        # Step 1: Synthesizing SQL
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'generating', 'message': 'Synthesizing DuckDB SQL from natural language...'})}\n\n"
+        # Step 1: Understanding query
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'generating', 'message': 'Understanding your question...'})}\n\n"
         
         try:
             sql_query = generate_response(user_query, creds=creds)
         except Exception as e:
-            logger.error(f"[{request_id}] SQL generation failed: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': f'Failed to generate SQL: {str(e)}', 'suggestions': get_suggested_queries()[:4]})}\n\n"
+            logger.error(f"[{request_id}] Query interpretation failed: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Could not interpret search: {str(e)}', 'suggestions': get_suggested_queries()[:4]})}\n\n"
             return
 
         yield f"data: {json.dumps({'type': 'sql', 'stage': 'sql_ready', 'sql': sql_query, 'attempt': 1})}\n\n"
 
-        # Validate SQL
+        # Validate query
         if not validate_sql_query(sql_query):
-            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'message': 'Refining SQL syntax for DuckDB engine...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'message': 'Refining search criteria...'})}\n\n"
             try:
                 retry_query = f"Simple query: {user_query}. Return only a standard SELECT with JOINs, no subqueries."
                 sql_query = generate_response(retry_query, creds=creds)
@@ -642,17 +642,17 @@ def api_search_stream():
                 pass
 
             if not validate_sql_query(sql_query):
-                yield f"data: {json.dumps({'type': 'error', 'error': 'Could not generate a valid SQL query. Try rephrasing with simpler keywords.', 'sql_query': sql_query, 'suggestions': get_suggested_queries()[:4]})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'error': 'Could not process this query. Try rephrasing with simpler keywords.', 'sql_query': sql_query, 'suggestions': get_suggested_queries()[:4]})}\n\n"
                 return
 
-        # Step 2: Executing SQL
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'message': 'Querying cloud Parquet catalog via DuckDB...'})}\n\n"
+        # Step 2: Searching database
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'message': 'Searching across 10M+ movies, shows & cast...'})}\n\n"
 
         try:
             results, column_names = execute_sql_query(sql_query)
         except Exception as e:
             logger.error(f"[{request_id}] Query execution error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': f'Execution failed: {str(e)}', 'sql_query': sql_query})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Search failed: {str(e)}', 'sql_query': sql_query})}\n\n"
             return
 
         total_rows = len(results)
@@ -667,13 +667,13 @@ def api_search_stream():
             yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': results_dicts, 'column_names': column_names, 'sql_query': sql_query, 'row_count': total_rows, 'execution_time': execution_time, 'query': user_query, 'stage': 'completed'})}\n\n"
             return
 
-        # Step 3: 0 rows returned -> Trigger Database Grounding & Reflection Loop
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'message': '0 records found. Probing IMDb catalog to check for typos vs. genuine empty state...'})}\n\n"
+        # Step 3: 0 rows returned -> Check for typos / intent matching
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'message': 'Checking database for alternate spellings and matches...'})}\n\n"
 
         literals = extract_filter_literals(sql_query, user_query)
         probe_data = probe_duckdb_entities(literals)
 
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'message': 'Analyzing database grounding evidence and user intent...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'message': 'Matching closely related titles & cast members...'})}\n\n"
 
         reflection = reflect_on_zero_results(user_query, sql_query, probe_data, creds=creds)
         diagnosis = reflection.get("diagnosis", "GENUINE_EMPTY")

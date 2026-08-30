@@ -173,30 +173,15 @@ html, body {
     text-transform: uppercase;
 }
 
-/* Status Badges */
-.cloud-status-badge {
+/* Catalog Badge */
+.cinema-catalog-badge {
     padding: 0.35rem 0.85rem;
     border-radius: 999px;
-    background: rgba(16, 185, 129, 0.08);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    color: #34D399;
-    font-size: 0.75rem;
+    background: rgba(245, 197, 24, 0.08);
+    border: 1px solid rgba(245, 197, 24, 0.2);
+    color: #F3F4F6;
+    font-size: 0.78rem;
     font-weight: 600;
-    font-family: var(--font-mono);
-}
-
-.status-pulse-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background-color: var(--emerald);
-    box-shadow: 0 0 8px var(--emerald);
-    animation: statusPulse 2s infinite ease-in-out;
-}
-
-@keyframes statusPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
 }
 
 /* Settings Button */

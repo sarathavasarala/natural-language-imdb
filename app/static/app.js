@@ -113,7 +113,7 @@ function ensureApiKeyConfigured() {
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
-        showToast('Please configure your Azure AI Foundry / OpenAI key to search.');
+        showToast('Please set your AI key in API Settings to search.');
         return false;
     }
     return true;
@@ -283,7 +283,7 @@ $(document).ready(function () {
         $('#correctionBanner').addClass('d-none');
         $('#noResultsDiagnosisBox').addClass('d-none');
 
-        addTimelineStep('Analyzing natural language query...', 'info', 'fa-brain');
+        addTimelineStep('Understanding your question...', 'info', 'fa-brain');
 
         const headers = { 'Content-Type': 'application/json' };
         const customKey = localStorage.getItem('imdb_azure_api_key');
@@ -305,7 +305,7 @@ $(document).ready(function () {
             });
 
             if (!response.ok) {
-                let errorMsg = 'Failed to execute query across Parquet catalog.';
+                let errorMsg = 'Unable to complete search at this time.';
                 let suggestions = [];
                 try {
                     const errData = await response.json();
@@ -366,22 +366,21 @@ $(document).ready(function () {
             let icon = 'fa-circle-notch fa-spin';
             let stepType = 'info';
             if (event.stage === 'probing') {
-                icon = 'fa-database';
+                icon = 'fa-magnifying-glass';
             } else if (event.stage === 'reflecting') {
                 icon = 'fa-wand-magic-sparkles';
             } else if (event.stage === 'executing') {
-                icon = 'fa-bolt';
+                icon = 'fa-film';
             }
             addTimelineStep(event.message, stepType, icon);
 
         } else if (event.type === 'sql') {
             $('#sqlDisplay').text(event.sql || '-- No SQL');
-            addTimelineStep(`Generated ANSI SQL (${event.sql.slice(0, 60)}...)`, 'info', 'fa-code');
 
         } else if (event.type === 'retry') {
-            let retryMsg = event.message || 'Intent auto-correction applied. Re-executing query...';
+            let retryMsg = event.message || 'Searching with closest match...';
             if (event.corrected_entity) {
-                retryMsg = `Auto-corrected typo ➔ "${event.corrected_entity}". Re-executing...`;
+                retryMsg = `Searching for "${event.corrected_entity}"...`;
             }
             addTimelineStep(retryMsg, 'retry', 'fa-wand-magic-sparkles');
             if (event.new_sql) {
@@ -400,9 +399,9 @@ $(document).ready(function () {
 
                 // Show Auto-Correction Banner if intent reflection was applied
                 if (event.correction_note || event.corrected_entity) {
-                    const entityLabel = event.corrected_entity ? `<strong>${escapeHtml(event.corrected_entity)}</strong>` : 'corrected entity';
+                    const entityLabel = event.corrected_entity ? `<strong>${escapeHtml(event.corrected_entity)}</strong>` : 'closest match';
                     const noteText = event.correction_note ? ` &bull; ${escapeHtml(event.correction_note)}` : '';
-                    $('#correctionMessage').html(`Showing results for ${entityLabel} (interpreted from "<em>${escapeHtml(event.query)}</em>")${noteText}`);
+                    $('#correctionMessage').html(`Showing results for ${entityLabel} (searched for "<em>${escapeHtml(event.query)}</em>")${noteText}`);
                     $('#correctionBanner').removeClass('d-none');
                 } else {
                     $('#correctionBanner').addClass('d-none');
@@ -413,11 +412,11 @@ $(document).ready(function () {
                 hideResultsMeta();
                 showNoResults(event);
             } else {
-                showError(event.error || 'No records returned from query execution.', event.suggestions);
+                showError(event.error || 'No matching movies or shows found.', event.suggestions);
             }
 
         } else if (event.type === 'error') {
-            showError(event.error || 'Query execution failed.', event.suggestions);
+            showError(event.error || 'Search could not be completed.', event.suggestions);
         }
     }
 
@@ -431,7 +430,7 @@ $(document).ready(function () {
 
     function hideLoading() {
         $('#loadingState').addClass('d-none');
-        $('#searchBtn').removeClass('d-none').prop('disabled', false).html('<i class="fa-solid fa-bolt-lightning me-1"></i> <span>Execute</span>');
+        $('#searchBtn').removeClass('d-none').prop('disabled', false).html('<i class="fa-solid fa-magnifying-glass me-1"></i> <span>Search</span>');
         $('#cancelSearchBtn').addClass('d-none');
         toggleClearButton($('#query').val().length > 0);
     }
@@ -614,11 +613,11 @@ $(document).ready(function () {
             searching: true,
             responsive: true,
             language: {
-                search: 'Search results:',
+                search: 'Filter results:',
                 lengthMenu: 'Show _MENU_',
                 info: 'Showing _START_ to _END_ of _TOTAL_',
                 paginate: { first: '«', last: '»', next: '›', previous: '‹' },
-                emptyTable: 'No matching records in Parquet',
+                emptyTable: 'No matching movies or shows found',
                 zeroRecords: 'No matching records'
             },
             columnDefs: columnDefs,
