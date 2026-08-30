@@ -372,9 +372,48 @@ def probe_duckdb_entities(literals):
 
     return probe_results
 
+def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None):
+    """
+    Executes chat completion with fallback for models that enforce temperature=1 / no custom temperature
+    (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series).
+    """
+    kwargs = {
+        "model": model_name,
+        "messages": messages
+    }
+    
+    is_reasoning_or_luna = any(kw in model_name.lower() for kw in ["luna", "o1", "o3", "gpt-5"])
+    
+    if temperature is not None and not is_reasoning_or_luna:
+        kwargs["temperature"] = temperature
+        
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+        
+    try:
+        return client.chat.completions.create(**kwargs)
+    except Exception as e:
+        err_str = str(e)
+        # If model rejected temperature, retry without temperature
+        if "temperature" in err_str:
+            logger.info(f"Retrying chat completion without temperature for model {model_name}")
+            kwargs.pop("temperature", None)
+            try:
+                return client.chat.completions.create(**kwargs)
+            except Exception as e2:
+                if "response_format" in str(e2):
+                    kwargs.pop("response_format", None)
+                    return client.chat.completions.create(**kwargs)
+                raise
+        if "response_format" in err_str:
+            logger.info(f"Retrying chat completion without response_format for model {model_name}")
+            kwargs.pop("response_format", None)
+            return client.chat.completions.create(**kwargs)
+        raise
+
 def reflect_on_zero_results(user_query, initial_sql, probe_data, creds=None):
     """
-    Intelligent reflection step: Uses Azure OpenAI grounded with database probe results
+    Intelligent reflection step: Uses AI grounded with database probe results
     to classify why 0 rows were returned and generate a corrected SQL query if appropriate.
     """
     client, model_name = get_azure_client(creds=creds)
@@ -432,8 +471,9 @@ Diagnose and provide the JSON response.
 """
 
     try:
-        response = client.chat.completions.create(
-            model=model_name,
+        response = safe_chat_completion(
+            client=client,
+            model_name=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -519,8 +559,9 @@ def generate_response(user_query, creds=None):
     """
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
+        response = safe_chat_completion(
+            client=client,
+            model_name=model_name,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_query}
@@ -609,8 +650,9 @@ def generate_title_summary(title_name, title_info, creds=None):
         Keep it concise but engaging (2-3 paragraphs maximum).
         """
         
-        response = client.chat.completions.create(
-            model=model_name,
+        response = safe_chat_completion(
+            client=client,
+            model_name=model_name,
             messages=[
                 {"role": "system", "content": "You are a knowledgeable film and TV expert who provides engaging summaries."},
                 {"role": "user", "content": prompt}

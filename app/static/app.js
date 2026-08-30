@@ -53,10 +53,10 @@ function initializeSettingsModal() {
 
     // Save Settings
     $('#saveSettingsBtn').on('click', function () {
-        const key = $('#customApiKey').val().trim();
-        const endpoint = $('#customEndpoint').val().trim();
-        const model = $('#customModel').val().trim();
-        const version = $('#customApiVersion').val().trim();
+        let key = $('#customApiKey').val().trim().replace(/^["']|["']$/g, '');
+        let endpoint = $('#customEndpoint').val().trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+        let model = $('#customModel').val().trim().replace(/^["']|["']$/g, '');
+        let version = $('#customApiVersion').val().trim().replace(/^["']|["']$/g, '');
 
         if (key) localStorage.setItem('imdb_azure_api_key', key);
         else localStorage.removeItem('imdb_azure_api_key');
@@ -71,7 +71,7 @@ function initializeSettingsModal() {
         else localStorage.removeItem('imdb_azure_api_version');
 
         updateSettingsBadge();
-        showToast('API credentials saved to browser LocalStorage!');
+        showToast('Settings saved to browser LocalStorage!');
         bootstrap.Modal.getInstance($modal[0])?.hide();
     });
 

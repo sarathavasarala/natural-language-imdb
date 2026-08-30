@@ -388,7 +388,7 @@
 
     <!-- Settings Modal for Azure AI Foundry / OpenAI Credentials -->
     <div class="modal fade modal-cinema" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content modal-content-cinema">
                 <div class="modal-header modal-header-cinema">
                     <div class="d-flex align-items-center gap-2">
@@ -397,7 +397,7 @@
                         </div>
                         <div>
                             <h5 class="modal-title mb-0" id="settingsModalLabel">AI Search Connection</h5>
-                            <span class="modal-subtitle-text">Configure your Azure OpenAI / AI Foundry Key</span>
+                            <span class="modal-subtitle-text">Microsoft Foundry &amp; Azure OpenAI BYOK</span>
                         </div>
                     </div>
                     <button type="button" class="btn-close-cinema" data-bs-dismiss="modal" aria-label="Close">
@@ -409,28 +409,66 @@
                         <i class="fa-solid fa-shield-halved text-emerald me-2"></i>
                         <span>Your credentials are saved privately in your browser's <strong>LocalStorage</strong> and used solely to process your searches. Never saved on our server.</span>
                     </div>
+
+                    <!-- Helpful Format Guide Banner -->
+                    <div class="p-3 mb-3 rounded-3" style="background: rgba(245, 197, 24, 0.06); border: 1px solid rgba(245, 197, 24, 0.2);">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa-solid fa-circle-info text-gold mt-1"></i>
+                            <div class="small">
+                                <strong class="text-white">Where to find these in Microsoft Foundry:</strong>
+                                <ul class="mb-0 ps-3 mt-1 text-secondary">
+                                    <li><strong>Endpoint URL:</strong> Copy your Project / Resource endpoint (e.g. <code>https://&lt;resource&gt;.services.ai.azure.com/openai/v1</code> or <code>https://&lt;resource&gt;.openai.azure.com</code>).</li>
+                                    <li><strong>API Key:</strong> From your Foundry Project / Resource Keys.</li>
+                                    <li><strong>Deployment Name:</strong> Your deployed model name (e.g. <code>gpt-5.6-luna</code> or <code>gpt-4o</code>).</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <form id="settingsForm">
                         <div class="mb-3">
-                            <label for="customApiKey" class="cinema-form-label">API Key <span class="text-gold">*</span></label>
+                            <label for="customEndpoint" class="cinema-form-label">
+                                <span>Endpoint URL</span> <span class="text-gold">*</span>
+                            </label>
+                            <input type="text" class="form-control cinema-input" id="customEndpoint" placeholder="https://sarathavasarala-south-i-resource.services.ai.azure.com/openai/v1" required>
+                            <div class="form-text text-muted small mt-1">
+                                <i class="fa-solid fa-link me-1 text-gold"></i> Paste your Foundry endpoint (with or without <code>/openai/v1</code>) or standard Azure OpenAI URL.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="customApiKey" class="cinema-form-label">
+                                <span>API Key</span> <span class="text-gold">*</span>
+                            </label>
                             <div class="input-group">
-                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your Foundry / OpenAI key here..." required>
+                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your API key here..." required>
                                 <button class="btn btn-cinema-addon" type="button" id="toggleApiKeyVisibility" title="Toggle visibility">
                                     <i class="fa-regular fa-eye" id="toggleApiKeyIcon"></i>
                                 </button>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="customEndpoint" class="cinema-form-label">Endpoint URL <span class="text-gold">*</span></label>
-                            <input type="url" class="form-control cinema-input" id="customEndpoint" placeholder="https://<resource>.services.ai.azure.com/openai/v1" required>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-sm-6 mb-3">
-                                <label for="customModel" class="cinema-form-label">Deployment / Model Name</label>
-                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="e.g. gpt-5.6-luna or gpt-4o">
+                            <div class="form-text text-muted small mt-1">
+                                <i class="fa-solid fa-key me-1 text-gold"></i> Your 32-character key from Azure AI Foundry / Cognitive Services.
                             </div>
-                            <div class="col-sm-6 mb-3">
-                                <label for="customApiVersion" class="cinema-form-label">API Version</label>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-sm-6 mb-2">
+                                <label for="customModel" class="cinema-form-label">
+                                    <span>Deployment / Model Name</span>
+                                </label>
+                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="gpt-5.6-luna">
+                                <div class="form-text text-muted small mt-1">
+                                    e.g. <code>gpt-5.6-luna</code>, <code>gpt-4o</code>, <code>gpt-5.4</code>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 mb-2">
+                                <label for="customApiVersion" class="cinema-form-label">
+                                    <span>API Version</span>
+                                </label>
                                 <input type="text" class="form-control cinema-input" id="customApiVersion" placeholder="2025-04-01-preview">
+                                <div class="form-text text-muted small mt-1">
+                                    Default: <code>2025-04-01-preview</code> (or leave empty)
+                                </div>
                             </div>
                         </div>
                     </form>
