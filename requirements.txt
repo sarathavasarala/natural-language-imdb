@@ -3,7 +3,7 @@ flask>=3.0.0
 gunicorn>=21.2.0
 
 # AI & OpenAI
-openai>=1.7.0
+openai>=1.66.0,<3
 
 # Database & Cloud Parquet Engine
 duckdb>=0.10.0

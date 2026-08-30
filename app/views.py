@@ -9,6 +9,7 @@ import threading
 from openai import AzureOpenAI, OpenAI
 import sys
 from datetime import datetime
+from types import SimpleNamespace
 import uuid
 import duckdb
 
@@ -88,17 +89,16 @@ def get_azure_credentials(req=None):
 
         # Check JSON payload
         if req.is_json:
-            try:
-                body = req.get_json(silent=True) or {}
-                if not h_key and body.get("api_key"):
-                    api_key = body.get("api_key").strip()
-                    is_custom = True
-                if not h_endpoint and body.get("endpoint"):
-                    endpoint = body.get("endpoint").strip()
-                if not h_model and body.get("model"):
-                    model = body.get("model").strip()
-            except Exception:
-                pass
+            body = req.get_json(silent=True) or {}
+            if not h_key and body.get("api_key"):
+                api_key = body.get("api_key").strip()
+                is_custom = True
+            if not h_endpoint and body.get("endpoint"):
+                endpoint = body.get("endpoint").strip()
+            if not h_version and body.get("api_version"):
+                api_version = body.get("api_version").strip()
+            if not h_model and body.get("model"):
+                model = body.get("model").strip()
 
     return {
         "api_key": api_key,
@@ -132,8 +132,7 @@ def get_azure_client(creds=None):
         logger.info(f"Connecting via OpenAI v1 router to Foundry endpoint: {endpoint}")
         client = OpenAI(
             base_url=endpoint,
-            api_key=api_key,
-            default_headers={"api-key": api_key}
+            api_key=api_key
         )
         return client, model
 
@@ -143,8 +142,7 @@ def get_azure_client(creds=None):
         logger.info(f"Connecting via Foundry services.ai.azure.com router: {foundry_v1_url}")
         client = OpenAI(
             base_url=foundry_v1_url,
-            api_key=api_key,
-            default_headers={"api-key": api_key}
+            api_key=api_key
         )
         return client, model
 
@@ -372,10 +370,56 @@ def probe_duckdb_entities(literals):
 
     return probe_results
 
+def _responses_api_completion(client, model_name, messages):
+    """Call Responses API while preserving system instructions and message roles."""
+    system_messages = [message["content"] for message in messages if message["role"] == "system"]
+    input_messages = [
+        {"role": message["role"], "content": message["content"]}
+        for message in messages
+        if message["role"] != "system"
+    ]
+    kwargs = {
+        "model": model_name,
+        "input": input_messages
+    }
+    if system_messages:
+        kwargs["instructions"] = "\n\n".join(system_messages)
+
+    response = client.responses.create(**kwargs)
+    output_text = getattr(response, "output_text", None)
+    if not output_text:
+        text_parts = []
+        for item in getattr(response, "output", []) or []:
+            for content in getattr(item, "content", []) or []:
+                text = getattr(content, "text", None)
+                if text:
+                    text_parts.append(text)
+        output_text = "\n".join(text_parts)
+
+    if not output_text:
+        raise ValueError("Foundry Responses API returned no text output.")
+
+    return SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=output_text))]
+    )
+
+
+def _should_use_responses_fallback(error):
+    """Only retry API-shape failures, not auth, quota, or transient service errors."""
+    status_code = getattr(error, "status_code", None)
+    error_text = str(error).lower()
+    if status_code in (404, 405):
+        return True
+    return "chat completion" in error_text and any(
+        phrase in error_text
+        for phrase in ("not supported", "not allowed", "unsupported", "responses api")
+    )
+
+
 def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None):
     """
     Executes chat completion with fallback for models that enforce temperature=1 / no custom temperature
-    (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series).
+    (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series) or use the responses API.
     """
     kwargs = {
         "model": model_name,
@@ -390,26 +434,23 @@ def safe_chat_completion(client, model_name, messages, temperature=None, respons
     if response_format is not None:
         kwargs["response_format"] = response_format
         
-    try:
-        return client.chat.completions.create(**kwargs)
-    except Exception as e:
-        err_str = str(e)
-        # If model rejected temperature, retry without temperature
-        if "temperature" in err_str:
-            logger.info(f"Retrying chat completion without temperature for model {model_name}")
-            kwargs.pop("temperature", None)
-            try:
-                return client.chat.completions.create(**kwargs)
-            except Exception as e2:
-                if "response_format" in str(e2):
-                    kwargs.pop("response_format", None)
-                    return client.chat.completions.create(**kwargs)
-                raise
-        if "response_format" in err_str:
-            logger.info(f"Retrying chat completion without response_format for model {model_name}")
-            kwargs.pop("response_format", None)
+    while True:
+        try:
             return client.chat.completions.create(**kwargs)
-        raise
+        except Exception as error:
+            error_text = str(error).lower()
+            if "temperature" in error_text and "temperature" in kwargs:
+                logger.info(f"Retrying chat completion without temperature for model {model_name}")
+                kwargs.pop("temperature")
+                continue
+            if "response_format" in error_text and "response_format" in kwargs:
+                logger.info(f"Retrying chat completion without response_format for model {model_name}")
+                kwargs.pop("response_format")
+                continue
+            if hasattr(client, "responses") and _should_use_responses_fallback(error):
+                logger.info(f"Chat Completions unavailable for {model_name}; using Responses API")
+                return _responses_api_completion(client, model_name, messages)
+            raise
 
 def reflect_on_zero_results(user_query, initial_sql, probe_data, creds=None):
     """
