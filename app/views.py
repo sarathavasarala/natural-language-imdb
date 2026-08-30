@@ -244,6 +244,11 @@ def get_duckdb_database():
             database_path = ensure_local_duckdb_database()
             logger.info("Opening local DuckDB database: %s", database_path)
             _duckdb_con = duckdb.connect(database=database_path, read_only=True)
+            try:
+                _duckdb_con.execute("SET max_memory = '1.2GB'")
+                _duckdb_con.execute("SET threads = 4")
+            except Exception as e:
+                logger.warning(f"Could not apply DuckDB runtime pragmas: {e}")
         return _duckdb_con.cursor()
 
 def get_database_connection():
@@ -486,7 +491,7 @@ def _should_use_responses_fallback(error):
         for phrase in ("not supported", "not allowed", "unsupported", "responses api")
     )
 
-def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None):
+def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None, max_tokens=1000):
     """
     Executes chat completion with fallback for models that enforce temperature=1 / no custom temperature
     (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series) or use the responses API.
@@ -503,6 +508,9 @@ def safe_chat_completion(client, model_name, messages, temperature=None, respons
         
     if response_format is not None:
         kwargs["response_format"] = response_format
+
+    if max_tokens is not None and not is_reasoning_or_luna:
+        kwargs["max_tokens"] = max_tokens
         
     while True:
         try:
@@ -512,6 +520,10 @@ def safe_chat_completion(client, model_name, messages, temperature=None, respons
             if "temperature" in error_text and "temperature" in kwargs:
                 logger.info(f"Retrying chat completion without temperature for model {model_name}")
                 kwargs.pop("temperature")
+                continue
+            if "max_tokens" in error_text and "max_tokens" in kwargs:
+                logger.info(f"Retrying chat completion without max_tokens for model {model_name}")
+                kwargs.pop("max_tokens")
                 continue
             if "response_format" in error_text and "response_format" in kwargs:
                 logger.info(f"Retrying chat completion without response_format for model {model_name}")

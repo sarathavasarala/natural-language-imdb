@@ -276,6 +276,20 @@ $(document).ready(function () {
         $timeline.prepend($item);
     }
 
+    function getCustomAzureHeaders(extraHeaders = {}) {
+        const headers = Object.assign({ 'Content-Type': 'application/json' }, extraHeaders);
+        const customKey = localStorage.getItem('imdb_azure_api_key');
+        const customEndpoint = localStorage.getItem('imdb_azure_endpoint');
+        const customModel = localStorage.getItem('imdb_azure_model');
+        const customVersion = localStorage.getItem('imdb_azure_api_version');
+
+        if (customKey && customKey.trim()) headers['X-Azure-API-Key'] = customKey.trim();
+        if (customEndpoint && customEndpoint.trim()) headers['X-Azure-Endpoint'] = customEndpoint.trim();
+        if (customModel && customModel.trim()) headers['X-Azure-Model'] = customModel.trim();
+        if (customVersion && customVersion.trim()) headers['X-Azure-API-Version'] = customVersion.trim();
+        return headers;
+    }
+
     // ── Search Execution with Streaming & Cancellation ───────────
     async function executeSearch(query) {
         if (!ensureApiKeyConfigured()) {
@@ -304,16 +318,7 @@ $(document).ready(function () {
 
         addTimelineStep('Connecting to Azure AI and preparing prompt...', 'info', 'fa-satellite-dish', 'Initiating Search');
 
-        const headers = { 'Content-Type': 'application/json' };
-        const customKey = localStorage.getItem('imdb_azure_api_key');
-        const customEndpoint = localStorage.getItem('imdb_azure_endpoint');
-        const customModel = localStorage.getItem('imdb_azure_model');
-        const customVersion = localStorage.getItem('imdb_azure_api_version');
-
-        if (customKey && customKey.trim()) headers['X-Azure-API-Key'] = customKey.trim();
-        if (customEndpoint && customEndpoint.trim()) headers['X-Azure-Endpoint'] = customEndpoint.trim();
-        if (customModel && customModel.trim()) headers['X-Azure-Model'] = customModel.trim();
-        if (customVersion && customVersion.trim()) headers['X-Azure-API-Version'] = customVersion.trim();
+        const headers = getCustomAzureHeaders();
 
         try {
             const response = await fetch('/api/search/stream', {
@@ -888,6 +893,7 @@ $(document).ready(function () {
             url: '/api/generate_summary',
             method: 'POST',
             contentType: 'application/json',
+            headers: getCustomAzureHeaders(),
             data: JSON.stringify({ title_id: titleId, title_name: titleName }),
             timeout: 100000,
             success: function (response) {
