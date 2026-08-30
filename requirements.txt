@@ -2,21 +2,13 @@
 flask>=3.0.0
 gunicorn>=21.2.0
 
-# AI & OpenAI
+# AI & OpenAI (Text-to-SQL & Summaries)
 openai>=1.66.0,<3
 
-# Database & Cloud Parquet Engine
+# Database & Cloud Storage Engine
 duckdb>=0.10.0
-pyarrow>=14.0.0
 azure-storage-blob>=12.19.0
 
-# Development & Logging
+# Development, Network & Environment
 python-dotenv>=1.0.0
-
-# Security & Validation
-werkzeug>=3.0.1
-
-# Utilities
 requests>=2.31.0
-certifi>=2024.2.2
-jinja2>=3.1.2
