@@ -16,6 +16,7 @@ AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "
 AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "imdb-data")
 DUCKDB_BLOB_NAME = os.getenv("DUCKDB_BLOB_NAME", "imdb.duckdb")
 DUCKDB_DATABASE_PATH = os.getenv("DUCKDB_DATABASE_PATH", "db/imdb.duckdb")
+DUCKDB_CACHE_PATH = os.getenv("DUCKDB_CACHE_PATH", "")
 
 # Legacy database path (optional local SQLite fallback)
 DATABASE_PATH = os.getenv("DATABASE_PATH", "db/imdb.db")

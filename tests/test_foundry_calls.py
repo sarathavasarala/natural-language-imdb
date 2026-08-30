@@ -176,6 +176,29 @@ class FoundryCallTests(unittest.TestCase):
                     views._duckdb_con.close()
                 views._duckdb_con = old_connection
 
+    def test_sync_copies_persistent_cache_to_runtime_storage(self):
+        import app.views as views
+        from scripts.sync_duckdb_database import sync_runtime_database
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_path = os.path.join(temp_dir, "cache", "imdb.duckdb")
+            runtime_path = os.path.join(temp_dir, "runtime", "imdb.duckdb")
+            os.makedirs(os.path.dirname(cache_path))
+            with open(cache_path, "wb") as cache_file:
+                cache_file.write(b"database")
+            with open(f"{cache_path}.etag", "w", encoding="utf-8") as etag_file:
+                etag_file.write("etag-1")
+
+            with patch.object(views, "DUCKDB_DATABASE_PATH", runtime_path), patch.object(
+                views, "AZURE_STORAGE_CONNECTION_STRING", ""
+            ), patch.dict(os.environ, {"DUCKDB_CACHE_PATH": cache_path}):
+                self.assertEqual(sync_runtime_database(), runtime_path)
+
+            with open(runtime_path, "rb") as runtime_file:
+                self.assertEqual(runtime_file.read(), b"database")
+            with open(f"{runtime_path}.etag", "r", encoding="utf-8") as etag_file:
+                self.assertEqual(etag_file.read(), "etag-1")
+
 
 if __name__ == "__main__":
     unittest.main()

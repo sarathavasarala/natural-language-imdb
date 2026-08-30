@@ -124,9 +124,11 @@ python scripts/build_duckdb_database.py \
   --container "imdb-data"
 ```
 
-The startup command downloads `imdb.duckdb` to persistent local storage when
-its Blob ETag changes, before Gunicorn accepts traffic. Restart the App Service
-after publishing a refreshed artifact so each worker opens the new database.
+The startup command downloads `imdb.duckdb` to persistent storage when its Blob
+ETag changes, then copies it to the App Service instance's local `/tmp` disk
+before Gunicorn accepts traffic. Configure `DUCKDB_CACHE_PATH` as
+`/home/data/imdb.duckdb` and `DUCKDB_DATABASE_PATH` as `/tmp/imdb.duckdb`.
+Restart the App Service after publishing a refreshed artifact.
 
 ---
 
