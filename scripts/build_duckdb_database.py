@@ -4,9 +4,13 @@
 import argparse
 import logging
 import os
+import sys
 import tempfile
 import time
 from datetime import datetime, timezone
+
+# Ensure project root is in sys.path for config import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import duckdb
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -23,83 +27,68 @@ TABLES = ("ratings", "titles", "people", "crew", "akas")
 
 
 def build_database(connection_string, container_name, output_path):
-    service = BlobServiceClient.from_connection_string(connection_string)
-    container = service.get_container_client(container_name)
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     if os.path.exists(output_path):
         os.remove(output_path)
 
     connection = duckdb.connect(output_path)
     connection.execute("SET preserve_insertion_order = false")
-    try:
-        with tempfile.TemporaryDirectory(prefix="imdb-duckdb-") as temp_dir:
-            for table in TABLES:
-                parquet_name = f"{table}.parquet"
-                parquet_path = os.path.join(temp_dir, parquet_name)
-                properties = container.get_blob_client(parquet_name).get_blob_properties()
-                logger.info(
-                    "Downloading %s (%0.1f MiB)...",
-                    parquet_name,
-                    properties.size / 1024 / 1024,
-                )
-                started = time.perf_counter()
-                with open(parquet_path, "wb") as parquet_file:
-                    container.download_blob(
-                        parquet_name,
-                        max_concurrency=8,
-                    ).readinto(parquet_file)
+    connection.execute("INSTALL azure; LOAD azure;")
+    connection.execute(f"""
+        CREATE SECRET IF NOT EXISTS (
+            TYPE AZURE,
+            CONNECTION_STRING '{connection_string}'
+        );
+    """)
 
-                if table in ("crew", "akas"):
-                    connection.execute(
-                        f"""
-                        CREATE TABLE {table} AS
-                        SELECT * FROM read_parquet(?)
-                        WHERE title_id IN (SELECT title_id FROM titles)
-                        """,
-                        [parquet_path],
-                    )
-                else:
-                    connection.execute(
-                        f"""
-                        CREATE TABLE {table} AS
-                        SELECT * FROM read_parquet(?)
-                        """,
-                        [parquet_path],
-                    )
-                row_count = connection.execute(
-                    f"SELECT count(*) FROM {table}"
-                ).fetchone()[0]
-                os.remove(parquet_path)
-                logger.info(
-                    "Loaded %s rows into %s in %0.1fs",
-                    f"{row_count:,}",
-                    table,
-                    time.perf_counter() - started,
-                )
+    for table in TABLES:
+        blob_url = f"azure://{container_name}/{table}.parquet"
+        logger.info("Loading %s directly from Azure Blob Storage...", blob_url)
+        started = time.perf_counter()
 
-        logger.info("Creating person and title lookup indexes...")
-        connection.execute("CREATE INDEX people_name_idx ON people(name)")
-        connection.execute("CREATE INDEX people_id_idx ON people(person_id)")
-        connection.execute("CREATE INDEX titles_id_idx ON titles(title_id)")
-        connection.execute("CREATE INDEX ratings_id_idx ON ratings(title_id)")
-        try:
-            connection.execute("CREATE INDEX titles_lang_idx ON titles(original_language)")
-            connection.execute("CREATE INDEX titles_country_idx ON titles(origin_country)")
-        except Exception:
-            pass
-        logger.info("Creating sorted crew lookup table...")
-        connection.execute(
-            """
-            CREATE TABLE crew_lookup AS
-            SELECT person_id, category, title_id
-            FROM crew
-            ORDER BY person_id, category, title_id
-            """
+        if table in ("crew", "akas"):
+            connection.execute(f"""
+                CREATE TABLE {table} AS
+                SELECT * FROM read_parquet('{blob_url}')
+                WHERE title_id IN (SELECT title_id FROM titles)
+            """)
+        else:
+            connection.execute(f"""
+                CREATE TABLE {table} AS
+                SELECT * FROM read_parquet('{blob_url}')
+            """)
+
+        row_count = connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        logger.info(
+            "Loaded %s rows into %s in %0.1fs",
+            f"{row_count:,}",
+            table,
+            time.perf_counter() - started,
         )
-        connection.execute("ANALYZE")
-        connection.execute("CHECKPOINT")
-    finally:
-        connection.close()
+
+    logger.info("Creating person and title lookup indexes...")
+    connection.execute("CREATE INDEX people_name_idx ON people(name)")
+    connection.execute("CREATE INDEX people_id_idx ON people(person_id)")
+    connection.execute("CREATE INDEX titles_id_idx ON titles(title_id)")
+    connection.execute("CREATE INDEX ratings_id_idx ON ratings(title_id)")
+    try:
+        connection.execute("CREATE INDEX titles_lang_idx ON titles(original_language)")
+        connection.execute("CREATE INDEX titles_country_idx ON titles(origin_country)")
+    except Exception as e:
+        logger.warning("Could not create language/country index: %s", e)
+
+    logger.info("Creating sorted crew lookup table...")
+    connection.execute(
+        """
+        CREATE TABLE crew_lookup AS
+        SELECT person_id, category, title_id
+        FROM crew
+        ORDER BY person_id, category, title_id
+        """
+    )
+    connection.execute("ANALYZE")
+    connection.execute("CHECKPOINT")
+    connection.close()
 
     size = os.path.getsize(output_path)
     logger.info("Built %s (%0.1f MiB)", output_path, size / 1024 / 1024)
@@ -112,14 +101,21 @@ def upload_database(
     output_path,
     blob_name,
 ):
-    service = BlobServiceClient.from_connection_string(connection_string)
+    service = BlobServiceClient.from_connection_string(
+        connection_string,
+        connection_timeout=600,
+        read_timeout=600,
+    )
     blob = service.get_blob_client(container=container_name, blob=blob_name)
     logger.info("Uploading %s to %s/%s...", output_path, container_name, blob_name)
+    file_size = os.path.getsize(output_path)
     with open(output_path, "rb") as database_file:
         blob.upload_blob(
             database_file,
             overwrite=True,
-            max_concurrency=8,
+            max_concurrency=4,
+            length=file_size,
+            timeout=1800,
             content_settings=ContentSettings(
                 content_type="application/vnd.duckdb",
             ),
