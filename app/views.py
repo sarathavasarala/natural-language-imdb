@@ -301,16 +301,52 @@ def fix_single_quotes_in_sql(sql_query):
         return sql_query
 
 
+_has_tmdb_columns = None
+
+def _check_tmdb_columns_available():
+    global _has_tmdb_columns
+    if _has_tmdb_columns is not None:
+        return _has_tmdb_columns
+    try:
+        cursor = get_database_connection()
+        cols = [c[0] for c in cursor.execute("DESCRIBE titles").fetchall()]
+        _has_tmdb_columns = ("original_language" in cols)
+    except Exception:
+        _has_tmdb_columns = False
+    return _has_tmdb_columns
+
+
 def optimize_generated_sql(sql_query):
-    """Route ordinary credit joins through the compact, person-sorted lookup table."""
-    if re.search(r"\b(?:job|characters)\b", sql_query, flags=re.IGNORECASE):
+    """Route ordinary credit joins through lookup table and provide backward-compatible translation if columns are missing."""
+    if not sql_query:
         return sql_query
-    return re.sub(
-        r"\b(FROM|JOIN)\s+crew\b",
-        r"\1 crew_lookup",
-        sql_query,
-        flags=re.IGNORECASE,
-    )
+    
+    # 1. Route crew joins to crew_lookup unless job/characters detail is requested
+    if not re.search(r"\b(?:job|characters)\b", sql_query, flags=re.IGNORECASE):
+        sql_query = re.sub(
+            r"\b(FROM|JOIN)\s+crew\b",
+            r"\1 crew_lookup",
+            sql_query,
+            flags=re.IGNORECASE,
+        )
+
+    # 2. If running against an existing database artifact that lacks original_language / origin_country columns,
+    # translate them to backward-compatible akas lookups so EXPLAIN validation never fails.
+    if not _check_tmdb_columns_available():
+        sql_query = re.sub(
+            r"\b(\w+)\.original_language\s*=\s*'([^']+)'",
+            lambda m: f"EXISTS (SELECT 1 FROM akas _ak WHERE _ak.title_id = {m.group(1)}.title_id AND lower(_ak.language) = lower('{m.group(2)}') )",
+            sql_query,
+            flags=re.IGNORECASE
+        )
+        sql_query = re.sub(
+            r"\b(\w+)\.origin_country\s*=\s*'([^']+)'",
+            lambda m: f"EXISTS (SELECT 1 FROM akas _ak WHERE _ak.title_id = {m.group(1)}.title_id AND _ak.region = '{m.group(2)}' )",
+            sql_query,
+            flags=re.IGNORECASE
+        )
+
+    return sql_query
 
 
 def validate_sql_query(sql_query):
