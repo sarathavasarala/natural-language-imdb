@@ -1,39 +1,16 @@
-# Configuration Template for IMDb Intelligence
-# Copy this file to config.py and fill in your actual values
+# Configuration Template for IMDb Text-to-SQL Search
+# Copy this file to config.py and fill in your credentials or set environment variables.
+import os
 
-# Azure OpenAI Configuration
-AZURE_OPENAI_API_KEY = "your_azure_openai_api_key_here"
-AZURE_OPENAI_API_VERSION = "2025-01-01-preview"  # Or latest available version
-AZURE_OPENAI_ENDPOINT = "https://your-resource-name.openai.azure.com/"
-AZURE_OPENAI_MODEL = "gpt-4.1"  # Or your deployed model name
+# Azure OpenAI / AI Foundry settings
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "your_azure_openai_api_key_here")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://your-resource.openai.azure.com")
+AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", "gpt-5.4")
 
-# Database Configuration
-DATABASE_PATH = "db/imdb.db"
+# Azure Blob Storage settings for Parquet datasets
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "your_azure_storage_connection_string_here")
+AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "imdb-data")
 
-# Application Settings
-DEBUG = False
-SECRET_KEY = "your-secret-key-here-change-this-in-production"
-HOST = "0.0.0.0"
-PORT = 5000
-
-# Logging Configuration
-LOG_LEVEL = "INFO"
-LOG_FILE = "app.log"
-
-# Performance Settings
-MAX_QUERY_LENGTH = 500
-DEFAULT_RESULT_LIMIT = 50
-QUERY_TIMEOUT = 30
-
-# Security Settings
-RATE_LIMIT_PER_MINUTE = 60
-ENABLE_SQL_VALIDATION = True
-
-# Feature Flags
-ENABLE_QUERY_HISTORY = True
-ENABLE_STATISTICS = True
-ENABLE_API_ENDPOINTS = True
-
-# External APIs (for future enhancements)
-TMDB_API_KEY = "your_tmdb_api_key_here"  # For movie posters
-OMDB_API_KEY = "your_omdb_api_key_here"  # For additional metadata
+# Legacy database path (optional local SQLite fallback)
+DATABASE_PATH = os.getenv("DATABASE_PATH", "db/imdb.db")

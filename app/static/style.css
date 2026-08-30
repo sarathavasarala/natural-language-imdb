@@ -1004,3 +1004,227 @@ a.text-decoration-none:hover {
     background: rgba(19, 108, 178, 0.05) !important;
     transition: all 0.3s ease !important;
 }
+
+
+/* ════════════════════════════════════════════════════
+   SUGGESTED QUERY CHIPS
+   ════════════════════════════════════════════════════ */
+
+.suggested-chips-bar {
+    background: linear-gradient(180deg, #e8f0fe 0%, #ffffff 100%);
+    border-bottom: 1px solid #e9ecef;
+}
+
+.chips-label {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1.5px solid #d0d7de;
+    background: #ffffff;
+    color: #4a5568;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.chip:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(19, 108, 178, 0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(19, 108, 178, 0.12);
+}
+
+.chip:active {
+    transform: scale(0.97);
+}
+
+.chip-active-flash {
+    background: var(--accent-color) !important;
+    color: #fff !important;
+    border-color: var(--accent-color) !important;
+}
+
+.chip-suggestion {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.chip-suggestion:hover {
+    background: rgba(220, 53, 69, 0.06);
+    border-color: #dc3545;
+    color: #dc3545;
+    box-shadow: 0 3px 8px rgba(220, 53, 69, 0.15);
+}
+
+/* ════════════════════════════════════════════════════
+   FILTER PANEL
+   ════════════════════════════════════════════════════ */
+
+.filter-panel .card {
+    background: #ffffff;
+}
+
+.filter-panel .form-label {
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+}
+
+.filter-panel .input-group-text {
+    border-color: #e9ecef;
+}
+
+.filter-panel .form-control {
+    border-color: #e9ecef;
+}
+
+.filter-panel .form-control:focus {
+    box-shadow: none;
+    border-color: var(--accent-color);
+    background: #fff !important;
+}
+
+.filter-panel .input-group:focus-within .input-group-text,
+.filter-panel .input-group:focus-within .form-control {
+    border-color: var(--accent-color);
+    background: #fff !important;
+}
+
+.chip-filter {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8rem;
+    border-color: #e9ecef;
+    background: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.chip-filter:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+    color: #212529;
+    transform: translateY(-1px);
+    box-shadow: none;
+}
+
+.chip-filter.active {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+    box-shadow: 0 4px 10px rgba(19, 108, 178, 0.2);
+}
+
+/* ════════════════════════════════════════════════════
+   RESULTS META BAR
+   ════════════════════════════════════════════════════ */
+
+.results-meta-bar {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.result-count-badge {
+    font-size: 0.95rem;
+    color: var(--text-dark);
+}
+
+.result-count-badge strong {
+    font-weight: 700;
+    color: var(--accent-color);
+    font-size: 1.1rem;
+}
+
+/* ════════════════════════════════════════════════════
+   INLINE GENRE CHIPS (inside table cells)
+   ════════════════════════════════════════════════════ */
+
+.genre-chip-inline {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #e8f0fe 0%, #d4e6fc 100%);
+    color: #1a56db;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0.1rem;
+    letter-spacing: 0.2px;
+}
+
+/* ════════════════════════════════════════════════════
+   SEARCH BAR IN HERO (override)
+   ════════════════════════════════════════════════════ */
+
+.hero-section .search-form .input-group {
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.hero-section .search-form .form-control {
+    font-size: 1.05rem;
+    padding: 0.85rem 1rem;
+}
+
+.hero-section .search-form .input-group-text {
+    border: none;
+    padding: 0.85rem 1rem;
+}
+
+.hero-section .search-form .btn {
+    border-radius: 0 0.75rem 0.75rem 0 !important;
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+
+/* ════════════════════════════════════════════════════
+   ENHANCED ERROR STATE
+   ════════════════════════════════════════════════════ */
+
+#errorState .alert {
+    border-radius: 0.75rem;
+    border-left: 4px solid #dc3545;
+}
+
+/* ════════════════════════════════════════════════════
+   RESPONSIVE TWEAKS
+   ════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .suggested-chips-bar {
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .suggested-chips-bar .d-flex {
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+    }
+
+    .chip {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.7rem;
+    }
+
+    .hero-section {
+        padding: 2.5rem 1rem;
+    }
+
+    .hero-section h1 {
+        font-size: 1.6rem;
+    }
+
+    .filter-panel .row {
+        gap: 0.5rem;
+    }
+}

@@ -1,1038 +1,836 @@
-// Professional IMDb Intelligence JavaScript
+// IMDb Intelligence — Simple Search & AI Chat JavaScript
+// Components: AJAX Search, Post-Search Filters, Shareable URLs, Suggested Chips, Azure Foundry / OpenAI Settings, AI Summary, AI Chat
 
-$(document).ready(function() {
-    // console.log('=== DOCUMENT READY EVENT TRIGGERED ===');
-    // console.log('IMDb Intelligence JavaScript loading...');
-    // console.log('Current URL:', window.location.href);
-    // console.log('DOM ready state:', document.readyState);
-    // console.log('Page load time:', new Date().toISOString());
-    
-    // Initialize enhanced DataTable
-    if ($('#resultsTable').length) {
-        // console.log('Results table found, initializing DataTable...');
-        initializeDataTable();
-    } else {
-        // console.log('No results table found');
+// ════════════════════════════════════════════════════
+//  GLOBAL AJAX SETUP FOR DYNAMIC AZURE CREDENTIALS
+// ════════════════════════════════════════════════════
+$.ajaxSetup({
+    beforeSend: function (xhr) {
+        const customKey = localStorage.getItem('imdb_azure_api_key');
+        const customEndpoint = localStorage.getItem('imdb_azure_endpoint');
+        const customModel = localStorage.getItem('imdb_azure_model');
+        const customVersion = localStorage.getItem('imdb_azure_api_version');
+
+        if (customKey && customKey.trim()) {
+            xhr.setRequestHeader('X-Azure-API-Key', customKey.trim());
+        }
+        if (customEndpoint && customEndpoint.trim()) {
+            xhr.setRequestHeader('X-Azure-Endpoint', customEndpoint.trim());
+        }
+        if (customModel && customModel.trim()) {
+            xhr.setRequestHeader('X-Azure-Model', customModel.trim());
+        }
+        if (customVersion && customVersion.trim()) {
+            xhr.setRequestHeader('X-Azure-API-Version', customVersion.trim());
+        }
     }
-    
-    // Initialize search form enhancements
-    // console.log('Initializing search form...');
+});
+
+// ════════════════════════════════════════════════════
+//  SETTINGS & AZURE FOUNDRY CREDENTIAL MANAGER
+// ════════════════════════════════════════════════════
+function initializeSettingsModal() {
+    const $modal = $('#settingsModal');
+    if (!$modal.length) return;
+
+    // Load from LocalStorage into inputs
+    const customKey = localStorage.getItem('imdb_azure_api_key') || '';
+    const customEndpoint = localStorage.getItem('imdb_azure_endpoint') || '';
+    const customModel = localStorage.getItem('imdb_azure_model') || '';
+    const customVersion = localStorage.getItem('imdb_azure_api_version') || '';
+
+    $('#customApiKey').val(customKey);
+    $('#customEndpoint').val(customEndpoint);
+    $('#customModel').val(customModel);
+    $('#customApiVersion').val(customVersion);
+
+    updateSettingsBadge();
+
+    // Toggle API Key visibility
+    $('#toggleApiKeyVisibility').on('click', function () {
+        const $input = $('#customApiKey');
+        const $icon = $('#toggleApiKeyIcon');
+        if ($input.attr('type') === 'password') {
+            $input.attr('type', 'text');
+            $icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+            $input.attr('type', 'password');
+            $icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
+    });
+
+    // Save Settings
+    $('#saveSettingsBtn').on('click', function () {
+        const key = $('#customApiKey').val().trim();
+        const endpoint = $('#customEndpoint').val().trim();
+        const model = $('#customModel').val().trim();
+        const version = $('#customApiVersion').val().trim();
+
+        if (key) {
+            localStorage.setItem('imdb_azure_api_key', key);
+        } else {
+            localStorage.removeItem('imdb_azure_api_key');
+        }
+
+        if (endpoint) {
+            localStorage.setItem('imdb_azure_endpoint', endpoint);
+        } else {
+            localStorage.removeItem('imdb_azure_endpoint');
+        }
+
+        if (model) {
+            localStorage.setItem('imdb_azure_model', model);
+        } else {
+            localStorage.removeItem('imdb_azure_model');
+        }
+
+        if (version) {
+            localStorage.setItem('imdb_azure_api_version', version);
+        } else {
+            localStorage.removeItem('imdb_azure_api_version');
+        }
+
+        updateSettingsBadge();
+        showToast('Credentials saved to browser LocalStorage!');
+        bootstrap.Modal.getInstance($modal[0])?.hide();
+    });
+
+    // Clear Key
+    $('#resetSettingsBtn').on('click', function () {
+        localStorage.removeItem('imdb_azure_api_key');
+        localStorage.removeItem('imdb_azure_endpoint');
+        localStorage.removeItem('imdb_azure_model');
+        localStorage.removeItem('imdb_azure_api_version');
+
+        $('#customApiKey').val('');
+        $('#customEndpoint').val('');
+        $('#customModel').val('');
+        $('#customApiVersion').val('');
+
+        updateSettingsBadge();
+        showToast('Cleared credentials from browser.');
+        bootstrap.Modal.getInstance($modal[0])?.hide();
+    });
+}
+
+function updateSettingsBadge() {
+    const customKey = localStorage.getItem('imdb_azure_api_key');
+    const $badge = $('#settingsStatusBadge');
+    if (!$badge.length) return;
+
+    if (customKey && customKey.trim()) {
+        $badge.removeClass('bg-secondary bg-warning text-dark').addClass('bg-success text-white').html('<i class="fas fa-check-circle me-1"></i> API Key Active');
+    } else {
+        $badge.removeClass('bg-secondary bg-success text-white').addClass('bg-warning text-dark').html('<i class="fas fa-key me-1"></i> Set API Key');
+    }
+}
+
+function ensureApiKeyConfigured() {
+    const customKey = localStorage.getItem('imdb_azure_api_key');
+    if (!customKey || !customKey.trim()) {
+        const modalEl = document.getElementById('settingsModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+        showToast('Please set your Azure AI Foundry / OpenAI key first.');
+        return false;
+    }
+    return true;
+}
+
+function showToast(message) {
+    $('#toastMsg').text(message);
+    const toastEl = document.getElementById('copyToast');
+    if (toastEl) {
+        const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+        toast.show();
+    }
+}
+
+// ════════════════════════════════════════════════════
+//  MAIN SEARCH PAGE LOGIC
+// ════════════════════════════════════════════════════
+$(document).ready(function () {
+    console.log('✅ IMDb Intelligence initialized');
+
+    // ── State ──────────────────────────────────────────
+    let allResults = [];
+    let allColumnNames = [];
+    let activeGenreFilters = new Set();
+    let dataTableInstance = null;
+    let lastQuery = '';
+
+    // ── Init ──────────────────────────────────────────
+    initializeSettingsModal();
     initializeSearchForm();
-    
-    // Initialize tooltips
-    // console.log('Initializing tooltips...');
-    initializeTooltips();
-    
-    // Initialize SQL query collapse functionality
-    // console.log('Initializing SQL collapse...');
-    initializeSQLCollapse();
-    
-    // Initialize AI summary functionality
-    // console.log('Initializing AI Summary...');
+    initializeSuggestedChips();
+    initializeFilters();
+    initializeShareableURL();
     initializeAISummary();
-    
-    // Check for AI summary buttons on the page
-    const aiButtons = $('.ai-summary-btn');
-    // console.log(`Found ${aiButtons.length} AI summary buttons on the page`);
-    aiButtons.each(function(index) {
-        const $btn = $(this);
-        // console.log(`AI Button ${index + 1}:`, {
-        //     titleId: $btn.data('title-id'),
-        //     titleName: $btn.data('title-name'),
-        //     element: $btn[0]
-        // });
-    });
-    
-    // Initialize AI Chat Interface (only on chat page)
-    // console.log('Calling initializeChatInterface...');
-    // initializeChatInterface(); // This will be called from the chat.html page
-    
-    console.log('✅ IMDb Intelligence initialized successfully'); // Keep one summary log
-    // console.log('=== DOCUMENT READY INITIALIZATION COMPLETED ===');
-});
+    initializeTooltips();
 
-function initializeDataTable() {
-    // First, determine which columns are numeric based on their headers
-    const table = $('#resultsTable');
-    const columnDefs = [];
-    let votesColumnIndex = -1;
-    
-    // Find numeric columns and set up proper sorting
-    table.find('thead th').each(function(index) {
-        const $th = $(this);
-        const columnName = $th.data('column');
-        const isNumeric = $th.data('type') === 'numeric';
-        
-        // Track votes column index for default sorting
-        if (columnName === 'votes') {
-            votesColumnIndex = index;
-        }
-        
-        if (isNumeric) {
-            columnDefs.push({
-                targets: index,
-                type: 'num',
-                render: function(data, type, row, meta) {
-                    if (type === 'sort' || type === 'type') {
-                        // Use data-sort attribute if available (this is the most reliable method)
-                        const $cell = $(table.find('tbody tr').eq(meta.row).find('td').eq(meta.col));
-                        const sortValue = $cell.attr('data-sort');
-                        if (sortValue !== undefined && sortValue !== '') {
-                            const numericValue = parseFloat(sortValue);
-                            return isNaN(numericValue) ? 0 : numericValue;
-                        }
-                        
-                        // Fallback: extract numeric value from formatted text
-                        if (columnName === 'votes') {
-                            if (typeof data === 'string') {
-                                const numMatch = data.match(/[\d,]+/);
-                                return numMatch ? parseInt(numMatch[0].replace(/,/g, '')) : 0;
-                            }
-                        } else if (columnName === 'rating') {
-                            if (typeof data === 'string') {
-                                // Remove HTML tags and extract numeric value
-                                const cleanText = data.replace(/<[^>]*>/g, '');
-                                const numMatch = cleanText.match(/[\d.]+/);
-                                return numMatch ? parseFloat(numMatch[0]) : 0;
-                            }
-                        }
-                        
-                        // Final fallback
-                        const numericValue = parseFloat(data);
-                        return isNaN(numericValue) ? 0 : numericValue;
-                    }
-                    return data; // Return original data for display
-                }
-            });
-        }
-        
-        // Add text-nowrap to all columns
-        columnDefs.push({
-            targets: index,
-            className: 'text-nowrap'
-        });
-    });
-    
-    table.DataTable({
-        pageLength: 25,
-        ordering: true,
-        searching: true,
-        responsive: true,
-        stateSave: true,
-        language: {
-            search: "Filter results:",
-            lengthMenu: "Show _MENU_ entries per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ results",
-            paginate: {
-                first: "First",
-                last: "Last",
-                next: "Next →",
-                previous: "← Previous"
-            },
-            emptyTable: "No matching results found",
-            zeroRecords: "No matching results found"
-        },
-        columnDefs: columnDefs,
-        order: votesColumnIndex >= 0 ? [[votesColumnIndex, 'desc']] : [], // Default sort by votes desc if available
-        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-             '<"row"<"col-sm-12"tr>>' +
-             '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
-        drawCallback: function(settings) {
-            // Add fade-in animation to new rows
-            $(this.api().table().node()).find('tbody tr').addClass('fade-in');
-        }
-    });
-    
-    // console.log('DataTable initialized with enhanced numeric sorting');
-}
+    // Check for ?q= in URL and auto-search
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlQuery = urlParams.get('q');
+    if (urlQuery) {
+        $('#query').val(urlQuery);
+        executeSearch(urlQuery);
+    }
 
-function initializeSearchForm() {
-    const $form = $('form[method="POST"]');
-    const $searchBtn = $('#searchBtn');
-    const $loadingState = $('#loadingState');
-    
-    // Enhanced form submission
-    $form.submit(function(e) {
-        const query = $('#query').val().trim();
-        
-        if (!query) {
+    function initializeSearchForm() {
+        const $form = $('#searchForm');
+        $form.on('submit', function (e) {
             e.preventDefault();
-            showAlert('Please enter a search query.', 'warning');
-            return;
-        }
-        
-        // Show loading state
-        $searchBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Searching...');
-        $loadingState.removeClass('d-none').addClass('fade-in');
-        
-        // Store query in localStorage for history
-        addToQueryHistory(query);
-        
-        // console.log('Search initiated:', query);
-    });
-    
-    // Auto-save draft queries
-    $('#query').on('input', debounce(function() {
-        const query = $(this).val();
-        if (query.length > 3) {
-            localStorage.setItem('draftQuery', query);
-        }
-    }, 500));
-    
-    // Restore draft query on page load
-    const draftQuery = localStorage.getItem('draftQuery');
-    if (draftQuery && !$('#query').val()) {
-        $('#query').val(draftQuery);
-    }
-    
-    // Add keyboard shortcuts
-    $('#query').keydown(function(e) {
-        // Ctrl/Cmd + Enter to submit
-        if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
-            $form.submit();
-        }
-        
-        // Escape to clear
-        if (e.keyCode === 27) {
-            $(this).val('').focus();
-        }
-    });
-}
-
-function initializeTooltips() {
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-}
-
-function addToQueryHistory(query) {
-    let history = JSON.parse(localStorage.getItem('queryHistory') || '[]');
-    
-    // Remove duplicate if exists
-    history = history.filter(item => item.query !== query);
-    
-    // Add to beginning
-    history.unshift({
-        query: query,
-        timestamp: Date.now()
-    });
-    
-    // Keep only last 10 queries
-    history = history.slice(0, 10);
-    
-    localStorage.setItem('queryHistory', JSON.stringify(history));
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        showAlert('SQL query copied to clipboard!', 'success', 2000);
-    }).catch(function(err) {
-        console.error('Could not copy text: ', err);
-        showAlert('Failed to copy to clipboard', 'error', 3000);
-    });
-}
-
-function showAlert(message, type = 'info', duration = 5000) {
-    const alertClass = {
-        'success': 'alert-success',
-        'error': 'alert-danger',
-        'warning': 'alert-warning',
-        'info': 'alert-info'
-    }[type] || 'alert-info';
-    
-    const icon = {
-        'success': 'fas fa-check-circle',
-        'error': 'fas fa-exclamation-triangle',
-        'warning': 'fas fa-exclamation-circle',
-        'info': 'fas fa-info-circle'
-    }[type] || 'fas fa-info-circle';
-    
-    const alertHtml = `
-        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
-            <i class="${icon} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    
-    $('body').append(alertHtml);
-    
-    // Auto-dismiss after duration
-    setTimeout(() => {
-        $('.alert').not('[data-bs-dismiss]').fadeOut(300, function() {
-            $(this).remove();
+            const query = $('#query').val().trim();
+            if (!query) return;
+            executeSearch(query);
         });
-    }, duration);
-}
 
-// Utility function for debouncing
-function debounce(func, wait, immediate) {
-    let timeout;
-    return function() {
-        const context = this, args = arguments;
-        const later = function() {
-            timeout = null;
-            if (!immediate) func.apply(context, args);
+        $('#query').on('keydown', function (e) {
+            if (e.key === 'Escape') {
+                $(this).val('').focus();
+            }
+        });
+    }
+
+    function executeSearch(query) {
+        if (!ensureApiKeyConfigured()) {
+            return;
+        }
+
+        lastQuery = query;
+
+        const url = new URL(window.location);
+        url.searchParams.set('q', query);
+        history.pushState({ query: query }, '', url);
+
+        addToQueryHistory(query);
+        showLoading();
+
+        $.ajax({
+            url: '/api/search',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ query: query }),
+            timeout: 60000,
+            success: function (response) {
+                hideLoading();
+
+                if (response.success && response.results && response.results.length > 0) {
+                    allResults = response.results;
+                    allColumnNames = response.column_names;
+
+                    showResultsMeta(response);
+                    buildGenreFilters(allResults);
+                    renderResultsTable(allResults, allColumnNames);
+                    resetFilters();
+                } else if (response.success && response.row_count === 0) {
+                    allResults = [];
+                    hideResultsMeta();
+                    showNoResults();
+                } else {
+                    showError(response.error || 'Unknown error', response.suggestions);
+                }
+            },
+            error: function (xhr) {
+                hideLoading();
+                let msg = 'Something went wrong. Please try again.';
+                let suggestions = [];
+                try {
+                    const resp = JSON.parse(xhr.responseText);
+                    msg = resp.error || msg;
+                    suggestions = resp.suggestions || [];
+                } catch (_) {}
+                showError(msg, suggestions);
+            }
+        });
+    }
+
+    function showLoading() {
+        $('#loadingState').removeClass('d-none');
+        $('#errorState, #noResultsState, #resultsContainer, #resultsMeta').addClass('d-none');
+        $('#searchBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Searching...');
+    }
+
+    function hideLoading() {
+        $('#loadingState').addClass('d-none');
+        $('#searchBtn').prop('disabled', false).html('<i class="fas fa-bolt me-1"></i>Search');
+    }
+
+    function showResultsMeta(response) {
+        $('#resultsMeta').removeClass('d-none');
+        if (response.row_count > response.results.length) {
+            $('#resultCount').text(`${response.results.length.toLocaleString()} (of ${response.row_count.toLocaleString()} total)`);
+        } else {
+            $('#resultCount').text(response.row_count.toLocaleString());
+        }
+        $('#executionTime').text(response.execution_time ? `in ${response.execution_time}s` : '');
+        $('#sqlDisplay').text(response.sql_query || '');
+    }
+
+    function hideResultsMeta() {
+        $('#resultsMeta').addClass('d-none');
+    }
+
+    function showNoResults() {
+        $('#noResultsState').removeClass('d-none');
+        $('#resultsContainer').addClass('d-none');
+    }
+
+    function showError(message, suggestions) {
+        $('#errorState').removeClass('d-none');
+        $('#resultsContainer, #noResultsState, #resultsMeta').addClass('d-none');
+        $('#errorMessage').text(message);
+
+        if (suggestions && suggestions.length > 0) {
+            $('#errorSuggestions').removeClass('d-none');
+            const $chips = $('#errorSuggestionChips').empty();
+            suggestions.forEach(function (s) {
+                $chips.append(
+                    $('<button class="chip chip-suggestion"></button>')
+                        .text(s)
+                        .on('click', function () {
+                            $('#query').val(s);
+                            executeSearch(s);
+                        })
+                );
+            });
+        } else {
+            $('#errorSuggestions').addClass('d-none');
+        }
+    }
+
+    $('#dismissError').on('click', function () {
+        $('#errorState').addClass('d-none');
+    });
+
+    $('#retryBtn').on('click', function () {
+        if (lastQuery) executeSearch(lastQuery);
+    });
+
+    function renderResultsTable(results, columnNames) {
+        if (dataTableInstance) {
+            dataTableInstance.destroy();
+            dataTableInstance = null;
+        }
+
+        const $head = $('#tableHead').empty();
+        const $body = $('#tableBody').empty();
+
+        const friendlyNames = {
+            'title_id': 'IMDb ID',
+            'primary_title': 'Title',
+            'original_title': 'Original Title',
+            'premiered': 'Year',
+            'runtime_minutes': 'Runtime',
+            'genres': 'Genres',
+            'rating': 'Rating',
+            'votes': 'Votes',
+            'name': 'Name',
+            'person_id': 'Person ID',
+            'type': 'Type',
+            'is_adult': 'Adult',
+            'ended': 'Ended',
+            'born': 'Born',
+            'died': 'Died',
+            'category': 'Role',
+            'characters': 'Characters',
+            'season_number': 'Season',
+            'episode_number': 'Episode'
         };
-        const callNow = immediate && !timeout;
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-        if (callNow) func.apply(context, args);
-    };
-}
 
-// Add smooth scrolling for anchor links (excluding navigation links)
-$(document).on('click', 'a[href^="#"]:not([onclick])', function(e) {
-    e.preventDefault();
-    const href = this.getAttribute('href');
-    
-    // Skip if href is just "#" or empty
-    if (!href || href === '#') {
-        return;
+        const numericCols = ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number', 'born', 'died', 'ended'];
+
+        columnNames.forEach(function (col) {
+            const label = friendlyNames[col] || col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const th = $('<th class="fw-semibold"></th>').text(label);
+            if (numericCols.includes(col)) th.attr('data-type', 'numeric');
+            $head.append(th);
+        });
+
+        results.forEach(function (row) {
+            const $tr = $('<tr></tr>');
+            columnNames.forEach(function (col) {
+                const val = row[col];
+                const $td = $('<td></td>');
+
+                if (col === 'title_id' && val) {
+                    $td.html(`<a href="https://www.imdb.com/title/${escapeHtml(val)}/" target="_blank" class="text-decoration-none"><i class="fas fa-external-link-alt me-1"></i>${escapeHtml(val)}</a>`);
+                } else if (col === 'primary_title' && val) {
+                    const titleId = row['title_id'] || '';
+                    $td.html(`<div class="d-flex align-items-center"><span class="me-2">${escapeHtml(val)}</span>${titleId ? `<button class="btn btn-sm btn-outline-primary ai-summary-btn" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="AI Summary"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}</div>`);
+                } else if (col === 'rating' && val != null) {
+                    $td.html(`<span class="badge bg-warning text-dark"><i class="fas fa-star"></i> ${val}</span>`);
+                    $td.attr('data-sort', val);
+                } else if (col === 'votes' && val != null) {
+                    $td.html(`<span class="text-muted">${Number(val).toLocaleString()} votes</span>`);
+                    $td.attr('data-sort', val);
+                } else if (col === 'premiered' && val) {
+                    $td.html(`<span class="badge bg-secondary">${val}</span>`);
+                    $td.attr('data-sort', val);
+                } else if (col === 'genres' && val) {
+                    const chips = val.split(',').map(g => `<span class="genre-chip-inline">${escapeHtml(g.trim())}</span>`).join(' ');
+                    $td.html(chips);
+                } else {
+                    $td.text(val != null ? val : '—');
+                    if (numericCols.includes(col) && val != null) $td.attr('data-sort', val);
+                }
+
+                $tr.append($td);
+            });
+            $body.append($tr);
+        });
+
+        $('#resultsContainer').removeClass('d-none');
+        $('#noResultsState').addClass('d-none');
+
+        const columnDefs = [];
+        let votesIdx = -1;
+        columnNames.forEach(function (col, idx) {
+            if (col === 'votes') votesIdx = idx;
+            if (numericCols.includes(col)) {
+                columnDefs.push({
+                    targets: idx,
+                    type: 'num',
+                    render: function (data, type, row, meta) {
+                        if (type === 'sort' || type === 'type') {
+                            const $cell = $($('#resultsTable tbody tr').eq(meta.row).find('td').eq(meta.col));
+                            const sv = $cell.attr('data-sort');
+                            if (sv !== undefined && sv !== '') return parseFloat(sv) || 0;
+                            const n = parseFloat(String(data).replace(/[^0-9.]/g, ''));
+                            return isNaN(n) ? 0 : n;
+                        }
+                        return data;
+                    }
+                });
+            }
+        });
+
+        dataTableInstance = $('#resultsTable').DataTable({
+            pageLength: 25,
+            ordering: true,
+            searching: true,
+            responsive: true,
+            language: {
+                search: 'Filter results:',
+                lengthMenu: 'Show _MENU_ per page',
+                info: 'Showing _START_–_END_ of _TOTAL_',
+                paginate: { first: 'First', last: 'Last', next: '→', previous: '←' },
+                emptyTable: 'No matching results',
+                zeroRecords: 'No matching results'
+            },
+            columnDefs: columnDefs,
+            order: votesIdx >= 0 ? [[votesIdx, 'desc']] : [],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>><"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            drawCallback: function () {
+                $(this.api().table().node()).find('tbody tr').addClass('fade-in');
+            }
+        });
+
+        $('html, body').animate({ scrollTop: $('#resultsMeta').offset().top - 80 }, 400);
     }
-    
-    const target = $(href);
-    if (target.length) {
-        $('html, body').animate({
-            scrollTop: target.offset().top - 80
-        }, 600);
+
+    function initializeFilters() {
+        $('#toggleFiltersBtn').on('click', function () {
+            $('#filterPanel').toggleClass('d-none');
+        });
+
+        $('#applyFilters').on('click', applyClientFilters);
+        $('#clearFilters').on('click', function () {
+            resetFilters();
+            applyClientFilters();
+        });
+
+        $('#yearMin, #yearMax, #ratingMin, #ratingMax').on('keydown', function (e) {
+            if (e.key === 'Enter') applyClientFilters();
+        });
     }
-});
 
-// Performance monitoring
-$(window).on('load', function() {
-    const loadTime = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.navigationStart;
-    // console.log(`Page loaded in ${loadTime}ms`);
-    
-    // Track user interactions
-    // $('button').click(function() {
-    //     const element = $(this).text().trim();
-    //     console.log('User interaction:', element);
-    // });
-});
+    function buildGenreFilters(results) {
+        const genres = new Set();
+        results.forEach(function (r) {
+            if (r.genres) {
+                r.genres.split(',').forEach(g => genres.add(g.trim()));
+            }
+        });
 
-// Add visual feedback for form validation
-$('#query').on('blur', function() {
-    const $this = $(this);
-    const value = $this.val().trim();
-    
-    if (value.length > 0 && value.length < 5) {
-        $this.addClass('is-invalid');
-        if (!$this.next('.invalid-feedback').length) {
-            $this.after('<div class="invalid-feedback">Query seems too short. Try being more specific.</div>');
-        }
-    } else {
-        $this.removeClass('is-invalid');
-        $this.next('.invalid-feedback').remove();
-    }
-});
+        const $container = $('#genreFilters').empty();
+        activeGenreFilters.clear();
 
-// Enhanced error handling
-window.addEventListener('error', function(e) {
-    console.error('JavaScript error:', e.error);
-    showAlert('An unexpected error occurred. Please refresh the page.', 'error');
-});
-
-// Add loading animation for IMDB links
-$(document).on('click', 'a[href*="imdb.com"]', function() {
-    const $this = $(this);
-    const originalText = $this.html();
-    
-    $this.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
-    
-    setTimeout(() => {
-        $this.html(originalText);
-    }, 1000);
-});
-
-function initializeSQLCollapse() {
-    // Handle SQL query collapse toggle
-    $('#sqlQueryCollapse').on('shown.bs.collapse', function() {
-        $('.toggle-icon').addClass('rotated');
-    });
-    
-    $('#sqlQueryCollapse').on('hidden.bs.collapse', function() {
-        $('.toggle-icon').removeClass('rotated');
-    });
-}
-
-function initializeAISummary() {
-    // console.log('Initializing AI Summary functionality...');
-    
-    // Handle AI summary button clicks
-    $(document).on('click', '.ai-summary-btn', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // console.log('AI Summary button clicked');
-        
-        const $btn = $(this);
-        const titleId = $btn.data('title-id');
-        const titleName = $btn.data('title-name');
-        
-        // console.log('Title ID:', titleId);
-        // console.log('Title Name:', titleName);
-        // console.log('Button data attributes:', $btn.data());
-        
-        if (!titleId || !titleName) {
-            console.error('Missing title information - titleId:', titleId, 'titleName:', titleName);
-            showAlert('Missing title information', 'error');
+        if (genres.size === 0) {
+            $container.html('<span class="text-muted small">No genre data in these results</span>');
             return;
         }
-        
-        // console.log('Showing AI Summary modal...');
-        
-        // Show modal and start loading - using simpler Bootstrap method
-        const $modal = $('#aiSummaryModal');
-        // console.log('Modal element found:', $modal.length > 0);
-        
-        if ($modal.length === 0) {
-            console.error('AI Summary modal not found in DOM');
-            showAlert('Modal not found. Please refresh the page.', 'error');
-            return;
+
+        Array.from(genres).sort().forEach(function (genre) {
+            const $chip = $('<button class="chip chip-filter"></button>')
+                .text(genre)
+                .on('click', function () {
+                    $(this).toggleClass('active');
+                    if ($(this).hasClass('active')) {
+                        activeGenreFilters.add(genre);
+                    } else {
+                        activeGenreFilters.delete(genre);
+                    }
+                });
+            $container.append($chip);
+        });
+    }
+
+    function applyClientFilters() {
+        const yearMin = parseInt($('#yearMin').val()) || 0;
+        const yearMax = parseInt($('#yearMax').val()) || 9999;
+        const ratingMin = parseFloat($('#ratingMin').val()) || 0;
+        const ratingMax = parseFloat($('#ratingMax').val()) || 10;
+        const genresActive = activeGenreFilters.size > 0;
+
+        const filtered = allResults.filter(function (row) {
+            const year = row.premiered || row.year || row.start_year;
+            if (year != null) {
+                const y = parseInt(year);
+                if (!isNaN(y) && (y < yearMin || y > yearMax)) return false;
+            }
+
+            const rating = row.rating || row.average_rating;
+            if (rating != null) {
+                const r = parseFloat(rating);
+                if (!isNaN(r) && (r < ratingMin || r > ratingMax)) return false;
+            }
+
+            if (genresActive && row.genres) {
+                const rowGenres = row.genres.split(',').map(g => g.trim());
+                const hasMatch = rowGenres.some(g => activeGenreFilters.has(g));
+                if (!hasMatch) return false;
+            } else if (genresActive && !row.genres) {
+                return false;
+            }
+
+            return true;
+        });
+
+        let count = 0;
+        if (yearMin > 0 || yearMax < 9999) count++;
+        if (ratingMin > 0 || ratingMax < 10) count++;
+        if (genresActive) count++;
+
+        const $badge = $('#activeFilterCount');
+        if (count > 0) {
+            $badge.text(count).removeClass('d-none');
+        } else {
+            $badge.addClass('d-none');
         }
-        
-        // Use Bootstrap modal show method
-        try {
-            $modal.modal('show');
-            // console.log('Modal shown successfully');
-        } catch (modalError) {
-            console.error('Error showing modal:', modalError);
-            showAlert('Failed to show modal', 'error');
-            return;
-        }
-        
-        // Reset modal state
-        $('#aiSummaryLoading').removeClass('d-none');
-        $('#aiSummaryContent').addClass('d-none');
-        $('#aiSummaryError').addClass('d-none');
-        $('#regenerateSummary').hide();
-        
-        // console.log('Generating AI summary for:', titleName, 'with ID:', titleId);
-        
-        // Generate summary
-        generateAISummary(titleId, titleName);
-    });
-    
-    // Handle regenerate button
-    $('#regenerateSummary').click(function() {
-        const titleId = $(this).data('title-id');
-        const titleName = $(this).data('title-name');
-        
-        if (titleId && titleName) {
+
+        $('#resultCount').text(filtered.length.toLocaleString());
+        renderResultsTable(filtered, allColumnNames);
+    }
+
+    function resetFilters() {
+        activeGenreFilters.clear();
+        $('#yearMin, #yearMax, #ratingMin, #ratingMax').val('');
+        $('.chip-filter').removeClass('active');
+        $('#activeFilterCount').addClass('d-none');
+    }
+
+    function initializeShareableURL() {
+        window.addEventListener('popstate', function (e) {
+            const params = new URLSearchParams(window.location.search);
+            const q = params.get('q');
+            if (q) {
+                $('#query').val(q);
+                executeSearch(q);
+            }
+        });
+
+        $('#copyLinkBtn').on('click', function () {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(function () {
+                showToast('Search link copied!');
+            }).catch(function () {
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('Search link copied!');
+            });
+        });
+    }
+
+    function initializeSuggestedChips() {
+        $(document).on('click', '.chip[data-query]', function () {
+            const q = $(this).attr('data-query');
+            $('#query').val(q);
+            executeSearch(q);
+        });
+    }
+
+    function initializeAISummary() {
+        $(document).on('click', '.ai-summary-btn', function () {
+            if (!ensureApiKeyConfigured()) return;
+            const titleId = $(this).data('title-id');
+            const titleName = $(this).data('title-name');
+            $('#aiSummaryModal').modal('show');
             $('#aiSummaryLoading').removeClass('d-none');
             $('#aiSummaryContent').addClass('d-none');
             $('#aiSummaryError').addClass('d-none');
-            $(this).hide();
-            
+            $('#aiSummaryTitle').text(titleName);
             generateAISummary(titleId, titleName);
-        }
-    });
-}
+        });
 
-function generateAISummary(titleId, titleName) {
-    // console.log('Starting AJAX request for AI summary...');
-    // console.log('Request URL: /api/generate_summary');
-    // console.log('Request data:', {
-    //     title_id: titleId,
-    //     title_name: titleName
-    // });
-    
-    $.ajax({
-        url: '/api/generate_summary',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            title_id: titleId,
-            title_name: titleName
-        }),
-        timeout: 30000, // 30 second timeout
-        beforeSend: function(xhr) {
-            // console.log('Sending AJAX request...');
-        },
-        success: function(response) {
-            // console.log('AI Summary API response received:', response);
-            
-            if (response.success) {
-                // console.log('Summary generation successful');
-                displayAISummary(response.title_name, response.summary, titleId, titleName);
-            } else {
-                console.error('Summary generation failed:', response.error);
-                showAISummaryError(response.error || 'Unknown error occurred', titleId, titleName);
+        $('#regenerateSummary').on('click', function () {
+            const titleId = $(this).data('title-id');
+            const titleName = $(this).data('title-name');
+            if (titleId && titleName) {
+                $('#aiSummaryLoading').removeClass('d-none');
+                $('#aiSummaryContent').addClass('d-none');
+                $('#aiSummaryError').addClass('d-none');
+                generateAISummary(titleId, titleName);
             }
-        },
-        error: function(xhr, status, error) {
-            // console.error('AJAX request failed');
-            // console.error('Status:', status);
-            // console.error('Error:', error);
-            // console.error('Response Text:', xhr.responseText);
-            // console.error('Response Status:', xhr.status);
-            // console.error('XHR object:', xhr);
-            
-            let errorMessage = 'Failed to generate summary';
-            
-            if (status === 'timeout') {
-                errorMessage = 'Request timed out. Please try again.';
-                // console.error('Request timed out after 30 seconds');
-            } else if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMessage = xhr.responseJSON.error;
-                // console.error('Server returned error:', xhr.responseJSON.error);
-            } else if (error) {
-                errorMessage = error;
-                // console.error('JavaScript error:', error);
-            }
-            
-            console.error('Final error message for AI Summary:', errorMessage); // Keep one error log
-            showAISummaryError(errorMessage, titleId, titleName);
-        }
-    });
-}
-
-function displayAISummary(titleName, summary, titleId, originalTitleName) {
-    // console.log('Displaying AI summary for:', titleName);
-    // console.log('Summary length:', summary.length, 'characters');
-    
-    $('#aiSummaryLoading').addClass('d-none');
-    $('#aiSummaryError').addClass('d-none');
-    
-    $('#aiSummaryTitle').text(titleName);
-    $('#aiSummaryText').html(formatSummaryText(summary));
-    $('#aiSummaryContent').removeClass('d-none');
-    
-    // Setup regenerate button
-    $('#regenerateSummary')
-        .data('title-id', titleId)
-        .data('title-name', originalTitleName)
-        .show();
-    
-    // console.log('AI summary displayed successfully');
-}
-
-function showAISummaryError(errorMessage, titleId, titleName) {
-    // console.error('Showing AI summary error:', errorMessage);
-    
-    $('#aiSummaryLoading').addClass('d-none');
-    $('#aiSummaryContent').addClass('d-none');
-    
-    $('#aiSummaryErrorMessage').text(errorMessage);
-    $('#aiSummaryError').removeClass('d-none');
-    
-    // Setup regenerate button
-    $('#regenerateSummary')
-        .data('title-id', titleId)
-        .data('title-name', titleName)
-        .show();
-    
-    // console.log('Error display complete');
-}
-
-function formatSummaryText(summary) {
-    // Since the AI now generates HTML, we need to handle it properly
-    // First, clean up any potential issues and ensure proper formatting
-    
-    // Remove any markdown artifacts that might slip through
-    let formattedText = summary
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Convert **text** to <strong>text</strong>
-        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Convert *text* to <em>text</em>
-        .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>') // Convert ### Header to <strong>Header</strong>
-        .trim();
-    
-    // If the text doesn't already have paragraph tags, wrap sections in paragraphs
-    if (!formattedText.includes('<p>')) {
-        // Split by double line breaks and wrap each section in <p> tags
-        formattedText = formattedText
-            .split(/\n\s*\n/)
-            .map(section => section.trim())
-            .filter(section => section.length > 0)
-            .map(section => `<p>${section.replace(/\n/g, '<br>')}</p>`)
-            .join('');
-    } else {
-        // If already has paragraph tags, just clean up line breaks
-        formattedText = formattedText.replace(/\n/g, ' ');
+        });
     }
-    
-    return formattedText;
-}
 
-// Chat Interface and Function Calling Implementation
+    function generateAISummary(titleId, titleName) {
+        $.ajax({
+            url: '/api/generate_summary',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ title_id: titleId, title_name: titleName }),
+            timeout: 30000,
+            success: function (response) {
+                if (response.success) {
+                    displayAISummary(response.title_name, response.summary, titleId, titleName);
+                } else {
+                    showAISummaryError(response.error || 'Unknown error', titleId, titleName);
+                }
+            },
+            error: function (xhr, status) {
+                let msg = 'Failed to generate summary';
+                if (status === 'timeout') msg = 'Request timed out. Try again.';
+                else if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+                showAISummaryError(msg, titleId, titleName);
+            }
+        });
+    }
 
-// Global variables for chat functionality
-let currentChart = null;
-let chatHistory = [];
+    function displayAISummary(titleName, summary, titleId, originalName) {
+        $('#aiSummaryLoading').addClass('d-none');
+        $('#aiSummaryError').addClass('d-none');
+        $('#aiSummaryTitle').text(titleName);
+        $('#aiSummaryText').html(formatSummaryText(summary));
+        $('#aiSummaryContent').removeClass('d-none');
+        $('#regenerateSummary').data('title-id', titleId).data('title-name', originalName).show();
+    }
+
+    function showAISummaryError(msg, titleId, titleName) {
+        $('#aiSummaryLoading').addClass('d-none');
+        $('#aiSummaryContent').addClass('d-none');
+        $('#aiSummaryErrorMessage').text(msg);
+        $('#aiSummaryError').removeClass('d-none');
+        $('#regenerateSummary').data('title-id', titleId).data('title-name', titleName).show();
+    }
+
+    function formatSummaryText(summary) {
+        let text = summary
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
+            .trim();
+
+        if (!text.includes('<p>')) {
+            text = text.split(/\n\s*\n/)
+                .map(s => s.trim()).filter(s => s.length > 0)
+                .map(s => `<p>${s.replace(/\n/g, '<br>')}</p>`)
+                .join('');
+        }
+        return text;
+    }
+
+    function initializeTooltips() {
+        [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
+    }
+
+    function addToQueryHistory(query) {
+        let history = JSON.parse(localStorage.getItem('queryHistory') || '[]');
+        history = history.filter(item => item.query !== query);
+        history.unshift({ query: query, timestamp: Date.now() });
+        history = history.slice(0, 10);
+        localStorage.setItem('queryHistory', JSON.stringify(history));
+    }
+
+    function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return unsafe;
+        return unsafe
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+});
+
+// ════════════════════════════════════════════════════
+//  AI CHAT INTERFACE
+// ════════════════════════════════════════════════════
 let chatInitialized = false;
 
-// Initialize chat functionality
 function initializeChatInterface() {
-    if (chatInitialized) {
-        return;
-    }
-    // console.log('=== initializeChatInterface() called ===');
-    // console.log('DOM ready state:', document.readyState);
-    // console.log('Page URL:', window.location.href);
-    // console.log('Current time:', new Date().toISOString());
-    
+    if (chatInitialized) return;
+    initializeSettingsModal();
+
     const chatInput = $('#chatInput');
     const sendButton = $('#sendChatBtn');
     const chatMessages = $('#chatMessages');
-    // const statusPanel = $('#statusPanel'); // statusPanel not used, can be removed if not planned
-    
-    // console.log('jQuery elements search results:');
-    // console.log('- chatInput length:', chatInput.length);
-    // console.log('- sendButton length:', sendButton.length);
-    // console.log('- chatMessages length:', chatMessages.length);
-    // console.log('- statusPanel length:', statusPanel.length);
-    
-    // Also check with vanilla JavaScript
-    // const chatInputVanilla = document.getElementById('chatInput');
-    // const sendButtonVanilla = document.getElementById('sendChatBtn');
-    // const chatMessagesVanilla = document.getElementById('chatMessages');
-    
-    // console.log('Vanilla JS elements search results:');
-    // console.log('- chatInput found:', !!chatInputVanilla);
-    // console.log('- sendButton found:', !!sendButtonVanilla);
-    // console.log('- chatMessages found:', !!chatMessagesVanilla);
-    
-    // Check if aiChatSection exists and its state
-    // const aiChatSection = document.getElementById('aiChatSection');
-    // console.log('aiChatSection found:', !!aiChatSection);
-    // if (aiChatSection) {
-        // console.log('aiChatSection classes:', aiChatSection.className);
-        // console.log('aiChatSection visible:', !aiChatSection.classList.contains('d-none'));
-        // console.log('aiChatSection innerHTML length:', aiChatSection.innerHTML.length);
-    // }
-    
-    // Check if chat elements exist
+
     if (!chatInput.length || !sendButton.length || !chatMessages.length) {
-        console.error('❌ Chat elements not found, skipping chat initialization'); // Keep error log
-        // console.log('Missing elements details:');
-        // if (!chatInput.length) console.log('- chatInput missing');
-        // if (!sendButton.length) console.log('- sendButton missing');
-        // if (!chatMessages.length) console.log('- chatMessages missing');
         return;
     }
-    
-    // console.log('✅ All chat elements found, proceeding with initialization');
-    
-    // Send message on button click
-    sendButton.on('click', function() {
-        // console.log('Send button clicked via jQuery event');
-        sendChatMessage();
+
+    sendButton.on('click', sendChatMessage);
+    chatInput.on('keypress', function (e) {
+        if (e.which === 13) sendChatMessage();
     });
-    
-    // Send message on Enter key press
-    chatInput.on('keypress', function(e) {
-        if (e.which === 13) { // Enter key
-            // console.log('Enter key pressed in chat input');
-            sendChatMessage();
-        }
-    });
-    
-    // console.log('✅ Chat event listeners attached successfully');
-    // console.log('=== initializeChatInterface() completed ===');
+
     chatInitialized = true;
 }
 
 function sendChatMessage() {
-    // console.log('=== sendChatMessage() called ===');
-    
-    const chatInput = $('#chatInput');
-    const message = chatInput.val().trim();
-    
-    // console.log('Message from input:', message);
-    // console.log('Message length:', message.length);
-    
-    if (!message) {
-        // console.log('❌ Empty message, returning early');
+    if (!ensureApiKeyConfigured()) {
         return;
     }
-    
-    // console.log('✅ Valid message, proceeding with chat');
-    
-    // Clear input and disable send button
+
+    const chatInput = $('#chatInput');
+    const message = chatInput.val().trim();
+    if (!message) return;
+
     chatInput.val('');
     $('#sendChatBtn').prop('disabled', true);
-    // console.log('Input cleared and button disabled');
-    
-    // Add user message to chat
-    // console.log('Adding user message to chat');
     addMessageToChat('user', message);
-    
-    // Show typing indicator
-    // console.log('Showing typing indicator');
     showTypingIndicator();
-    
-    // Send request to API
-    // console.log('Sending AJAX request to /api/chat');
-    // console.log('Request payload:', { query: message });
-    
+
     $.ajax({
         url: '/api/chat',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({
-            query: message
-        }),
-        beforeSend: function(xhr) {
-            // console.log('AJAX request starting...');
-            // console.log('Request headers:', xhr.getAllResponseHeaders());
-        },
-        success: function(response) {
-            // console.log('✅ AJAX request successful');
-            // console.log('Response:', response);
+        data: JSON.stringify({ query: message }),
+        success: function (response) {
             hideTypingIndicator();
-            
             if (response.success) {
-                // console.log('Response indicates success');
-                // Format and add AI response to chat
-                const formattedResponse = formatAIResponse(response.ai_response);
-                addMessageToChat('ai', formattedResponse);
-                
-                // Handle search results if present
+                addMessageToChat('ai', formatAIResponse(response.ai_response));
                 if (response.search_results && response.search_results.success && response.search_results.results.length > 0) {
-                    // console.log('Displaying search results:', response.search_results.results.length, 'items');
-                    displaySearchResults(response.search_results);
+                    displayChatSearchResults(response.search_results);
                 }
-                
-                // Handle chart data if present
                 if (response.chart_data && response.chart_data.success) {
-                    // console.log('Displaying chart data');
-                    displayChart(response.chart_data);
+                    displayChatChart(response.chart_data);
                 }
             } else {
-                console.error('❌ Chat API Response indicates failure:', response.error); // Keep error log
-                addMessageToChat('ai', 'Sorry, I encountered an error processing your request: ' + (response.error || 'Unknown error'));
+                addMessageToChat('ai', 'Sorry, I encountered an error: ' + (response.error || 'Unknown error'));
             }
         },
-        error: function(xhr, status, error) {
-            console.error('❌ Chat AJAX request failed. Status:', status, 'Error:', error, 'Response:', xhr.responseText); // Keep error log
-            
+        error: function (xhr) {
             hideTypingIndicator();
-            addMessageToChat('ai', 'Sorry, I\'m having trouble connecting right now. Please try again.');
+            let err = "Sorry, I'm having trouble connecting. Please try again.";
+            try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.error) err = 'Error: ' + res.error;
+            } catch (_) {}
+            addMessageToChat('ai', err);
         },
-        complete: function() {
-            // console.log('AJAX request completed, re-enabling send button');
-            // Re-enable send button
+        complete: function () {
             $('#sendChatBtn').prop('disabled', false);
             chatInput.focus();
         }
     });
-    
-    // console.log('=== sendChatMessage() setup completed ===');
 }
 
 function addMessageToChat(sender, content) {
     const chatMessages = $('#chatMessages');
-    const timestamp = new Date().toLocaleTimeString();
-    
-    let messageHtml;
-    
+    const ts = new Date().toLocaleTimeString();
+    let html;
     if (sender === 'user') {
-        messageHtml = `
-            <div class="message user-message">
-                <div class="message-avatar">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="message-content">
-                    <strong>You</strong>
-                    <small class="text-muted ms-2">${timestamp}</small>
-                    <p>${escapeHtml(content)}</p>
-                </div>
-            </div>
-        `;
+        html = `<div class="message user-message"><div class="message-avatar"><i class="fas fa-user"></i></div><div class="message-content"><strong>You</strong><small class="text-muted ms-2">${ts}</small><p>${escapeHtmlGlobal(content)}</p></div></div>`;
     } else {
-        messageHtml = `
-            <div class="message ai-message">
-                <div class="message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="message-content">
-                    <strong>IMDb AI Assistant</strong>
-                    <small class="text-muted ms-2">${timestamp}</small>
-                    <div>${content}</div>
-                </div>
-            </div>
-        `;
+        html = `<div class="message ai-message"><div class="message-avatar"><i class="fas fa-robot"></i></div><div class="message-content"><strong>IMDb AI Assistant</strong><small class="text-muted ms-2">${ts}</small><div>${content}</div></div></div>`;
     }
-    
-    chatMessages.append(messageHtml);
-    
-    // Scroll to bottom
-    scrollChatToBottom();
-}
-
-function showTypingIndicator() {
-    const chatMessages = $('#chatMessages');
-    const typingHtml = `
-        <div class="message ai-message typing-indicator" id="typingIndicator">
-            <div class="message-avatar">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="message-content">
-                <strong>IMDb AI Assistant</strong>
-                <div class="typing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    chatMessages.append(typingHtml);
-    scrollChatToBottom();
-}
-
-function hideTypingIndicator() {
-    $('#typingIndicator').remove();
-}
-
-function scrollChatToBottom() {
-    const chatMessages = $('#chatMessages');
+    chatMessages.append(html);
     chatMessages.scrollTop(chatMessages[0].scrollHeight);
 }
 
-function displaySearchResults(searchResults) {
-    const results = searchResults.results;
-    const rowCount = searchResults.row_count;
-    
-    if (!results || results.length === 0) {
-        return;
-    }
-
-    // Determine the type of results for smarter presentation
-    const firstResult = results[0];
-    const hasMovieData = 'title' in firstResult || 'primary_title' in firstResult;
-    const hasPersonData = 'person_name' in firstResult || 'name' in firstResult;
-    const hasRatings = 'average_rating' in firstResult || 'rating' in firstResult;
-    const hasYears = 'premiered' in firstResult || 'year' in firstResult || 'start_year' in firstResult;
-    
-    // Create contextual results display
-    let resultsHtml = `
-        <div class="search-results-container mt-3">
-            <div class="results-header mb-3">
-                <h6 class="mb-2">
-                    <i class="fas fa-list-ul me-2 text-primary"></i>
-                    <span class="results-count badge bg-primary me-2">${rowCount}</span>
-                    ${rowCount === 1 ? 'Result' : 'Results'} Found
-                </h6>
-            </div>
-    `;
-
-    // For movie/show results, show as cards for better visual appeal
-    if (hasMovieData && results.length <= 6) {
-        resultsHtml += '<div class="row g-3">';
-        
-        results.slice(0, 6).forEach((result, index) => {
-            const title = result.title || result.primary_title || result.original_title || 'Unknown Title';
-            const year = result.premiered || result.start_year || result.year || '';
-            const rating = result.average_rating || result.rating || result.imdb_rating || '';
-            const genres = result.genres || '';
-            const type = result.title_type || 'Movie';
-            
-            resultsHtml += `
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm hover-card">
-                        <div class="card-body p-3">
-                            <h6 class="card-title text-primary mb-2" title="${escapeHtml(title)}">
-                                ${escapeHtml(title.length > 40 ? title.substring(0, 40) + '...' : title)}
-                            </h6>
-                            <div class="movie-details">
-                                ${year ? `<small class="text-muted d-block"><i class="fas fa-calendar me-1"></i>${escapeHtml(year)}</small>` : ''}
-                                ${rating ? `<small class="text-warning d-block"><i class="fas fa-star me-1"></i>${escapeHtml(rating)}</small>` : ''}
-                                ${genres ? `<small class="text-info d-block"><i class="fas fa-tags me-1"></i>${escapeHtml(genres.length > 30 ? genres.substring(0, 30) + '...' : genres)}</small>` : ''}
-                                ${type ? `<span class="badge bg-secondary mt-1">${escapeHtml(type)}</span>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        resultsHtml += '</div>';
-        
-        if (results.length > 6) {
-            resultsHtml += `
-                <div class="text-center mt-3">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Showing first 6 of ${rowCount} results
-                    </small>
-                </div>
-            `;
-        }
-    } 
-    // For large datasets or person data, use compact table
-    else {
-        resultsHtml += `
-            <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                    <thead class="table-dark">
-                        <tr>
-        `;
-        
-        // Add headers
-        const columns = Object.keys(results[0]);
-        columns.forEach(col => {
-            const displayCol = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            resultsHtml += `<th class="fw-semibold">${escapeHtml(displayCol)}</th>`;
-        });
-        resultsHtml += '</tr></thead><tbody>';
-        
-        // Add rows (limit to first 10 for chat display)
-        const displayResults = results.slice(0, 10);
-        displayResults.forEach((row, index) => {
-            resultsHtml += `<tr class="table-row-hover">`;
-            columns.forEach(col => {
-                let value = row[col];
-                if (value === null || value === undefined || value === '') {
-                    value = '—';
-                } else if (col.includes('rating') && !isNaN(value)) {
-                    value = `⭐ ${value}`;
-                } else if (col.includes('year') && !isNaN(value)) {
-                    value = `📅 ${value}`;
-                }
-                resultsHtml += `<td>${escapeHtml(String(value))}</td>`;
-            });
-            resultsHtml += '</tr>';
-        });
-        
-        resultsHtml += '</tbody></table>';
-        
-        if (results.length > 10) {
-            resultsHtml += `
-                <div class="text-center mt-2">
-                    <small class="text-muted">
-                        <i class="fas fa-ellipsis-h me-1"></i>
-                        Showing first 10 of ${rowCount} results
-                    </small>
-                </div>
-            `;
-        }
-        
-        resultsHtml += '</div>';
-    }
-    
-    resultsHtml += '</div>';
-    
-    // Add to the last AI message
-    const lastAiMessage = $('.message.ai-message').last().find('.message-content');
-    lastAiMessage.append(resultsHtml);
+function showTypingIndicator() {
+    const html = `<div class="message ai-message typing-indicator" id="typingIndicator"><div class="message-avatar"><i class="fas fa-robot"></i></div><div class="message-content"><strong>IMDb AI Assistant</strong><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
+    $('#chatMessages').append(html);
+    $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
 }
 
-function displayChart(chartData) {
-    if (!chartData.success || !chartData.chart_data) {
-        return;
-    }
-    
+function hideTypingIndicator() { $('#typingIndicator').remove(); }
+
+function displayChatSearchResults(searchResults) {
+    const results = searchResults.results;
+    const rowCount = searchResults.row_count;
+    if (!results || results.length === 0) return;
+
+    const cols = Object.keys(results[0]);
+    let html = `<div class="search-results-container mt-3"><div class="results-header mb-3"><h6 class="mb-2"><i class="fas fa-list-ul me-2 text-primary"></i><span class="results-count badge bg-primary me-2">${rowCount}</span>${rowCount === 1 ? 'Result' : 'Results'} Found</h6></div>`;
+    html += '<div class="table-responsive"><table class="table table-sm table-hover"><thead class="table-dark"><tr>';
+    cols.forEach(col => { html += `<th class="fw-semibold">${escapeHtmlGlobal(col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))}</th>`; });
+    html += '</tr></thead><tbody>';
+    results.slice(0, 10).forEach(row => {
+        html += '<tr>';
+        cols.forEach(col => {
+            let v = row[col];
+            v = (v == null || v === '') ? '—' : v;
+            html += `<td>${escapeHtmlGlobal(String(v))}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    if (results.length > 10) html += `<div class="text-center mt-2"><small class="text-muted"><i class="fas fa-ellipsis-h me-1"></i>Showing first 10 of ${rowCount} results</small></div>`;
+    html += '</div></div>';
+
+    $('.message.ai-message').last().find('.message-content').append(html);
+}
+
+function displayChatChart(chartData) {
+    if (!chartData.success || !chartData.chart_data) return;
     const chartId = 'chat-chart-' + Date.now();
-    const chartTitle = chartData.chart_data.options?.plugins?.title?.text || 'Data Visualization';
-    
-    // Create more engaging chart presentation
-    const chartHtml = `
-        <div class="chat-chart-container mt-4">
-            <div class="chart-header mb-3">
-                <h6 class="mb-1">
-                    <i class="fas fa-chart-line me-2 text-primary"></i>
-                    <span class="chart-title">${escapeHtml(chartTitle)}</span>
-                </h6>
-                <small class="text-muted">
-                    <i class="fas fa-magic me-1"></i>Here's the visual breakdown you requested!
-                </small>
-            </div>
-            <div class="chart-wrapper bg-white p-3 rounded shadow-sm border">
-                <canvas id="${chartId}" width="400" height="250"></canvas>
-            </div>
-            <div class="chart-footer mt-2">
-                <small class="text-muted">
-                    <i class="fas fa-lightbulb me-1"></i>
-                    <em>What patterns do you notice? Feel free to ask for more analysis!</em>
-                </small>
-            </div>
-        </div>
-    `;
-    
-    // Add to the last AI message
-    const lastAiMessage = $('.message.ai-message').last().find('.message-content');
-    lastAiMessage.append(chartHtml);
-    
-    // Initialize the chart with enhanced styling
+    const title = chartData.chart_data.options?.plugins?.title?.text || 'Data Visualization';
+    const html = `<div class="chat-chart-container mt-4"><div class="chart-header mb-3"><h6 class="mb-1"><i class="fas fa-chart-line me-2 text-primary"></i><span class="chart-title">${escapeHtmlGlobal(title)}</span></h6></div><div class="chart-wrapper bg-white p-3 rounded shadow-sm border"><canvas id="${chartId}" width="400" height="250"></canvas></div></div>`;
+    $('.message.ai-message').last().find('.message-content').append(html);
     setTimeout(() => {
         const ctx = document.getElementById(chartId);
         if (ctx) {
-            // Enhance chart configuration for better visual appeal
-            const chartConfig = chartData.chart_data;
-            if (chartConfig.options) {
-                chartConfig.options.responsive = true;
-                chartConfig.options.maintainAspectRatio = false;
-                
-                // Add subtle animations
-                chartConfig.options.animation = {
-                    duration: 1500,
-                    easing: 'easeInOutQuart'
-                };
-                
-                // Enhance grid styling
-                if (chartConfig.options.scales) {
-                    if (chartConfig.options.scales.y) {
-                        chartConfig.options.scales.y.grid = {
-                            color: 'rgba(0,0,0,0.05)',
-                            lineWidth: 1
-                        };
-                    }
-                    if (chartConfig.options.scales.x) {
-                        chartConfig.options.scales.x.grid = {
-                            display: false
-                        };
-                    }
-                }
+            const cfg = chartData.chart_data;
+            if (cfg.options) {
+                cfg.options.responsive = true;
+                cfg.options.maintainAspectRatio = false;
+                cfg.options.animation = { duration: 1500, easing: 'easeInOutQuart' };
             }
-            
-            new Chart(ctx, chartConfig);
+            new Chart(ctx, cfg);
         }
     }, 100);
 }
 
-function escapeHtml(unsafe) {
-    if (typeof unsafe !== 'string') {
-        return unsafe;
-    }
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Add click handlers for example cards in welcome message
-$(document).on('click', '.example-card', function() {
-    const exampleText = $(this).find('small').text().replace(/['"]/g, '');
-    const chatInput = $('#chatInput');
-    
-    if (chatInput.length && exampleText) {
-        chatInput.val(exampleText);
-        chatInput.focus();
-        
-        // Add a subtle animation to indicate the text was added
-        chatInput.addClass('example-filled');
-        setTimeout(() => {
-            chatInput.removeClass('example-filled');
-        }, 1000);
-    }
-});
-
-// Helper function to make AI responses feel more natural
 function formatAIResponse(response) {
-    // Add some personality to responses if they seem too robotic
     if (response && typeof response === 'string') {
-        // Add conversational touches to common patterns
         response = response.replace(/^Here are the results:?/i, 'Here\'s what I found for you:');
         response = response.replace(/^The search returned/i, 'I discovered');
         response = response.replace(/Found (\d+) results?/i, 'Great! I found $1 matches');
-        response = response.replace(/No results found/i, 'Hmm, I couldn\'t find anything matching that. Want to try a different search?');
     }
     return response;
 }
+
+function escapeHtmlGlobal(unsafe) {
+    if (typeof unsafe !== 'string') return unsafe;
+    return unsafe.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+$(document).on('click', '.example-card', function () {
+    const text = $(this).find('small').text().replace(/['"]/g, '');
+    const chatInput = $('#chatInput');
+    if (chatInput.length && text) {
+        chatInput.val(text).focus();
+    }
+});

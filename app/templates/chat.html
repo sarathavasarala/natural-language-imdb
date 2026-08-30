@@ -29,13 +29,17 @@
                 <i class="fas fa-film me-2 text-warning"></i>
                 IMDb Intelligence
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('main.home') }}">
-                    <i class="fas fa-search me-2"></i>Simple Search
+            <div class="navbar-nav ms-auto d-flex align-items-center flex-row gap-2">
+                <a class="nav-link px-2" href="{{ url_for('main.home') }}">
+                    <i class="fas fa-search me-1"></i>Simple Search
                 </a>
-                <a class="nav-link active" href="{{ url_for('main.chat') }}">
-                    <i class="fas fa-comments me-2"></i>AI Chat
+                <a class="nav-link active px-2" href="{{ url_for('main.chat') }}">
+                    <i class="fas fa-comments me-1"></i>AI Chat
                 </a>
+                <button class="btn btn-outline-warning btn-sm ms-2 d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Key">
+                    <i class="fas fa-gear"></i>
+                    <span id="settingsStatusBadge" class="badge bg-secondary ms-1">Server Key</span>
+                </button>
             </div>
         </div>
     </nav>
@@ -56,7 +60,7 @@
                                 <div class="message-content">
                                     <strong>IMDb AI Assistant</strong>
                                     <small class="text-muted ms-2">Ready to explore cinema!</small>
-                                    <p class="mt-2">Hey there, movie lover! 🎬 I'm your friendly IMDb assistant and I'm absolutely <em>passionate</em> about helping you discover amazing films and shows!</p>
+                                    <p class="mt-2">Hey there, movie lover! 🎬 I'm your friendly IMDb assistant and I'm ready to query millions of movie &amp; TV records on Azure Blob Storage!</p>
                                     
                                     <p>I can help you with things like:</p>
                                     <div class="row g-2 mb-3">
@@ -74,19 +78,19 @@
                                         </div>
                                         <div class="col-md-6">
                                             <div class="example-card p-2 bg-light border rounded">
-                                                <strong>🎭 Actor Deep-Dives</strong><br>
-                                                <small class="text-muted">"Show me Meryl Streep's best films"</small>
+                                                <strong>🎭 Actor Collaborations</strong><br>
+                                                <small class="text-muted">"Movies with DiCaprio and Kate Winslet"</small>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="example-card p-2 bg-light border rounded">
-                                                <strong>🏆 Trend Analysis</strong><br>
-                                                <small class="text-muted">"What genres are trending lately?"</small>
+                                                <strong>🏆 Top Ratings</strong><br>
+                                                <small class="text-muted">"Highest rated movies from 2023"</small>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <p class="mb-2"><strong>What would you like to explore first?</strong> Just ask me naturally - I love a good conversation about movies! 😊</p>
+                                    <p class="mb-2"><strong>What would you like to explore first?</strong> Just ask me naturally! 😊</p>
                                 </div>
                             </div>
                         </div>
@@ -126,12 +130,76 @@
         </div>
     </div>
 
+    <!-- Settings Modal for Azure OpenAI / Foundry Key -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="settingsModalLabel">
+                        <i class="fas fa-key me-2 text-warning"></i>
+                        Azure AI Foundry Credentials
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Enter your Azure AI Foundry / OpenAI API credentials below. Your credentials are saved securely in your browser's <strong>LocalStorage</strong> and never stored on the server.
+                    </p>
+                    <form id="settingsForm">
+                        <div class="mb-3">
+                            <label for="customApiKey" class="form-label small fw-bold">Azure AI Foundry / OpenAI API Key <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="customApiKey" placeholder="Paste your API key here..." required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleApiKeyVisibility">
+                                    <i class="fas fa-eye" id="toggleApiKeyIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customEndpoint" class="form-label small fw-bold">Endpoint URL <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="customEndpoint" placeholder="https://your-resource.openai.azure.com" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="customModel" class="form-label small fw-bold">Model / Deployment Name</label>
+                                <input type="text" class="form-control" id="customModel" placeholder="e.g. gpt-4o">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="customApiVersion" class="form-label small fw-bold">API Version</label>
+                                <input type="text" class="form-control" id="customApiVersion" placeholder="2025-04-01-preview">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="resetSettingsBtn">
+                        <i class="fas fa-trash me-1"></i> Clear Key
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning btn-sm fw-bold" id="saveSettingsBtn">
+                            <i class="fas fa-save me-1"></i> Save to Browser
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for feedback -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:11">
+        <div id="copyToast" class="toast align-items-center text-bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body"><i class="fas fa-check me-2"></i><span id="toastMsg">Saved!</span></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
     <script>
-        // Initialize chat interface when the page loads
         $(document).ready(function() {
-            console.log('AI Chat page loaded, initializing chat interface...');
             initializeChatInterface();
         });
     </script>

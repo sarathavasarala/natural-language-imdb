@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IMDb Intelligence | Natural Language Movie Search</title>
+    <meta name="description" content="Search the complete IMDb database using natural language. AI-powered movie and TV show search with instant results.">
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
@@ -34,193 +35,207 @@
                 <i class="fas fa-film me-2 text-warning"></i>
                 IMDb Intelligence
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link active" href="{{ url_for('main.home') }}">
-                    <i class="fas fa-search me-2"></i>Simple Search
+            <div class="navbar-nav ms-auto d-flex align-items-center flex-row gap-2">
+                <a class="nav-link active px-2" href="{{ url_for('main.home') }}">
+                    <i class="fas fa-search me-1"></i>Simple Search
                 </a>
-                <a class="nav-link" href="{{ url_for('main.chat') }}">
-                    <i class="fas fa-comments me-2"></i>AI Chat
+                <a class="nav-link px-2" href="{{ url_for('main.chat') }}">
+                    <i class="fas fa-comments me-1"></i>AI Chat
                 </a>
+                <button class="btn btn-outline-warning btn-sm ms-2 d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Key">
+                    <i class="fas fa-gear"></i>
+                    <span id="settingsStatusBadge" class="badge bg-secondary ms-1">Server Key</span>
+                </button>
             </div>
         </div>
     </nav>
 
-    <!-- Simple Search Section (Default) -->
+    <!-- Simple Search Section -->
     <div id="simpleSearchSection" class="main-section">
-        <!-- Hero Section (Full Width) -->
-        <div class="hero-section text-center mb-5">
-            <h1 class="display-5 fw-bold text-dark mb-3">
-                Ask anything about movies & TV shows
+        <!-- Hero Section -->
+        <div class="hero-section text-center mb-0">
+            <h1 class="display-5 fw-bold text-white mb-3">
+                Ask anything about movies &amp; TV shows
             </h1>
-            <p class="lead text-muted mb-4">
+            <p class="lead text-white mb-4" style="opacity:0.9">
                 Use natural language to explore the complete IMDb database with AI-powered search
             </p>
+
+            <!-- Search Bar (inside hero for visual punch) -->
+            <div class="container" style="max-width: 820px;">
+                <form id="searchForm" class="search-form" autocomplete="off">
+                    <div class="input-group input-group-lg shadow-lg">
+                        <span class="input-group-text bg-white border-0">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input type="text" 
+                                id="query" 
+                                name="query" 
+                                class="form-control form-control-lg border-0" 
+                                placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
+                                required>
+                        <button type="submit" class="btn btn-warning btn-lg px-4 fw-bold" id="searchBtn">
+                            <i class="fas fa-bolt me-1"></i>
+                            Search
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <!-- Main Content Container -->
-        <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <div class="px-4 py-2">
-                        <!-- Original Search Form -->
-                        <form method="POST" class="search-form mb-4">
-                            <div class="row g-2">
-                                <div class="col">
-                                    <div class="input-group input-group-lg">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-search text-muted"></i>
-                                        </span>
-                                        <input type="text" 
-                                               id="query" 
-                                               name="query" 
-                                               class="form-control form-control-lg" 
-                                               placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
-                                               value="{{ query or '' }}" 
-                                               required
-                                               autocomplete="off">
+        <!-- Suggested Query Chips -->
+        <div class="container mt-0">
+            <div id="suggestedChips" class="suggested-chips-bar py-3">
+                <div class="d-flex align-items-center flex-wrap gap-2 justify-content-center">
+                    <span class="chips-label text-muted small me-1"><i class="fas fa-lightbulb me-1"></i>Try:</span>
+                    {% for sq in suggested_queries %}
+                    <button class="chip" data-query="{{ sq }}">{{ sq }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="container mt-2">
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-5 d-none">
+                <div class="spinner-grow text-primary" role="status" style="width:3rem;height:3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mt-3">
+                    <h5 class="text-muted">Analyzing your query...</h5>
+                    <p class="text-secondary small">AI is querying IMDb Parquet on Azure Blob Storage</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="d-none">
+                <div class="alert alert-danger border-0 shadow-sm" role="alert">
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-exclamation-triangle me-3 mt-1 fs-4"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1 fw-bold" id="errorTitle">Search Failed</h6>
+                            <p class="mb-2" id="errorMessage"></p>
+                            <div id="errorSuggestions" class="d-none">
+                                <small class="text-muted d-block mb-2">Try one of these instead:</small>
+                                <div id="errorSuggestionChips" class="d-flex flex-wrap gap-2"></div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger mt-2" id="retryBtn">
+                                <i class="fas fa-redo me-1"></i> Try again
+                            </button>
+                        </div>
+                        <button type="button" class="btn-close" id="dismissError"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Meta Bar (count, time, SQL, copy link, filters toggle) -->
+            <div id="resultsMeta" class="d-none">
+                <div class="results-meta-bar d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="result-count-badge">
+                            <i class="fas fa-check-circle me-1 text-success"></i>
+                            <strong id="resultCount">0</strong> results
+                        </span>
+                        <span class="text-muted small" id="executionTime"></span>
+                        <button class="btn btn-sm btn-outline-secondary" id="toggleSqlBtn" data-bs-toggle="collapse" data-bs-target="#sqlPanel">
+                            <i class="fas fa-code me-1"></i>SQL
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="copyLinkBtn" title="Copy shareable link">
+                            <i class="fas fa-link me-1"></i>Share
+                        </button>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" id="toggleFiltersBtn">
+                            <i class="fas fa-filter me-1"></i>Filters
+                            <span class="badge bg-primary ms-1 d-none" id="activeFilterCount">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SQL Panel (collapsed) -->
+                <div class="collapse mb-3" id="sqlPanel">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <pre class="mb-0 rounded"><code id="sqlDisplay" class="sql"></code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Panel (collapsed) -->
+                <div id="filterPanel" class="filter-panel d-none mb-4">
+                    <div class="card border border-light-subtle shadow-sm rounded-4">
+                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0 px-4">
+                            <h6 class="mb-0 fw-bold text-dark"><i class="fas fa-sliders-h me-2 text-primary"></i>Refine Results</h6>
+                        </div>
+                        <div class="card-body px-4 pb-4 pt-3">
+                            <div class="row g-4">
+                                <!-- Genre Filters -->
+                                <div class="col-12">
+                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">Genres</label>
+                                    <div id="genreFilters" class="d-flex flex-wrap gap-2"></div>
+                                </div>
+                                <div class="col-12 m-0 mt-3">
+                                    <hr class="text-black-50 my-0">
+                                </div>
+                                <!-- Year Range -->
+                                <div class="col-md-4 mt-3">
+                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">Release Year</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-alt text-muted"></i></span>
+                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="yearMin" placeholder="Min" min="1900" max="2030">
+                                        <span class="input-group-text bg-light border-start-0 border-end-0 text-muted px-2">to</span>
+                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="yearMax" placeholder="Max" min="1900" max="2030">
                                     </div>
                                 </div>
-                                <div class="col-auto">
-                                    <button type="submit" class="btn btn-primary btn-lg px-4" id="searchBtn">
-                                        <i class="fas fa-search me-2"></i>
-                                        Search!
+                                <!-- Rating Range -->
+                                <div class="col-md-4 mt-3">
+                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">IMDb Rating</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-star text-warning"></i></span>
+                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="ratingMin" placeholder="0.0" min="0" max="10" step="0.1">
+                                        <span class="input-group-text bg-light border-start-0 border-end-0 text-muted px-2">to</span>
+                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="ratingMax" placeholder="10.0" min="0" max="10" step="0.1">
+                                    </div>
+                                </div>
+                                <!-- Clear + Apply -->
+                                <div class="col-md-4 mt-3 d-flex align-items-end gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm flex-fill fw-medium rounded-2" id="clearFilters">
+                                        Clear All
+                                    </button>
+                                    <button class="btn btn-primary btn-sm flex-fill fw-medium rounded-2 shadow-sm" id="applyFilters">
+                                        Apply Filters
                                     </button>
                                 </div>
                             </div>
-                        </form>
-
-                        <!-- Loading State -->
-                        <div id="loadingState" class="text-center py-5 d-none">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <div class="mt-3">
-                                <h5 class="text-muted">Analyzing your query...</h5>
-                                <p class="text-secondary">AI is generating the perfect database query</p>
-                            </div>
                         </div>
-
-                        <!-- Error Message -->
-                        {% if error_message %}
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Query Failed:</strong> {{ error_message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endif %}
-
-                        <!-- Chart Display Area (Simple Search Only) -->
-                        <div id="chartContainer" class="chart-container d-none mb-4">
-                            <div class="card shadow-sm">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="card-title mb-0">
-                                        <i class="fas fa-chart-bar me-2"></i>
-                                        <span id="chartTitle">Data Visualization</span>
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="chart-wrapper">
-                                        <canvas id="dataChart" width="400" height="200"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Results Summary -->
-                        <div id="resultsSummary" class="results-summary d-none mb-4">
-                            <div class="card border-success">
-                                <div class="card-body">
-                                    <h6 class="card-title text-success">
-                                        <i class="fas fa-check-circle me-2"></i>
-                                        Results Summary
-                                    </h6>
-                                    <div id="summaryText"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Results content follows here -->
-                        {% if results is not none %}
-                        {% if results %}
-                            <div class="card shadow-sm">
-                                <div class="card-header bg-white">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-table me-2 text-primary"></i>
-                                        Search Results
-                                        <span class="badge bg-primary ms-2">{{ results|length }}</span>
-                                    </h5>
-                                </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive p-3">
-                                        <table id="resultsTable" class="table table-hover table-striped mb-0">
-                                            <thead class="table-dark">
-                                                <tr>
-                                                    {% for col in results[0].keys() %}
-                                                        <th class="fw-semibold" 
-                                                            data-column="{{ col }}"
-                                                            {% if col in ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number'] %}data-type="numeric"{% endif %}>
-                                                            {{ col|title|replace('_', ' ') }}
-                                                        </th>
-                                                    {% endfor %}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for row in results %}
-                                                    <tr>
-                                                        {% for col, value in row.items() %}
-                                                            <td {% if col in ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number'] and value %}data-sort="{{ value }}"{% endif %}>
-                                                                {% if col == "title_id" and value %}
-                                                                    <a href="https://www.imdb.com/title/{{ value }}/" 
-                                                                       target="_blank" 
-                                                                       class="text-decoration-none">
-                                                                        <i class="fas fa-external-link-alt me-1"></i>
-                                                                        {{ value }}
-                                                                    </a>
-                                                                {% elif col == "primary_title" and value %}
-                                                                    <div class="d-flex align-items-center">
-                                                                        <span class="me-2">{{ value }}</span>
-                                                                        <button class="btn btn-sm btn-outline-primary ai-summary-btn" 
-                                                                                data-title-id="{{ row.get('title_id', '') }}"
-                                                                                data-title-name="{{ value }}"
-                                                                                data-bs-toggle="tooltip" 
-                                                                                data-bs-placement="top" 
-                                                                                title="Generate AI Summary">
-                                                                            <i class="fa-solid fa-wand-magic-sparkles"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                {% elif col == "rating" and value %}
-                                                                    <span class="badge bg-warning text-dark">
-                                                                        <i class="fas fa-star"></i> {{ value }}
-                                                                    </span>
-                                                                {% elif col == "votes" and value %}
-                                                                    <span class="text-muted">
-                                                                        {{ "{:,}".format(value) }} votes
-                                                                    </span>
-                                                                {% elif col == "premiered" and value %}
-                                                                    <span class="badge bg-secondary">{{ value }}</span>
-                                                                {% else %}
-                                                                    {{ value or '—' }}
-                                                                {% endif %}
-                                                            </td>
-                                                        {% endfor %}
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="text-center py-5">
-                                <div class="text-muted mb-3">
-                                    <i class="fas fa-search fa-3x"></i>
-                                </div>
-                                <h5 class="text-muted">No results found</h5>
-                                <p class="text-secondary">Try rephrasing your query or use one of the suggestions.</p>
-                            </div>
-                        {% endif %}
-                    {% endif %}
+                    </div>
                 </div>
+            </div>
+
+            <!-- Results Table Container (dynamically filled) -->
+            <div id="resultsContainer" class="d-none">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive p-3">
+                            <table id="resultsTable" class="table table-hover table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr id="tableHead"></tr>
+                                </thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Results State -->
+            <div id="noResultsState" class="text-center py-5 d-none">
+                <div class="text-muted mb-3">
+                    <i class="fas fa-search fa-3x"></i>
+                </div>
+                <h5 class="text-muted">No results found</h5>
+                <p class="text-secondary">Try rephrasing your query or use one of the suggestions above.</p>
             </div>
         </div>
     </div>
@@ -262,6 +277,72 @@
                         Regenerate
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal for Azure OpenAI / Foundry Key -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="settingsModalLabel">
+                        <i class="fas fa-key me-2 text-warning"></i>
+                        Azure AI Foundry Credentials
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Enter your Azure AI Foundry / OpenAI API credentials below. Your credentials are saved securely in your browser's <strong>LocalStorage</strong> and never stored on the server.
+                    </p>
+                    <form id="settingsForm">
+                        <div class="mb-3">
+                            <label for="customApiKey" class="form-label small fw-bold">Azure AI Foundry / OpenAI API Key <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="customApiKey" placeholder="Paste your API key here..." required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleApiKeyVisibility">
+                                    <i class="fas fa-eye" id="toggleApiKeyIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customEndpoint" class="form-label small fw-bold">Endpoint URL <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="customEndpoint" placeholder="https://your-resource.openai.azure.com" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="customModel" class="form-label small fw-bold">Model / Deployment Name</label>
+                                <input type="text" class="form-control" id="customModel" placeholder="e.g. gpt-4o">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="customApiVersion" class="form-label small fw-bold">API Version</label>
+                                <input type="text" class="form-control" id="customApiVersion" placeholder="2025-04-01-preview">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="resetSettingsBtn">
+                        <i class="fas fa-trash me-1"></i> Clear Key
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning btn-sm fw-bold" id="saveSettingsBtn">
+                            <i class="fas fa-save me-1"></i> Save to Browser
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for feedback -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:11">
+        <div id="copyToast" class="toast align-items-center text-bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body"><i class="fas fa-check me-2"></i><span id="toastMsg">Saved!</span></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
         </div>
     </div>

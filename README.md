@@ -1,154 +1,122 @@
-# IMDb Text-to-SQL Search
+# IMDb Intelligence — Natural Language Text-to-SQL Search
 
-A Flask web application that converts natural language queries into SQL searches against an IMDb database using Azure OpenAI.
+A modern web application that converts natural language questions into SQL queries against the complete IMDb dataset using **Azure AI Foundry / OpenAI** and executes them with **DuckDB** directly over **Azure Blob Storage** Parquet files.
 
 ![IMDb Intelligence Interface](natural%20language%20imdb.jpeg)
 
-## Features
+🌐 **Live Demo:** [https://imdb-intelligence-app.azurewebsites.net](https://imdb-intelligence-app.azurewebsites.net)
 
-- Natural language to SQL conversion using any LLM deployed on Azure OpenAI
-- Web interface for query input and results display
-- Query suggestions and examples
-- Interactive data tables with sorting and filtering
-- Copy generated SQL queries for further analysis
-- AI-powered chat interface for conversational search
-- Bar chart generation for temporal data (e.g., actor's movies by year)
-- AI-generated summaries for individual movie/TV show titles
+---
 
-## Setup Instructions
+## 🌟 Key Features
 
-### 1. Install Dependencies
+- **Natural Language to SQL**: Converts questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
+- **Serverless Parquet Engine (DuckDB)**: Queries compressed Parquet files directly on Azure Blob Storage over HTTP Range Requests with **zero local disk footprint** (~1.3 GB cloud total vs. 19 GB SQLite).
+- **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI; it stays saved in your browser's `localStorage` and is never persisted on the server.
+- **AI Chat & Data Visualizations**: Conversational assistant that creates dynamic Chart.js visualizations (timelines, bar charts) and title summaries.
+- **Interactive Data Explorer**: Instant client-side filtering, sorting, pagination, and SQL query export.
+- **Containerized & Cloud-Ready**: Fully Dockerized with Gunicorn and pre-cached DuckDB Azure extensions.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Run Locally (Python Virtualenv)
 
 ```bash
+# Clone the repository
+git clone https://github.com/sarathavasarala/natural-language-imdb.git
+cd natural-language-imdb
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Configure API Keys
-
-1. Copy the configuration template:
-   ```bash
-   cp config.template.py config.py
-   ```
-
-2. Edit `config.py` and add your Azure OpenAI credentials:
-   ```python
-   AZURE_OPENAI_API_KEY = "your_api_key_here"
-   AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com/"
-   ```
-
-### 3. Database Setup
-
-The IMDb database (`db/imdb.db`) is created using the `imdb-sqlite` package, which downloads and imports the latest IMDb data from their official TSV files. The database contains:
-
-- 9+ million people (actors, directors, writers, etc.)
-- 5+ million titles (movies, TV shows, episodes, etc.)  
-- 3+ million alternative titles (different languages/regions)
-- 29+ million crew relationships (who worked on what)
-- 3+ million episode records
-- 850k+ ratings
-
-The database file is approximately 19GB and is excluded from version control.
-
-**Note**: To regenerate the database with fresh IMDb data:
-```bash
-# Remove old database and cache (optional)
-rm -f db/imdb.db
-rm -rf downloads/
-
-# Import fresh data
-imdb-sqlite --db db/imdb.db --cache-dir downloads --verbose
-```
-
-### 4. Run the Application
-
-```bash
+# Start the application
 python run.py
 ```
 
-The application will be available at `http://localhost:5001`
+The app will be live at `http://localhost:5001`. Open the ⚙️ **Settings** modal in the navbar to enter your Azure OpenAI / Foundry credentials.
 
-## Usage
+---
 
-The application offers two main modes of interaction:
+### 2. Run with Docker
 
-**1. Simple Search (Default Tab):**
-   1. Enter a natural language query in the search box (e.g., "Highest rated movies from 2023").
-   2. Click "Search with AI" to process your query.
-   3. View results in the interactive table that appears below the search box.
-   4. Use the sidebar suggestions for query examples.
-   5. You can copy the generated SQL query for further analysis.
-   6. Click on the "AI Summary" button next to a title in the results to get an AI-generated summary for that movie or show.
-
-**2. AI Chat (Navigate to "AI Chat" Tab):**
-   1. Use the chat interface to ask questions or give instructions conversationally (e.g., "Can you find sci-fi movies starring Keanu Reeves?").
-   2. The AI will respond, potentially asking clarifying questions or providing results directly in the chat.
-   3. For queries that can be visualized, you can ask for charts (e.g., "Plot Harrison Ford's movies by year"). The AI will generate and display the chart in the chat.
-   4. Search results from the chat may also be displayed in a compact table within the chat interface.
-
-### Example Queries
-
-**Basic Searches (Can be used in Simple Search or AI Chat):**
-- "Find movies where Robert De Niro and Al Pacino acted together"
-- "Show me the highest rated movies from 2020"
-- "List all episodes of The Office TV show"
-- "What are Christopher Nolan's top rated movies?"
-- "Movies with Tom Hanks"
-- "Best sci-fi movies from the 2010s"
-
-**Advanced Searches:**
-- "Sci-fi movies from the 2010s with ratings above 8.0"
-- "Directors who made both horror and comedy movies"
-- "Actors who worked with Steven Spielberg multiple times"
-- "Movies from 2015-2020 with ratings above 7.5"
-- "All Martin Scorsese movies sorted by rating"
-- "Horror movies from the 1980s"
-
-**Chart Generation (Primarily for AI Chat):**
-- "Plot Tom Hanks movies by year"
-- "Show a chart of Harrison Ford's career timeline"
-- "Chart Meryl Streep's films over time"
-- "Visualize Christopher Nolan's filmography by year"
-
-**Note:** The IMDb database contains movie/TV metadata, ratings, and crew information. It does not include award data (Oscars, etc.), franchise associations (Marvel, DC), or separate critic/audience scores. Queries requiring this external data may not produce expected results.
-
-## Project Structure
-
-```
-imdb_project/
-├── app/
-│   ├── __init__.py
-│   ├── views.py          # Main application logic and API endpoints
-│   ├── templates/
-│   │   └── index.html    # Web interface
-│   └── static/
-│       ├── style.css     # Styles
-│       └── app.js        # Frontend functionality
-├── db/
-│   └── imdb.db          # SQLite database (12GB, excluded from git)
-├── config.py            # Configuration (API keys, excluded from git)
-├── config.template.py   # Configuration template
-├── requirements.txt     # Python dependencies
-├── run.py              # Application entry point
-└── README.md           # This file
+```bash
+docker compose up --build
 ```
 
-## Database Schema
+Access the application at `http://localhost:5001`.
 
-The application uses the following IMDb database tables:
+---
 
-- **people**: person_id, name, born, died
-- **titles**: title_id, type, primary_title, original_title, is_adult, premiered, ended, runtime_minutes, genres
-- **akas**: title_id, title, region, language, types, attributes, is_original_title
-- **crew**: title_id, person_id, category, job, characters
-- **episodes**: episode_title_id, show_title_id, season_number, episode_number
-- **ratings**: title_id, rating, votes
+## ☁️ Azure Cloud Deployment
 
-## Configuration
+The application is deployed to an isolated Azure Resource Group (`rg-imdb-intelligence`):
 
-The `config.py` file contains API keys and is excluded from version control. Use `config.template.py` as a reference for required configuration values.
+1. **Storage Account**: `stimdbdataeastus` with blob container `imdb-data`.
+2. **App Service Plan**: `asp-imdb-intelligence` (Linux).
+3. **Web App**: `imdb-intelligence-app.azurewebsites.net`.
 
-## Dependencies
+### Deploy Updates to Azure Web App
 
-- Flask: Web framework
-- openai: Azure OpenAI client library
-- sqlite3: Database (included with Python)
+```bash
+# Create deployment package
+zip -r deploy.zip app run.py config.py requirements.txt -x "*.DS_Store" "*__pycache__*"
+
+# Deploy to Azure
+az webapp deploy \
+  --name imdb-intelligence-app \
+  --resource-group rg-imdb-intelligence \
+  --src-path deploy.zip \
+  --type zip
+```
+
+---
+
+## 🔄 Automated ETL Pipeline (IMDb TSVs ➔ Azure Parquet)
+
+To download the latest daily dataset from IMDb (`https://datasets.imdbws.com/`) and convert directly to ZSTD-compressed Parquet in Azure Blob Storage:
+
+```bash
+python scripts/etl_imdb_to_parquet.py \
+  --connection-string "<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
+  --container "imdb-data"
+```
+
+To refresh specific tables only:
+```bash
+python scripts/etl_imdb_to_parquet.py --tables titles ratings
+```
+
+---
+
+## 📊 Dataset Schema
+
+| Table | Remote URI | Description |
+| :--- | :--- | :--- |
+| **`titles`** | `azure://imdb-data/titles.parquet` | All movies, series, episodes, release years, runtime, genres |
+| **`ratings`** | `azure://imdb-data/ratings.parquet` | Weighted average IMDb ratings and vote counts |
+| **`people`** | `azure://imdb-data/people.parquet` | Cast and crew names, birth and death years |
+| **`crew`** | `azure://imdb-data/crew.parquet` | Principal cast/crew roles, characters, and billing order |
+| **`episodes`** | `azure://imdb-data/episodes.parquet` | TV series season and episode number relationships |
+| **`akas`** | `azure://imdb-data/akas.parquet` | International localized and alternative titles |
+
+---
+
+## 💡 Example Queries
+
+- *"Find movies where Robert De Niro and Al Pacino acted together"*
+- *"Highest rated sci-fi movies from the 2020s with over 100,000 votes"*
+- *"List all episodes of The Office TV show sorted by rating"*
+- *"Show a chart of Tom Hanks movies by year"*
+- *"Directors who made both horror and comedy films"*
+
+---
+
+## 📄 License
+
+IMDb datasets are provided for personal and non-commercial use only by IMDb.

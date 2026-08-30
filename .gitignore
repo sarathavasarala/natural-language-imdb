@@ -46,12 +46,23 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-config.py  # Contains API keys - should not be committed
+config.py
 *.log
+INTERVIEW_PREP.md
 
 # Database and cache
-db/imdb.db  # Large IMDB database file (~18GB)
-downloads/  # IMDB TSV download cache
+db/imdb.db
+downloads/
+deploy.zip
+
+# Agent and scratch files
+.agent/
+.agents/
+.codex/
+.gemini/
+.hermes/
+.opencode/
+image.png
 
 # Virtual environment
 imdb_env/
