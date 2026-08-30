@@ -335,9 +335,16 @@ def validate_sql_query(sql_query):
 
 def extract_filter_literals(sql_query, user_query=""):
     """
-    Extract string literals from SQL WHERE clauses and natural language user query.
+    Extract string literals from SQL WHERE clauses and natural language user query,
+    ignoring common keywords, table formats, roles, and numeric/date constants.
     """
     literals = set()
+    stopwords = {
+        'movie', 'tvmovie', 'tvseries', 'short', 'tvepisode', 'video', 'tvshort', 'tvminiseries', 'tvspecial',
+        'actor', 'actress', 'director', 'writer', 'producer', 'self', 'archive_footage', 'cinematographer', 'composer', 'editor',
+        'drama', 'comedy', 'action', 'thriller', 'romance', 'adventure', 'sci-fi', 'horror', 'crime', 'mystery',
+        'animation', 'fantasy', 'documentary', 'biography', 'history', 'family', 'music', 'musical', 'war', 'western', 'sport'
+    }
     
     # Extract string literals in SQL (e.g., = 'foo' or LIKE '%foo%' or ILIKE '%foo%')
     sql_matches = re.findall(r"(?:=\s*'([^']+)'|LIKE\s*'([^']+)'|ILIKE\s*'([^']+)')", sql_query, flags=re.IGNORECASE)
@@ -345,17 +352,20 @@ def extract_filter_literals(sql_query, user_query=""):
         for match in group:
             if match:
                 cleaned = match.replace('%', '').strip()
-                if len(cleaned) >= 2 and cleaned.lower() not in (
-                    'movie', 'tvmovie', 'tvseries', 'short', 'tvepisode', 'video',
-                    'actor', 'actress', 'director', 'writer', 'producer', 'self', 'archive_footage'
-                ):
+                # Skip numeric constants, dates, short codes, and stopwords
+                if (len(cleaned) >= 2 and 
+                    not re.match(r'^\d+(\.\d+)?$', cleaned) and 
+                    cleaned.lower() not in stopwords and 
+                    cleaned.lower() not in ('us', 'gb', 'fr', 'de', 'jp', 'in', 'ca', 'au', 'en', 'es', 'it')):
                     literals.add(cleaned)
 
     if user_query:
+        # Check for quoted phrases in user query
         quoted = re.findall(r'["\']([^"\']+)["\']', user_query)
         for q in quoted:
-            if len(q.strip()) >= 2:
-                literals.add(q.strip())
+            cleaned_q = q.strip()
+            if len(cleaned_q) >= 2 and not re.match(r'^\d+$', cleaned_q) and cleaned_q.lower() not in stopwords:
+                literals.add(cleaned_q)
 
     return list(literals)
 
@@ -465,7 +475,6 @@ def _responses_api_completion(client, model_name, messages):
         choices=[SimpleNamespace(message=SimpleNamespace(content=output_text))]
     )
 
-
 def _should_use_responses_fallback(error):
     """Only retry API-shape failures, not auth, quota, or transient service errors."""
     status_code = getattr(error, "status_code", None)
@@ -476,7 +485,6 @@ def _should_use_responses_fallback(error):
         phrase in error_text
         for phrase in ("not supported", "not allowed", "unsupported", "responses api")
     )
-
 
 def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None):
     """
@@ -524,16 +532,16 @@ def reflect_on_zero_results(user_query, initial_sql, probe_data, creds=None):
     probe_summary_lines = []
     for lit, pdata in probe_data.items():
         if pdata.get("person_exact"):
-            probe_summary_lines.append(f"- Entity '{lit}': Exactly matched Person '{pdata.get('exact_person_name')}'.")
+            probe_summary_lines.append(f"- Entity '{lit}': Verified exact match for Person '{pdata.get('exact_person_name')}'.")
         elif pdata.get("person_fuzzy"):
             top_sug = pdata["person_fuzzy"][0]
-            probe_summary_lines.append(f"- Entity '{lit}': NOT found in people. Top fuzzy match in database is '{top_sug['name']}' (similarity: {top_sug['similarity']}).")
+            probe_summary_lines.append(f"- Entity '{lit}': NOT found in people. Top fuzzy match in database is '{top_sug['name']}' (similarity score: {top_sug['similarity']}).")
         
         if pdata.get("title_exact"):
-            probe_summary_lines.append(f"- Entity '{lit}': Exactly matched Title '{pdata.get('exact_title_name')}'.")
+            probe_summary_lines.append(f"- Entity '{lit}': Verified exact match for Title '{pdata.get('exact_title_name')}'.")
         elif pdata.get("title_fuzzy"):
             top_sug = pdata["title_fuzzy"][0]
-            probe_summary_lines.append(f"- Entity '{lit}': NOT found in titles. Top fuzzy match in database is '{top_sug['title']}' (similarity: {top_sug['similarity']}).")
+            probe_summary_lines.append(f"- Entity '{lit}': NOT found in titles. Top fuzzy match in database is '{top_sug['title']}' (similarity score: {top_sug['similarity']}).")
 
         if not pdata.get("person_exact") and not pdata.get("person_fuzzy") and not pdata.get("title_exact") and not pdata.get("title_fuzzy"):
             probe_summary_lines.append(f"- Entity '{lit}': Not found in people or titles (no close match).")
@@ -547,14 +555,19 @@ A user executed a natural language search query, but the generated SQL query ret
 DATABASE SCHEMA:
 {DB_SCHEMA_PROMPT}
 
+PHYSICAL DESIGN:
+- Start person searches with: WITH matched_people AS MATERIALIZED (SELECT person_id, name FROM people WHERE name = '...')
+- Use crew_lookup for person-to-title joins.
+- Use titles type IN ('movie', 'tvMovie') for movies.
+
 DATABASE PROBE EVIDENCE:
 {probe_context}
 
 YOUR TASK:
-Analyze whether this was caused by:
+Analyze whether the 0 results were caused by:
 1. "MISSPELLED_ENTITY": A typo or misspelling in person names or titles (e.g. 'gorge clooney' -> 'George Clooney'). Use the verified fuzzy matches from the database evidence!
-2. "OVERLY_STRICT_FILTER": The entity exists, but overly strict WHERE constraints (e.g. exact release year, rating threshold > 9.9, or specific genre) produced 0 rows.
-3. "GENUINE_EMPTY": The entity was found or verified, but no matching cinema records legitimately exist for that combination (e.g. Tom Hanks has no 1975 sci-fi movies). DO NOT invent fictional data or substitute unrelated actors.
+2. "OVERLY_STRICT_FILTER": The entity exists and is verified, but overly strict WHERE constraints (e.g. impossible release year, rating threshold > 9.9, or specific genre) produced 0 rows.
+3. "GENUINE_EMPTY": The entity was found and verified, but no matching cinema records legitimately exist for that combination (e.g. Tom Hanks has no 1975 sci-fi movies). DO NOT invent fictional data or substitute unrelated actors.
 
 RESPOND STRICTLY IN VALID JSON with the following schema:
 {{
@@ -585,7 +598,15 @@ Diagnose and provide the JSON response.
             response_format={"type": "json_object"}
         )
         content = response.choices[0].message.content.strip()
-        data = json.loads(content)
+        
+        # Robust JSON extraction
+        clean_json = re.sub(r'^```(?:json)?\s*', '', content, flags=re.IGNORECASE)
+        clean_json = re.sub(r'\s*```$', '', clean_json)
+        json_match = re.search(r'(\{[\s\S]*\})', clean_json)
+        if json_match:
+            data = json.loads(json_match.group(1))
+        else:
+            data = json.loads(clean_json)
         
         if data.get("corrected_sql"):
             sql = data["corrected_sql"]
@@ -823,8 +844,9 @@ def api_search_stream():
 
         logger.info(f"[{request_id}] Streaming search: '{user_query}'")
 
-        # Step 1: Understanding query
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'generating', 'message': 'Understanding your question...'})}\n\n"
+        # Step 1: AI Query Synthesis
+        model_name = creds.get('model') or AZURE_OPENAI_MODEL or 'gpt-4o'
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'synthesizing', 'title': 'AI Query Synthesis', 'message': f'Synthesizing ANSI SQL query via Azure OpenAI ({model_name})...'})}\n\n"
         
         try:
             sql_query = generate_response(user_query, creds=creds)
@@ -835,9 +857,10 @@ def api_search_stream():
 
         yield f"data: {json.dumps({'type': 'sql', 'stage': 'sql_ready', 'sql': sql_query, 'attempt': 1})}\n\n"
 
-        # Validate query
+        # Step 2: Validate SQL AST & Schema Constraints
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'validating', 'title': 'Query Validation', 'message': 'Validating SQL syntax against DuckDB catalog schema...'})}\n\n"
         if not validate_sql_query(sql_query):
-            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'message': 'Refining search criteria...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'title': 'Query Optimization', 'message': 'Refining SQL query structure for DuckDB engine...'})}\n\n"
             try:
                 retry_query = f"Regenerate valid DuckDB SQL for: {user_query}"
                 sql_query = generate_response(retry_query, creds=creds)
@@ -848,8 +871,8 @@ def api_search_stream():
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Could not process this query. Try rephrasing with simpler keywords.', 'sql_query': sql_query, 'suggestions': get_suggested_queries()[:4]})}\n\n"
                 return
 
-        # Step 2: Searching database
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'message': 'Searching across 10M+ movies, shows & cast...'})}\n\n"
+        # Step 3: Searching remote Parquet datasets via DuckDB
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'title': 'Database Execution', 'message': 'Executing query on DuckDB across cloud Parquet tables...'})}\n\n"
 
         try:
             results, column_names = execute_sql_query(sql_query)
@@ -867,16 +890,17 @@ def api_search_stream():
                 results = results[:1000]
             results_dicts = [dict(zip(column_names, row)) for row in results]
             logger.info(f"[{request_id}] Search success: {total_rows} rows in {execution_time}s")
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': f'Compiling {total_rows:,} matches and analytics in {execution_time}s...'})}\n\n"
             yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': results_dicts, 'column_names': column_names, 'sql_query': sql_query, 'row_count': total_rows, 'execution_time': execution_time, 'query': user_query, 'stage': 'completed'})}\n\n"
             return
 
-        # Step 3: 0 rows returned -> Check for typos / intent matching
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'message': 'Checking database for alternate spellings and matches...'})}\n\n"
+        # Step 4: 0 rows returned -> Check for typos / intent matching
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'title': 'Zero-Result Diagnostics', 'message': 'Probing database for entity fuzzy matches (Jaro similarity)...'})}\n\n"
 
         literals = extract_filter_literals(sql_query, user_query)
         probe_data = probe_duckdb_entities(literals)
 
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'message': 'Matching closely related titles & cast members...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'title': 'Intent Diagnostics', 'message': 'Analyzing diagnostic evidence for typos or strict constraints...'})}\n\n"
 
         reflection = reflect_on_zero_results(user_query, sql_query, probe_data, creds=creds)
         diagnosis = reflection.get("diagnosis", "GENUINE_EMPTY")
@@ -885,7 +909,7 @@ def api_search_stream():
         corrected_entity = reflection.get("corrected_entity")
 
         if diagnosis in ("MISSPELLED_ENTITY", "OVERLY_STRICT_FILTER") and corrected_sql and validate_sql_query(corrected_sql):
-            yield f"data: {json.dumps({'type': 'retry', 'stage': 'retrying', 'message': explanation, 'corrected_entity': corrected_entity, 'new_sql': corrected_sql, 'attempt': 2})}\n\n"
+            yield f"data: {json.dumps({'type': 'retry', 'stage': 'retrying', 'title': 'Auto-Correction', 'message': f'Re-querying catalog with corrected entity \"{corrected_entity}\"...', 'corrected_entity': corrected_entity, 'new_sql': corrected_sql, 'attempt': 2})}\n\n"
             try:
                 retry_results, retry_cols = execute_sql_query(corrected_sql)
                 retry_rows = len(retry_results)

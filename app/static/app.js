@@ -241,11 +241,31 @@ $(document).ready(function () {
         }
     }
 
-    function addTimelineStep(msg, type = 'info', icon = 'fa-circle-notch fa-spin') {
+    let lastTimelineMessage = '';
+
+    function addTimelineStep(msg, type = 'info', icon = 'fa-circle-notch fa-spin', title = '') {
+        if (!msg || msg === lastTimelineMessage) return;
+        lastTimelineMessage = msg;
+
+        // Update card header status if a title is provided
+        if (title) {
+            $('#agentStatusTitle').text(title);
+        }
+
+        // Update active headline message
         $('#agentCurrentStepMsg').text(msg);
+
+        // Transition previous timeline step icons to completed state
+        const $timeline = $('#agentActivityTimeline');
+        const $prevItems = $timeline.find('.agent-step-item');
+        $prevItems.find('.agent-step-icon')
+            .removeClass('fa-circle-notch fa-spin fa-satellite-dish fa-brain fa-microchip fa-database fa-magnifying-glass fa-shield-halved fa-wand-magic-sparkles fa-stethoscope fa-arrow-rotate-right')
+            .addClass('fa-circle-check text-emerald');
+        $prevItems.removeClass('active').addClass('completed');
+
         const elapsed = ((Date.now() - searchStartTime) / 1000).toFixed(1);
         const $item = $(`
-            <div class="agent-step-item ${type} fade-in">
+            <div class="agent-step-item ${type} active fade-in">
                 <i class="fa-solid ${icon} agent-step-icon"></i>
                 <div class="flex-grow-1 min-w-0">
                     <span>${escapeHtml(msg)}</span>
@@ -253,7 +273,6 @@ $(document).ready(function () {
                 <span class="font-mono text-muted small flex-shrink-0">${elapsed}s</span>
             </div>
         `);
-        const $timeline = $('#agentActivityTimeline');
         $timeline.prepend($item);
     }
 
@@ -278,11 +297,12 @@ $(document).ready(function () {
 
         showLoading();
         startAgentTimer();
+        lastTimelineMessage = '';
         $('#agentActivityTimeline').empty();
         $('#correctionBanner').addClass('d-none');
         $('#noResultsDiagnosisBox').addClass('d-none');
 
-        addTimelineStep('Understanding your question...', 'info', 'fa-brain');
+        addTimelineStep('Connecting to Azure AI and preparing prompt...', 'info', 'fa-satellite-dish', 'Initiating Search');
 
         const headers = { 'Content-Type': 'application/json' };
         const customKey = localStorage.getItem('imdb_azure_api_key');
@@ -364,14 +384,32 @@ $(document).ready(function () {
         if (event.type === 'status') {
             let icon = 'fa-circle-notch fa-spin';
             let stepType = 'info';
-            if (event.stage === 'probing') {
-                icon = 'fa-magnifying-glass';
-            } else if (event.stage === 'reflecting') {
-                icon = 'fa-wand-magic-sparkles';
+            let title = event.title || 'Processing Query';
+
+            if (event.stage === 'synthesizing' || event.stage === 'generating') {
+                icon = 'fa-brain text-gold';
+                if (!title) title = 'AI Query Synthesis';
+            } else if (event.stage === 'validating') {
+                icon = 'fa-shield-halved text-cyan';
+                if (!title) title = 'Query Validation';
+            } else if (event.stage === 'refining') {
+                icon = 'fa-wand-magic-sparkles text-gold';
+                if (!title) title = 'Query Optimization';
             } else if (event.stage === 'executing') {
-                icon = 'fa-film';
+                icon = 'fa-database text-gold';
+                if (!title) title = 'Database Execution';
+            } else if (event.stage === 'compiling') {
+                icon = 'fa-table-cells text-emerald';
+                if (!title) title = 'Preparing Results';
+            } else if (event.stage === 'probing') {
+                icon = 'fa-magnifying-glass text-cyan';
+                if (!title) title = 'Zero-Result Diagnostics';
+            } else if (event.stage === 'reflecting') {
+                icon = 'fa-stethoscope text-gold';
+                if (!title) title = 'Intent Diagnostics';
             }
-            addTimelineStep(event.message, stepType, icon);
+
+            addTimelineStep(event.message, stepType, icon, title);
 
         } else if (event.type === 'sql') {
             $('#sqlDisplay').text(event.sql || '-- No SQL');
@@ -379,14 +417,18 @@ $(document).ready(function () {
         } else if (event.type === 'retry') {
             let retryMsg = event.message || 'Searching with closest match...';
             if (event.corrected_entity) {
-                retryMsg = `Searching for "${event.corrected_entity}"...`;
+                retryMsg = `Auto-correcting to "${event.corrected_entity}" & re-querying...`;
             }
-            addTimelineStep(retryMsg, 'retry', 'fa-wand-magic-sparkles');
+            addTimelineStep(retryMsg, 'retry', 'fa-arrow-rotate-right text-gold', 'Auto-Correction');
             if (event.new_sql) {
                 $('#sqlDisplay').text(event.new_sql);
             }
 
         } else if (event.type === 'result') {
+            // Mark all items complete
+            $('#agentActivityTimeline').find('.agent-step-icon')
+                .removeClass('fa-circle-notch fa-spin fa-arrow-rotate-right fa-database fa-brain fa-microchip')
+                .addClass('fa-circle-check text-emerald');
             if (event.success && event.results && event.results.length > 0) {
                 allResults = event.results;
                 allColumnNames = event.column_names;
