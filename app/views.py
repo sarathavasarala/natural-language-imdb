@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, has_request_context
+from flask import Blueprint, render_template, request, jsonify, has_request_context, Response, stream_with_context
 import os
 import sqlite3
 import logging
@@ -36,13 +36,14 @@ try:
         DATABASE_PATH
     )
 except ImportError:
-    logger.error("Configuration file not found. Please copy config.template.py to config.py and fill in your API keys.")
-    raise ImportError(
-        "Configuration file missing. Please:\n"
-        "1. Copy config.template.py to config.py\n"
-        "2. Fill in your Azure OpenAI API credentials\n"
-        "3. Restart the application"
-    )
+    logger.info("config.py not found, reading settings from environment variables.")
+    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+    AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
+    AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", "gpt-5.4")
+    AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+    AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "imdb-data")
+    DATABASE_PATH = os.getenv("DATABASE_PATH", "db/imdb.db")
 
 # Initialize the Flask Blueprint
 main = Blueprint('main', __name__)
@@ -239,6 +240,194 @@ def validate_sql_query(sql_query):
         logger.warning(f"SQL syntax validation failed: {str(e)}")
         return False
 
+def extract_filter_literals(sql_query, user_query=""):
+    """
+    Extract string literals from SQL WHERE clauses and natural language user query.
+    """
+    literals = set()
+    
+    # Extract string literals in SQL (e.g., = 'foo' or LIKE '%foo%' or ILIKE '%foo%')
+    sql_matches = re.findall(r"(?:=\s*'([^']+)'|LIKE\s*'([^']+)'|ILIKE\s*'([^']+)')", sql_query, flags=re.IGNORECASE)
+    for group in sql_matches:
+        for match in group:
+            if match:
+                cleaned = match.replace('%', '').strip()
+                if len(cleaned) >= 2 and cleaned.lower() not in (
+                    'movie', 'tvmovie', 'tvseries', 'short', 'tvepisode', 'video',
+                    'actor', 'actress', 'director', 'writer', 'producer', 'self', 'archive_footage'
+                ):
+                    literals.add(cleaned)
+
+    if user_query:
+        quoted = re.findall(r'["\']([^"\']+)["\']', user_query)
+        for q in quoted:
+            if len(q.strip()) >= 2:
+                literals.add(q.strip())
+
+    return list(literals)
+
+def probe_duckdb_entities(literals):
+    """
+    Check if extracted entity literals exist in DuckDB people or titles views.
+    If exact match fails, use jaro_similarity to find high-confidence fuzzy matches.
+    """
+    probe_results = {}
+    if not literals:
+        return probe_results
+
+    try:
+        cursor = get_database_connection()
+    except Exception as e:
+        logger.warning(f"Could not get DB connection for entity probe: {e}")
+        return probe_results
+
+    for lit in literals:
+        safe_lit = lit.replace("'", "''")
+        item_probe = {
+            "entity": lit,
+            "person_exact": False,
+            "title_exact": False,
+            "person_fuzzy": [],
+            "title_fuzzy": []
+        }
+
+        # 1. Probe people table (Exact)
+        try:
+            cursor.execute(f"SELECT name FROM people WHERE lower(name) = lower('{safe_lit}') LIMIT 1")
+            exact_p = cursor.fetchone()
+            if exact_p:
+                item_probe["person_exact"] = True
+                item_probe["exact_person_name"] = exact_p[0]
+            else:
+                # Probe people table (Fuzzy with jaro_similarity)
+                cursor.execute(f"""
+                    SELECT name, jaro_similarity(lower(name), lower('{safe_lit}')) AS score
+                    FROM people
+                    WHERE jaro_similarity(lower(name), lower('{safe_lit}')) > 0.80
+                    ORDER BY score DESC
+                    LIMIT 3
+                """)
+                rows = cursor.fetchall()
+                if rows:
+                    item_probe["person_fuzzy"] = [{"name": r[0], "similarity": round(float(r[1]), 3)} for r in rows]
+        except Exception as e:
+            logger.warning(f"Error probing people table for '{lit}': {e}")
+
+        # 2. Probe titles table (Exact)
+        try:
+            cursor.execute(f"SELECT primary_title FROM titles WHERE lower(primary_title) = lower('{safe_lit}') LIMIT 1")
+            exact_t = cursor.fetchone()
+            if exact_t:
+                item_probe["title_exact"] = True
+                item_probe["exact_title_name"] = exact_t[0]
+            else:
+                # Probe titles table (Fuzzy with jaro_similarity)
+                cursor.execute(f"""
+                    SELECT primary_title, jaro_similarity(lower(primary_title), lower('{safe_lit}')) AS score
+                    FROM titles
+                    WHERE jaro_similarity(lower(primary_title), lower('{safe_lit}')) > 0.82
+                    ORDER BY score DESC
+                    LIMIT 3
+                """)
+                rows = cursor.fetchall()
+                if rows:
+                    item_probe["title_fuzzy"] = [{"title": r[0], "similarity": round(float(r[1]), 3)} for r in rows]
+        except Exception as e:
+            logger.warning(f"Error probing titles table for '{lit}': {e}")
+
+        probe_results[lit] = item_probe
+
+    return probe_results
+
+def reflect_on_zero_results(user_query, initial_sql, probe_data, creds=None):
+    """
+    Intelligent reflection step: Uses Azure OpenAI grounded with database probe results
+    to classify why 0 rows were returned and generate a corrected SQL query if appropriate.
+    """
+    client, model_name = get_azure_client(creds=creds)
+
+    probe_summary_lines = []
+    for lit, pdata in probe_data.items():
+        if pdata.get("person_exact"):
+            probe_summary_lines.append(f"- Entity '{lit}': Exactly matched Person '{pdata.get('exact_person_name')}'.")
+        elif pdata.get("person_fuzzy"):
+            top_sug = pdata["person_fuzzy"][0]
+            probe_summary_lines.append(f"- Entity '{lit}': NOT found in people. Top fuzzy match in database is '{top_sug['name']}' (similarity: {top_sug['similarity']}).")
+        
+        if pdata.get("title_exact"):
+            probe_summary_lines.append(f"- Entity '{lit}': Exactly matched Title '{pdata.get('exact_title_name')}'.")
+        elif pdata.get("title_fuzzy"):
+            top_sug = pdata["title_fuzzy"][0]
+            probe_summary_lines.append(f"- Entity '{lit}': NOT found in titles. Top fuzzy match in database is '{top_sug['title']}' (similarity: {top_sug['similarity']}).")
+
+        if not pdata.get("person_exact") and not pdata.get("person_fuzzy") and not pdata.get("title_exact") and not pdata.get("title_fuzzy"):
+            probe_summary_lines.append(f"- Entity '{lit}': Not found in people or titles (no close match).")
+
+    probe_context = "\n".join(probe_summary_lines) if probe_summary_lines else "No specific entities extracted."
+
+    system_prompt = f"""
+You are an expert IMDb text-to-SQL diagnostic agent.
+A user executed a natural language search query, but the generated SQL query returned 0 results from the IMDb database.
+
+DATABASE SCHEMA:
+{DB_SCHEMA_PROMPT}
+
+DATABASE PROBE EVIDENCE:
+{probe_context}
+
+YOUR TASK:
+Analyze whether this was caused by:
+1. "MISSPELLED_ENTITY": A typo or misspelling in person names or titles (e.g. 'gorge clooney' -> 'George Clooney'). Use the verified fuzzy matches from the database evidence!
+2. "OVERLY_STRICT_FILTER": The entity exists, but overly strict WHERE constraints (e.g. exact release year, rating threshold > 9.9, or specific genre) produced 0 rows.
+3. "GENUINE_EMPTY": The entity was found or verified, but no matching cinema records legitimately exist for that combination (e.g. Tom Hanks has no 1975 sci-fi movies). DO NOT invent fictional data or substitute unrelated actors.
+
+RESPOND STRICTLY IN VALID JSON with the following schema:
+{{
+  "diagnosis": "MISSPELLED_ENTITY" | "OVERLY_STRICT_FILTER" | "GENUINE_EMPTY",
+  "explanation": "Clear, concise user-facing message explaining the finding",
+  "corrected_entity": "The corrected entity string (e.g. 'George Clooney') or null",
+  "corrected_sql": "Valid DuckDB SQL query string incorporating the correction, or null if GENUINE_EMPTY"
+}}
+"""
+
+    user_message = f"""
+User Query: "{user_query}"
+Initial SQL: {initial_sql}
+Result: 0 rows returned.
+
+Diagnose and provide the JSON response.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content.strip()
+        data = json.loads(content)
+        
+        if data.get("corrected_sql"):
+            sql = data["corrected_sql"]
+            sql = re.sub(r'^```sql\s*', '', sql, flags=re.IGNORECASE)
+            sql = re.sub(r'^```\s*', '', sql)
+            sql = re.sub(r'\s*```$', '', sql)
+            data["corrected_sql"] = fix_single_quotes_in_sql(sql.strip())
+            
+        return data
+    except Exception as e:
+        logger.error(f"Error in zero-result reflection: {e}")
+        return {
+            "diagnosis": "GENUINE_EMPTY",
+            "explanation": "No matching records found.",
+            "corrected_entity": None,
+            "corrected_sql": None
+        }
+
 def generate_response(user_query, creds=None):
     """
     Generate SQL query response using Azure OpenAI with prompt engineering
@@ -411,9 +600,116 @@ def api_config_status():
         "status": "healthy"
     })
 
+@main.route('/api/search/stream', methods=['POST'])
+def api_search_stream():
+    """
+    Streaming Server-Sent Events (SSE) search endpoint.
+    Provides live step-by-step progress telemetry, reflection on zero-results,
+    and supports immediate cancellation via client AbortController.
+    """
+    request_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+    creds = get_azure_credentials(request)
+    data = request.get_json(silent=True) or {}
+    user_query = data.get('query', '').strip()
+
+    def generate_events():
+        if not user_query or len(user_query) < 3:
+            yield f"data: {json.dumps({'type': 'error', 'error': 'Please enter a search query (at least 3 characters).', 'suggestions': get_suggested_queries()[:4]})}\n\n"
+            return
+
+        logger.info(f"[{request_id}] Streaming search: '{user_query}'")
+
+        # Step 1: Synthesizing SQL
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'generating', 'message': 'Synthesizing DuckDB SQL from natural language...'})}\n\n"
+        
+        try:
+            sql_query = generate_response(user_query, creds=creds)
+        except Exception as e:
+            logger.error(f"[{request_id}] SQL generation failed: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Failed to generate SQL: {str(e)}', 'suggestions': get_suggested_queries()[:4]})}\n\n"
+            return
+
+        yield f"data: {json.dumps({'type': 'sql', 'stage': 'sql_ready', 'sql': sql_query, 'attempt': 1})}\n\n"
+
+        # Validate SQL
+        if not validate_sql_query(sql_query):
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'message': 'Refining SQL syntax for DuckDB engine...'})}\n\n"
+            try:
+                retry_query = f"Simple query: {user_query}. Return only a standard SELECT with JOINs, no subqueries."
+                sql_query = generate_response(retry_query, creds=creds)
+            except Exception as e:
+                pass
+
+            if not validate_sql_query(sql_query):
+                yield f"data: {json.dumps({'type': 'error', 'error': 'Could not generate a valid SQL query. Try rephrasing with simpler keywords.', 'sql_query': sql_query, 'suggestions': get_suggested_queries()[:4]})}\n\n"
+                return
+
+        # Step 2: Executing SQL
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'message': 'Querying cloud Parquet catalog via DuckDB...'})}\n\n"
+
+        try:
+            results, column_names = execute_sql_query(sql_query)
+        except Exception as e:
+            logger.error(f"[{request_id}] Query execution error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Execution failed: {str(e)}', 'sql_query': sql_query})}\n\n"
+            return
+
+        total_rows = len(results)
+
+        # If we got results on first attempt, stream them immediately!
+        if total_rows > 0:
+            execution_time = round(time.time() - start_time, 2)
+            if total_rows > 1000:
+                results = results[:1000]
+            results_dicts = [dict(zip(column_names, row)) for row in results]
+            logger.info(f"[{request_id}] Search success: {total_rows} rows in {execution_time}s")
+            yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': results_dicts, 'column_names': column_names, 'sql_query': sql_query, 'row_count': total_rows, 'execution_time': execution_time, 'query': user_query, 'stage': 'completed'})}\n\n"
+            return
+
+        # Step 3: 0 rows returned -> Trigger Database Grounding & Reflection Loop
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'message': '0 records found. Probing IMDb catalog to check for typos vs. genuine empty state...'})}\n\n"
+
+        literals = extract_filter_literals(sql_query, user_query)
+        probe_data = probe_duckdb_entities(literals)
+
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'message': 'Analyzing database grounding evidence and user intent...'})}\n\n"
+
+        reflection = reflect_on_zero_results(user_query, sql_query, probe_data, creds=creds)
+        diagnosis = reflection.get("diagnosis", "GENUINE_EMPTY")
+        explanation = reflection.get("explanation", "No matching records found.")
+        corrected_sql = reflection.get("corrected_sql")
+        corrected_entity = reflection.get("corrected_entity")
+
+        if diagnosis in ("MISSPELLED_ENTITY", "OVERLY_STRICT_FILTER") and corrected_sql and validate_sql_query(corrected_sql):
+            yield f"data: {json.dumps({'type': 'retry', 'stage': 'retrying', 'message': explanation, 'corrected_entity': corrected_entity, 'new_sql': corrected_sql, 'attempt': 2})}\n\n"
+            try:
+                retry_results, retry_cols = execute_sql_query(corrected_sql)
+                retry_rows = len(retry_results)
+                execution_time = round(time.time() - start_time, 2)
+                
+                if retry_rows > 0:
+                    if retry_rows > 1000:
+                        retry_results = retry_results[:1000]
+                    retry_dicts = [dict(zip(retry_cols, row)) for row in retry_results]
+                    logger.info(f"[{request_id}] Auto-corrected search success: {retry_rows} rows in {execution_time}s")
+                    yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': retry_dicts, 'column_names': retry_cols, 'sql_query': corrected_sql, 'original_sql': sql_query, 'row_count': retry_rows, 'execution_time': execution_time, 'correction_note': explanation, 'corrected_entity': corrected_entity, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed'})}\n\n"
+                    return
+            except Exception as e:
+                logger.warning(f"[{request_id}] Re-query failed: {e}")
+
+        # If still 0 results or genuine empty
+        execution_time = round(time.time() - start_time, 2)
+        yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': [], 'column_names': column_names, 'sql_query': sql_query, 'row_count': 0, 'execution_time': execution_time, 'explanation': explanation, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed'})}\n\n"
+
+    return Response(stream_with_context(generate_events()), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no'
+    })
+
 @main.route('/api/search', methods=['POST'])
 def api_search():
-    """AJAX search endpoint"""
+    """AJAX search endpoint (fallback / non-streaming)"""
     request_id = str(uuid.uuid4())[:8]
     start_time = time.time()
     creds = get_azure_credentials(request)
@@ -450,9 +746,33 @@ def api_search():
         
         # Execute query
         results, column_names = execute_sql_query(sql_query)
-        execution_time = round(time.time() - start_time, 2)
         total_rows = len(results)
-        
+        correction_note = None
+        corrected_entity = None
+        diagnosis = None
+
+        # Reflection if 0 rows returned
+        if total_rows == 0:
+            literals = extract_filter_literals(sql_query, user_query)
+            probe_data = probe_duckdb_entities(literals)
+            reflection = reflect_on_zero_results(user_query, sql_query, probe_data, creds=creds)
+            diagnosis = reflection.get("diagnosis")
+            correction_note = reflection.get("explanation")
+            corrected_entity = reflection.get("corrected_entity")
+            corrected_sql = reflection.get("corrected_sql")
+
+            if diagnosis in ("MISSPELLED_ENTITY", "OVERLY_STRICT_FILTER") and corrected_sql and validate_sql_query(corrected_sql):
+                try:
+                    retry_results, retry_cols = execute_sql_query(corrected_sql)
+                    if len(retry_results) > 0:
+                        results = retry_results
+                        column_names = retry_cols
+                        sql_query = corrected_sql
+                        total_rows = len(results)
+                except Exception as e:
+                    logger.warning(f"[{request_id}] Fallback retry failed: {e}")
+
+        execution_time = round(time.time() - start_time, 2)
         if total_rows > 1000:
             results = results[:1000]
             
@@ -466,7 +786,10 @@ def api_search():
             'sql_query': sql_query,
             'row_count': total_rows,
             'execution_time': execution_time,
-            'query': user_query
+            'query': user_query,
+            'correction_note': correction_note,
+            'corrected_entity': corrected_entity,
+            'diagnosis': diagnosis
         })
         
     except Exception as e:

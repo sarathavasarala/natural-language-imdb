@@ -1,330 +1,448 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMDb Intelligence | Natural Language Movie Search</title>
-    <meta name="description" content="Search the complete IMDb database using natural language. AI-powered movie and TV show search with instant results.">
+    <title>IMDb Intelligence | Natural Language Cinema Search</title>
+    <meta name="description" content="Search the complete 1.3GB IMDb catalog using natural language. Zero-disk cloud-native Parquet queries with AI text-to-SQL.">
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     
-    <!-- Modern CSS Framework -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Modern Fonts: Outfit (Display & UI) + JetBrains Mono (SQL & Telemetry) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- DataTables CSS -->
+    <!-- Bootstrap 5 CSS & FontAwesome 6 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    
+    <!-- DataTables CSS (Dark Theme) -->
     <link rel="stylesheet" href="https://cdn.datatables.net/2.0.3/css/dataTables.bootstrap5.min.css">
     
-    <!-- Custom CSS -->
+    <!-- Custom Application CSS -->
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
-    
-    <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.bootstrap5.min.js"></script>
-    <!-- Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="cinema-body">
+    <!--
+    THESIS: Replace cluttered, outdated 2000s blue-and-yellow dashboard with an immersive, high-precision cinematic dark command console for natural language IMDb discovery.
+    OWN-WORLD: Obsidian base (#0A0C10), slate-glass surfaces, luminous IMDb amber (#F5C518), emerald cloud telemetry tags, and JetBrains Mono data badges.
+    STORY: The user feels like a projectionist querying the world's film vault—typing natural language, seeing instantaneous SQL/DuckDB telemetry, and exploring crisp results.
+    FIRST VIEWPORT: Atmospheric ambient gold backdrop glow, focused command search bar with keyboard shortcuts, and instant curated query pills.
+    FORM: Projectionist's Digital Command Console, position 6 of 7, seed key 3c5e3f83.
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+    -->
+
+    <!-- Top Ambient Glow Aura -->
+    <div class="ambient-glow" aria-hidden="true"></div>
+
     <!-- Navigation Header -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="{{ url_for('main.home') }}">
-                <i class="fas fa-film me-2 text-warning"></i>
-                IMDb Intelligence
+    <header class="navbar-cinema">
+        <div class="container-fluid px-lg-4 px-3 py-2 d-flex align-items-center justify-content-between">
+            <a class="brand-cinema d-flex align-items-center gap-2 text-decoration-none" href="{{ url_for('main.home') }}">
+                <div class="brand-icon-box">
+                    <i class="fa-solid fa-clapperboard text-gold"></i>
+                </div>
+                <div class="d-flex flex-column">
+                    <span class="brand-title">IMDb<span class="brand-subtitle">Intelligence</span></span>
+                    <span class="brand-tagline">Cloud Text-to-SQL Engine</span>
+                </div>
             </a>
-            <div class="navbar-nav ms-auto d-flex align-items-center flex-row gap-2">
-                <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Key">
-                    <i class="fas fa-key me-1"></i>
-                    <span>API Settings</span>
-                    <span id="settingsStatusBadge" class="badge bg-warning text-dark ms-1">Set API Key</span>
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="cloud-status-badge d-none d-md-flex align-items-center gap-2" title="Connected to Azure Blob Storage Parquet Catalog via DuckDB">
+                    <span class="status-pulse-dot"></span>
+                    <span class="status-text">DuckDB Cloud Parquet</span>
+                </div>
+
+                <button class="btn btn-settings-cinema d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Credentials">
+                    <i class="fa-solid fa-sliders text-gold"></i>
+                    <span class="d-none d-sm-inline">API Settings</span>
+                    <span id="settingsStatusBadge" class="badge badge-api-status">Set API Key</span>
                 </button>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- Simple Search Section -->
-    <div id="simpleSearchSection" class="main-section">
-        <!-- Hero Section -->
-        <div class="hero-section text-center mb-0">
-            <h1 class="display-5 fw-bold text-white mb-3">
-                Ask anything about movies &amp; TV shows
-            </h1>
-            <p class="lead text-white mb-4" style="opacity:0.9">
-                Use natural language to explore the complete IMDb database with AI-powered search
-            </p>
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Hero Search Section -->
+        <section class="hero-cinema text-center">
+            <div class="container" style="max-width: 900px;">
+                <h1 class="hero-title">
+                    Discover cinema through <span class="highlight-gold">natural language</span>
+                </h1>
+                <p class="hero-desc">
+                    Ask anything across 10M+ titles, actors, crew, and ratings. Powered by Azure AI &amp; DuckDB on Parquet.
+                </p>
 
-            <!-- Search Bar (inside hero for visual punch) -->
-            <div class="container" style="max-width: 820px;">
-                <form id="searchForm" class="search-form" autocomplete="off">
-                    <div class="input-group input-group-lg shadow-lg">
-                        <span class="input-group-text bg-white border-0">
-                            <i class="fas fa-search text-muted"></i>
+                <!-- Search Console -->
+                <div class="search-console-wrapper">
+                    <form id="searchForm" class="search-form-cinema" autocomplete="off">
+                        <div class="search-input-shell">
+                            <i class="fa-solid fa-magnifying-glass search-leading-icon"></i>
+                            <input type="text" 
+                                   id="query" 
+                                   name="query" 
+                                   class="search-input" 
+                                   placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
+                                   autocomplete="off"
+                                   spellcheck="false"
+                                   required>
+                            <div class="search-action-group">
+                                <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                <button type="button" class="btn-cancel-search d-none" id="cancelSearchBtn" title="Cancel running search">
+                                    <i class="fa-solid fa-circle-stop me-1"></i>
+                                    <span>Cancel</span>
+                                </button>
+                                <span class="kbd-shortcut d-none d-sm-inline-flex" title="Press / to focus">/</span>
+                                <button type="submit" class="btn-search-cinema" id="searchBtn">
+                                    <i class="fa-solid fa-bolt-lightning me-1"></i>
+                                    <span>Execute</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Suggested Query Chips -->
+                <div class="suggested-chips-cinema mt-3">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-center">
+                        <span class="chips-prompt-label">
+                            <i class="fa-regular fa-compass me-1 text-gold"></i>Try:
                         </span>
-                        <input type="text" 
-                                id="query" 
-                                name="query" 
-                                class="form-control form-control-lg border-0" 
-                                placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
-                                required>
-                        <button type="submit" class="btn btn-warning btn-lg px-4 fw-bold" id="searchBtn">
-                            <i class="fas fa-bolt me-1"></i>
-                            Search
+                        {% for sq in suggested_queries %}
+                        <button class="cinema-chip" data-query="{{ sq }}">{{ sq }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic Results & Interaction Zone -->
+        <section class="container mt-4 px-lg-4 px-3">
+            <!-- Loading State with Live Agent Thought Stepper -->
+            <div id="loadingState" class="loading-state-cinema text-center py-4 d-none">
+                <div class="projector-loader mb-3">
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring-inner"></div>
+                    <i class="fa-solid fa-film loader-center-icon"></i>
+                </div>
+                
+                <div class="agent-stepper-card mx-auto" style="max-width: 680px;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="agent-pulse-dot"></span>
+                            <span class="agent-live-title" id="agentStatusTitle">Agent Pipeline Active</span>
+                        </div>
+                        <span class="agent-live-timer font-mono text-secondary small" id="agentLiveTimer">0.0s</span>
+                    </div>
+                    
+                    <p class="agent-current-step text-white fw-semibold mb-3" id="agentCurrentStepMsg">
+                        Synthesizing DuckDB SQL from natural language...
+                    </p>
+
+                    <!-- Real-Time Activity Feed Timeline -->
+                    <div class="agent-activity-timeline text-start" id="agentActivityTimeline">
+                        <!-- Dynamic step pills inserted here -->
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top border-dark-subtle d-flex justify-content-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-agent-abort" id="abortFromLoadingBtn">
+                            <i class="fa-solid fa-circle-stop me-1"></i> Stop / Cancel Search
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Suggested Query Chips -->
-        <div class="container mt-0">
-            <div id="suggestedChips" class="suggested-chips-bar py-3">
-                <div class="d-flex align-items-center flex-wrap gap-2 justify-content-center">
-                    <span class="chips-label text-muted small me-1"><i class="fas fa-lightbulb me-1"></i>Try:</span>
-                    {% for sq in suggested_queries %}
-                    <button class="chip" data-query="{{ sq }}">{{ sq }}</button>
-                    {% endfor %}
                 </div>
             </div>
-        </div>
 
-        <!-- Main Content -->
-        <div class="container mt-2">
-            <!-- Loading State -->
-            <div id="loadingState" class="text-center py-5 d-none">
-                <div class="spinner-grow text-primary" role="status" style="width:3rem;height:3rem;">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <div class="mt-3">
-                    <h5 class="text-muted">Analyzing your query...</h5>
-                    <p class="text-secondary small">AI is querying IMDb Parquet on Azure Blob Storage</p>
+            <!-- Auto-Correction / Intent Refinement Notice -->
+            <div id="correctionBanner" class="correction-banner-cinema d-none mb-3">
+                <div class="d-flex align-items-center justify-content-between p-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="correction-icon-box">
+                            <i class="fa-solid fa-wand-magic-sparkles text-gold"></i>
+                        </div>
+                        <div>
+                            <span class="badge badge-intent me-2">Auto-Reflected Intent</span>
+                            <span class="correction-text" id="correctionMessage"></span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close-cinema btn-sm" id="dismissCorrectionBtn" aria-label="Close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
             </div>
 
             <!-- Error State -->
-            <div id="errorState" class="d-none">
-                <div class="alert alert-danger border-0 shadow-sm" role="alert">
-                    <div class="d-flex align-items-start">
-                        <i class="fas fa-exclamation-triangle me-3 mt-1 fs-4"></i>
-                        <div class="flex-grow-1">
-                            <h6 class="alert-heading mb-1 fw-bold" id="errorTitle">Search Failed</h6>
-                            <p class="mb-2" id="errorMessage"></p>
-                            <div id="errorSuggestions" class="d-none">
-                                <small class="text-muted d-block mb-2">Try one of these instead:</small>
-                                <div id="errorSuggestionChips" class="d-flex flex-wrap gap-2"></div>
-                            </div>
-                            <button class="btn btn-sm btn-outline-danger mt-2" id="retryBtn">
-                                <i class="fas fa-redo me-1"></i> Try again
+            <div id="errorState" class="error-state-cinema d-none">
+                <div class="error-card d-flex align-items-start gap-3">
+                    <div class="error-icon-box">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <h6 class="error-heading mb-1" id="errorTitle">Query Execution Failed</h6>
+                            <button type="button" class="btn-close-cinema" id="dismissError" aria-label="Close">
+                                <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
-                        <button type="button" class="btn-close" id="dismissError"></button>
+                        <p class="error-text mb-3" id="errorMessage"></p>
+                        <div id="errorSuggestions" class="d-none">
+                            <span class="error-suggest-label d-block mb-2">Recommended alternatives:</span>
+                            <div id="errorSuggestionChips" class="d-flex flex-wrap gap-2 mb-3"></div>
+                        </div>
+                        <button class="btn btn-retry-cinema" id="retryBtn">
+                            <i class="fa-solid fa-arrow-rotate-right me-1"></i> Try again
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Results Meta Bar (count, time, SQL, copy link, filters toggle) -->
-            <div id="resultsMeta" class="d-none">
-                <div class="results-meta-bar d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <span class="result-count-badge">
-                            <i class="fas fa-check-circle me-1 text-success"></i>
-                            <strong id="resultCount">0</strong> results
-                        </span>
-                        <span class="text-muted small" id="executionTime"></span>
-                        <button class="btn btn-sm btn-outline-secondary" id="toggleSqlBtn" data-bs-toggle="collapse" data-bs-target="#sqlPanel">
-                            <i class="fas fa-code me-1"></i>SQL
+            <!-- Results Control & Telemetry Bar -->
+            <div id="resultsMeta" class="results-meta-cinema d-none">
+                <div class="meta-bar-inner d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <!-- Left: Result count & execution performance metrics -->
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="metric-badge count-badge">
+                            <i class="fa-solid fa-circle-check text-emerald me-1"></i>
+                            <strong id="resultCount">0</strong>
+                            <span class="text-secondary ms-1">matches</span>
+                        </div>
+                        <div class="metric-badge latency-badge" id="executionTimeContainer">
+                            <i class="fa-solid fa-bolt text-gold me-1"></i>
+                            <span id="executionTime">0.00s</span>
+                        </div>
+                        <button class="btn btn-telemetry" id="toggleSqlBtn" data-bs-toggle="collapse" data-bs-target="#sqlPanel" aria-expanded="false" aria-controls="sqlPanel">
+                            <i class="fa-solid fa-code me-1"></i>
+                            <span>Inspect SQL</span>
+                            <i class="fa-solid fa-chevron-down ms-1 caret-icon"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary" id="copyLinkBtn" title="Copy shareable link">
-                            <i class="fas fa-link me-1"></i>Share
+                        <button class="btn btn-telemetry" id="copyLinkBtn" title="Copy shareable query link">
+                            <i class="fa-solid fa-share-nodes me-1"></i>
+                            <span>Share</span>
                         </button>
                     </div>
-                    <div>
-                        <button class="btn btn-sm btn-outline-primary" id="toggleFiltersBtn">
-                            <i class="fas fa-filter me-1"></i>Filters
-                            <span class="badge bg-primary ms-1 d-none" id="activeFilterCount">0</span>
+
+                    <!-- Right: Filter drawer toggle -->
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-filter-toggle" id="toggleFiltersBtn">
+                            <i class="fa-solid fa-arrow-down-wide-short me-1"></i>
+                            <span>Refine Filters</span>
+                            <span class="filter-count-badge d-none" id="activeFilterCount">0</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- SQL Panel (collapsed) -->
-                <div class="collapse mb-3" id="sqlPanel">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-0">
-                            <pre class="mb-0 rounded"><code id="sqlDisplay" class="sql"></code></pre>
+                <!-- SQL Query Drawer (Collapsible) -->
+                <div class="collapse mt-3" id="sqlPanel">
+                    <div class="sql-terminal-box">
+                        <div class="sql-terminal-header d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title ms-2">DuckDB ANSI SQL Query</span>
+                            </div>
+                            <button class="btn btn-sm btn-copy-sql" id="copySqlBtn" title="Copy SQL statement">
+                                <i class="fa-regular fa-copy me-1"></i> Copy
+                            </button>
                         </div>
+                        <pre class="sql-code-block mb-0"><code id="sqlDisplay" class="language-sql"></code></pre>
                     </div>
                 </div>
 
-                <!-- Filter Panel (collapsed) -->
-                <div id="filterPanel" class="filter-panel d-none mb-4">
-                    <div class="card border border-light-subtle shadow-sm rounded-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0 px-4">
-                            <h6 class="mb-0 fw-bold text-dark"><i class="fas fa-sliders-h me-2 text-primary"></i>Refine Results</h6>
-                        </div>
-                        <div class="card-body px-4 pb-4 pt-3">
-                            <div class="row g-4">
-                                <!-- Genre Filters -->
-                                <div class="col-12">
-                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">Genres</label>
-                                    <div id="genreFilters" class="d-flex flex-wrap gap-2"></div>
+                <!-- Filter Console (Collapsible) -->
+                <div id="filterPanel" class="filter-console-panel d-none mt-3">
+                    <div class="filter-card">
+                        <div class="row g-3 align-items-center">
+                            <!-- Genre Multi-Select Chips -->
+                            <div class="col-12">
+                                <label class="filter-section-title">
+                                    <i class="fa-solid fa-masks-theater me-1 text-gold"></i> Filter by Genre
+                                </label>
+                                <div id="genreFilters" class="genre-filter-chips d-flex flex-wrap gap-2 mt-1"></div>
+                            </div>
+                            
+                            <!-- Year Range -->
+                            <div class="col-md-4">
+                                <label class="filter-section-title">
+                                    <i class="fa-regular fa-calendar me-1 text-gold"></i> Release Year
+                                </label>
+                                <div class="input-group input-group-sm filter-input-group mt-1">
+                                    <input type="number" class="form-control filter-input" id="yearMin" placeholder="Min Year (1900)" min="1900" max="2035">
+                                    <span class="input-group-text filter-divider">to</span>
+                                    <input type="number" class="form-control filter-input" id="yearMax" placeholder="Max Year (2035)" min="1900" max="2035">
                                 </div>
-                                <div class="col-12 m-0 mt-3">
-                                    <hr class="text-black-50 my-0">
+                            </div>
+
+                            <!-- Rating Range -->
+                            <div class="col-md-4">
+                                <label class="filter-section-title">
+                                    <i class="fa-solid fa-star me-1 text-gold"></i> IMDb Rating
+                                </label>
+                                <div class="input-group input-group-sm filter-input-group mt-1">
+                                    <input type="number" class="form-control filter-input" id="ratingMin" placeholder="0.0" min="0" max="10" step="0.1">
+                                    <span class="input-group-text filter-divider">to</span>
+                                    <input type="number" class="form-control filter-input" id="ratingMax" placeholder="10.0" min="0" max="10" step="0.1">
                                 </div>
-                                <!-- Year Range -->
-                                <div class="col-md-4 mt-3">
-                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">Release Year</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-alt text-muted"></i></span>
-                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="yearMin" placeholder="Min" min="1900" max="2030">
-                                        <span class="input-group-text bg-light border-start-0 border-end-0 text-muted px-2">to</span>
-                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="yearMax" placeholder="Max" min="1900" max="2030">
-                                    </div>
-                                </div>
-                                <!-- Rating Range -->
-                                <div class="col-md-4 mt-3">
-                                    <label class="form-label fw-bold small text-secondary text-uppercase mb-2" style="letter-spacing: 0.5px;">IMDb Rating</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-star text-warning"></i></span>
-                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="ratingMin" placeholder="0.0" min="0" max="10" step="0.1">
-                                        <span class="input-group-text bg-light border-start-0 border-end-0 text-muted px-2">to</span>
-                                        <input type="number" class="form-control bg-light border-start-0 ps-0" id="ratingMax" placeholder="10.0" min="0" max="10" step="0.1">
-                                    </div>
-                                </div>
-                                <!-- Clear + Apply -->
-                                <div class="col-md-4 mt-3 d-flex align-items-end gap-2">
-                                    <button class="btn btn-outline-secondary btn-sm flex-fill fw-medium rounded-2" id="clearFilters">
-                                        Clear All
-                                    </button>
-                                    <button class="btn btn-primary btn-sm flex-fill fw-medium rounded-2 shadow-sm" id="applyFilters">
-                                        Apply Filters
-                                    </button>
-                                </div>
+                            </div>
+
+                            <!-- Filter Actions -->
+                            <div class="col-md-4 d-flex align-items-end gap-2">
+                                <button class="btn btn-filter-clear flex-fill" id="clearFilters">
+                                    <i class="fa-solid fa-rotate-left me-1"></i> Reset
+                                </button>
+                                <button class="btn btn-filter-apply flex-fill" id="applyFilters">
+                                    <i class="fa-solid fa-check me-1"></i> Apply Filters
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Results Table Container (dynamically filled) -->
-            <div id="resultsContainer" class="d-none">
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-0">
-                        <div class="table-responsive p-3">
-                            <table id="resultsTable" class="table table-hover table-striped mb-0">
-                                <thead class="table-dark">
-                                    <tr id="tableHead"></tr>
-                                </thead>
-                                <tbody id="tableBody"></tbody>
-                            </table>
-                        </div>
+            <!-- Results Table Container -->
+            <div id="resultsContainer" class="results-table-container d-none mb-5">
+                <div class="cinema-table-card">
+                    <div class="table-responsive">
+                        <table id="resultsTable" class="table table-cinema align-middle mb-0" style="width:100%">
+                            <thead>
+                                <tr id="tableHead"></tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
             <!-- No Results State -->
-            <div id="noResultsState" class="text-center py-5 d-none">
-                <div class="text-muted mb-3">
-                    <i class="fas fa-search fa-3x"></i>
+            <div id="noResultsState" class="no-results-cinema text-center py-5 d-none">
+                <div class="no-results-icon-box mb-3">
+                    <i class="fa-solid fa-film"></i>
                 </div>
-                <h5 class="text-muted">No results found</h5>
-                <p class="text-secondary">Try rephrasing your query or use one of the suggestions above.</p>
+                <h5 class="no-results-title" id="noResultsHeading">No matching cinema records found</h5>
+                <p class="no-results-subtitle mb-3" id="noResultsMessage">Try adjusting your natural language phrasing or click one of the suggested query pills above.</p>
+                <div id="noResultsDiagnosisBox" class="d-none mx-auto p-3 diagnosis-card" style="max-width: 580px;">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="fa-solid fa-circle-info text-gold"></i>
+                        <span class="fw-semibold text-white small">Database Grounding Analysis</span>
+                    </div>
+                    <p class="mb-0 text-secondary small" id="noResultsDiagnosisText"></p>
+                </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <!-- AI Summary Modal -->
-    <div class="modal fade" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="aiSummaryModalLabel">
-                        <i class="fas fa-sparkles me-2"></i>
-                        AI Summary
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="aiSummaryLoading" class="text-center py-4">
-                        <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Generating summary...</span>
+    <!-- AI Synopsis & Trivia Modal -->
+    <div class="modal fade modal-cinema" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content modal-content-cinema">
+                <div class="modal-header modal-header-cinema">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="modal-icon-sparkle">
+                            <i class="fa-solid fa-wand-magic-sparkles text-gold"></i>
                         </div>
-                        <h6 class="text-muted">Generating AI summary...</h6>
-                        <p class="text-secondary small mb-0">Creating a spoiler-free analysis</p>
+                        <div>
+                            <h5 class="modal-title mb-0" id="aiSummaryModalLabel">AI Cinema Synopsis</h5>
+                            <span class="modal-subtitle-text" id="aiSummaryModalSub">Spoiler-free intelligence &amp; trivia</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close-cinema" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body modal-body-cinema">
+                    <div id="aiSummaryLoading" class="text-center py-5">
+                        <div class="projector-loader-sm">
+                            <div class="loader-ring-sm"></div>
+                        </div>
+                        <h6 class="mt-3 text-gold">Synthesizing narrative &amp; background...</h6>
+                        <p class="text-secondary small mb-0">Analyzing plot, director style, cast highlights, and cultural impact</p>
                     </div>
                     <div id="aiSummaryContent" class="d-none">
-                        <h6 id="aiSummaryTitle" class="fw-bold mb-3"></h6>
-                        <div id="aiSummaryText" class="lh-base"></div>
+                        <h4 id="aiSummaryTitle" class="synopsis-title mb-3"></h4>
+                        <div id="aiSummaryText" class="synopsis-body"></div>
                     </div>
                     <div id="aiSummaryError" class="d-none">
-                        <div class="alert alert-danger" role="alert">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Error:</strong> <span id="aiSummaryErrorMessage"></span>
+                        <div class="error-card p-3 d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-circle-exclamation text-danger fs-4"></i>
+                            <div>
+                                <strong>Error generating synopsis:</strong>
+                                <p class="mb-0 text-secondary small" id="aiSummaryErrorMessage"></p>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="regenerateSummary" style="display: none;">
-                        <i class="fas fa-redo me-2"></i>
-                        Regenerate
+                <div class="modal-footer modal-footer-cinema d-flex justify-content-between">
+                    <button type="button" class="btn btn-cinema-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-cinema-gold" id="regenerateSummary" style="display: none;">
+                        <i class="fa-solid fa-arrow-rotate-right me-1"></i> Regenerate
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Settings Modal for Azure OpenAI / Foundry Key -->
-    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title" id="settingsModalLabel">
-                        <i class="fas fa-key me-2 text-warning"></i>
-                        Azure AI Foundry Credentials
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- Settings Modal for Azure AI Foundry / OpenAI Credentials -->
+    <div class="modal fade modal-cinema" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-cinema">
+                <div class="modal-header modal-header-cinema">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="modal-icon-key">
+                            <i class="fa-solid fa-key text-gold"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title mb-0" id="settingsModalLabel">Azure AI Foundry Credentials</h5>
+                            <span class="modal-subtitle-text">Client-Side LocalStorage BYOK</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close-cinema" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Enter your Azure AI Foundry / OpenAI API credentials below. Your credentials are saved securely in your browser's <strong>LocalStorage</strong> and never stored on the server.
-                    </p>
+                <div class="modal-body modal-body-cinema">
+                    <div class="settings-security-note mb-3">
+                        <i class="fa-solid fa-shield-halved text-emerald me-2"></i>
+                        <span>Keys are stored strictly in your browser's <strong>LocalStorage</strong> and relayed securely over HTTPS headers. Never saved to server disk.</span>
+                    </div>
                     <form id="settingsForm">
                         <div class="mb-3">
-                            <label for="customApiKey" class="form-label small fw-bold">Azure AI Foundry / OpenAI API Key <span class="text-danger">*</span></label>
+                            <label for="customApiKey" class="cinema-form-label">Azure OpenAI / AI Foundry API Key <span class="text-gold">*</span></label>
                             <div class="input-group">
-                                <input type="password" class="form-control" id="customApiKey" placeholder="Paste your API key here..." required>
-                                <button class="btn btn-outline-secondary" type="button" id="toggleApiKeyVisibility">
-                                    <i class="fas fa-eye" id="toggleApiKeyIcon"></i>
+                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your API key here..." required>
+                                <button class="btn btn-cinema-addon" type="button" id="toggleApiKeyVisibility" title="Toggle visibility">
+                                    <i class="fa-regular fa-eye" id="toggleApiKeyIcon"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="customEndpoint" class="form-label small fw-bold">Endpoint URL <span class="text-danger">*</span></label>
-                            <input type="url" class="form-control" id="customEndpoint" placeholder="https://your-resource.openai.azure.com" required>
+                            <label for="customEndpoint" class="cinema-form-label">Azure Endpoint URL <span class="text-gold">*</span></label>
+                            <input type="url" class="form-control cinema-input" id="customEndpoint" placeholder="https://your-resource.openai.azure.com" required>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="customModel" class="form-label small fw-bold">Model / Deployment Name</label>
-                                <input type="text" class="form-control" id="customModel" placeholder="e.g. gpt-4o">
+                        <div class="row g-2">
+                            <div class="col-sm-6 mb-3">
+                                <label for="customModel" class="cinema-form-label">Deployment Name</label>
+                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="e.g. gpt-4o or gpt-5.4">
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="customApiVersion" class="form-label small fw-bold">API Version</label>
-                                <input type="text" class="form-control" id="customApiVersion" placeholder="2025-04-01-preview">
+                            <div class="col-sm-6 mb-3">
+                                <label for="customApiVersion" class="cinema-form-label">API Version</label>
+                                <input type="text" class="form-control cinema-input" id="customApiVersion" placeholder="2025-04-01-preview">
                             </div>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer d-flex justify-content-between">
-                    <button type="button" class="btn btn-outline-danger btn-sm" id="resetSettingsBtn">
-                        <i class="fas fa-trash me-1"></i> Clear Key
+                <div class="modal-footer modal-footer-cinema d-flex justify-content-between">
+                    <button type="button" class="btn btn-cinema-danger btn-sm" id="resetSettingsBtn">
+                        <i class="fa-solid fa-trash-can me-1"></i> Clear Key
                     </button>
-                    <div>
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-warning btn-sm fw-bold" id="saveSettingsBtn">
-                            <i class="fas fa-save me-1"></i> Save to Browser
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-cinema-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-cinema-gold btn-sm" id="saveSettingsBtn">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Save to Browser
                         </button>
                     </div>
                 </div>
@@ -332,17 +450,28 @@
         </div>
     </div>
 
-    <!-- Toast for feedback -->
-    <div class="position-fixed bottom-0 end-0 p-3" style="z-index:11">
-        <div id="copyToast" class="toast align-items-center text-bg-success border-0" role="alert">
+    <!-- Notification Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="copyToast" class="toast toast-cinema align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="d-flex">
-                <div class="toast-body"><i class="fas fa-check me-2"></i><span id="toastMsg">Saved!</span></div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <div class="toast-body d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-gold"></i>
+                    <span id="toastMsg">Saved!</span>
+                </div>
+                <button type="button" class="btn-close-cinema btn-sm me-2 m-auto" data-bs-dismiss="toast" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Custom JavaScript -->
+    <!-- Core Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.3/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- Application Logic -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

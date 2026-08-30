@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-30T08:15:00.000Z",
+  "title": "Design System: IMDb Intelligence",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "IMDb Luminous Amber",
+        "canonical": "#F5C518",
+        "tonalRamp": ["#3D3000", "#705800", "#A88400", "#DDA600", "#F5C518", "#FFD034", "#FFE17D", "#FFF4CC"]
+      },
+      "bg-deep": {
+        "role": "neutral",
+        "displayName": "Obsidian Deep",
+        "canonical": "#07090E",
+        "tonalRamp": ["#030406", "#07090E", "#0B0E14", "#11151E", "#171C28", "#232A3B", "#323B50", "#4B5670"]
+      },
+      "accent-emerald": {
+        "role": "secondary",
+        "displayName": "Cloud Emerald",
+        "canonical": "#10B981",
+        "tonalRamp": ["#064E3B", "#065F46", "#047857", "#059669", "#10B981", "#34D399", "#6EE7B7", "#D1FAE5"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headline" },
+      "headline": { "displayName": "Headline", "purpose": "Modal titles & summaries" },
+      "body": { "displayName": "Body", "purpose": "General UI and readable copy" },
+      "label": { "displayName": "Label", "purpose": "JetBrains Mono data metrics & badges" }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 2px 8px rgba(0, 0, 0, 0.4)", "purpose": "Buttons, badges, and chips" },
+      { "name": "shadow-md", "value": "0 8px 24px rgba(0, 0, 0, 0.55)", "purpose": "Cards and consoles" },
+      { "name": "shadow-gold", "value": "0 0 30px rgba(245, 197, 24, 0.18)", "purpose": "Active focus and highlight" }
+    ],
+    "motion": [
+      { "name": "ease-fast", "value": "0.15s cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Micro-interactions" },
+      { "name": "ease-smooth", "value": "0.4s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Entrance and reveals" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Search Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Gold execution button for natural language search queries",
+      "html": "<button class=\"ds-btn-cinema-gold\"><i class=\"fa-solid fa-bolt-lightning\"></i> Execute</button>",
+      "css": ".ds-btn-cinema-gold { background: #F5C518; color: #0B0E14; border: none; border-radius: 12px; padding: 10px 22px; font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 4px 14px rgba(245, 197, 24, 0.3); } .ds-btn-cinema-gold:hover { background: #FFD034; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245, 197, 24, 0.45); }"
+    },
+    {
+      "name": "Suggested Query Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Curated natural language query prompt chips",
+      "html": "<button class=\"ds-cinema-chip\">Christopher Nolan movies</button>",
+      "css": ".ds-cinema-chip { background: #11151E; border: 1px solid rgba(255, 255, 255, 0.07); color: #9CA3AF; font-size: 13px; font-weight: 500; font-family: 'Outfit', sans-serif; padding: 6px 14px; border-radius: 999px; cursor: pointer; transition: all 0.15s ease; } .ds-cinema-chip:hover { background: #171C28; border-color: rgba(255, 255, 255, 0.14); color: #F5C518; transform: translateY(-1px); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Projectionist's Digital Command Console",
+    "overview": "IMDb Intelligence drops users into a dark screening room environment with deep OLED obsidian foundations, glowing amber beam accents reminiscent of movie projectors, and crisp emerald/cyan telemetry tags for cloud execution metrics.",
+    "keyCharacteristics": [
+      "Deep obsidian backdrop (#07090E) with atmospheric gold ambient backlight aura",
+      "Signature IMDb Gold/Amber (#F5C518) used purposefully for primary actions and ratings",
+      "High-contrast typography pairing Outfit and JetBrains Mono",
+      "Glassmorphic elevation with backdrop filters on headers and dialogs"
+    ],
+    "rules": [
+      { "name": "The Projectionist's Contrast Rule", "body": "All body text maintains at least 4.5:1 contrast against dark backgrounds; primary headlines maintain > 10:1 contrast. Amber accent glow is reserved strictly for active elements and focus states.", "section": "colors" }
+    ],
+    "dos": [
+      "Do maintain the cinematic dark aesthetic with obsidian base and luminous amber accents",
+      "Do display real-time query metrics (row count, latency) in clean monospace badges",
+      "Do provide smooth keyboard shortcuts (/ to search, Esc to clear)"
+    ],
+    "donts": [
+      "Don't reintroduce light backgrounds or harsh generic Bootstrap blue gradients",
+      "Don't use bounce or elastic animation easing",
+      "Don't show unformatted raw JSON or unstyled SQL text"
+    ]
+  }
+}

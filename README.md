@@ -1,27 +1,29 @@
 # IMDb Intelligence — Natural Language Text-to-SQL Search
 
-A modern web application that converts natural language questions into SQL queries against the complete IMDb dataset using **Azure AI Foundry / OpenAI** and executes them with **DuckDB** directly over **Azure Blob Storage** Parquet files.
+An intelligent search engine and analytical dashboard for the entire 10M+ IMDb catalog. Converts natural language questions into ANSI SQL queries via **Azure AI Foundry / OpenAI** and executes them directly against **Azure Blob Storage Parquet** files via in-process **DuckDB** with zero local disk footprint.
 
 ![IMDb Intelligence Interface](natural%20language%20imdb.jpeg)
 
-🌐 **Live Demo:** [https://imdb-intelligence-app.azurewebsites.net](https://imdb-intelligence-app.azurewebsites.net)
+🌐 **Live Production Application:** [https://imdb-intelligence-app.azurewebsites.net](https://imdb-intelligence-app.azurewebsites.net)
 
 ---
 
 ## 🌟 Key Features
 
-- **Natural Language to SQL**: Converts questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
-- **Serverless Parquet Engine (DuckDB)**: Queries compressed Parquet files directly on Azure Blob Storage over HTTP Range Requests with **zero local disk footprint** (~1.3 GB cloud total vs. 19 GB SQLite).
-- **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI; it stays saved in your browser's `localStorage` and is never persisted on the server.
-- **Instant AI Title Summaries**: Click "AI Summary" on any search result to generate an instant, engaging overview of the film or TV show.
-- **Interactive Data Explorer**: Instant client-side filtering, sorting, pagination, query suggestions, and SQL query export.
-- **Containerized & Cloud-Ready**: Fully Dockerized with Gunicorn and pre-cached DuckDB Azure extensions.
+- **Projectionist's Digital Command Console**: Modern cinematic OLED dark aesthetic (`#07090E`), IMDb luminous amber accents (`#F5C518`), ambient backlight aura, and high-legibility typography (`Outfit` + `JetBrains Mono`).
+- **Natural Language to SQL**: Converts complex conversational questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
+- **Serverless Parquet Engine (DuckDB)**: Queries remote ZSTD-compressed Parquet files directly on Azure Blob Storage over HTTP Range Requests (~1.3 GB cloud total vs. 19 GB local SQLite).
+- **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI modal; it is saved in browser `localStorage` and sent over HTTPS headers without persisting secrets on the server.
+- **Real-Time Telemetry & SQL Inspector**: Monospace performance badges (query execution latency in seconds, row count) and an interactive, syntax-highlighted SQL drawer with 1-click clipboard copy.
+- **Interactive Multi-Filter Drawer**: Filter results dynamically by release year ranges, IMDb rating thresholds, and active genre tags with live count badges.
+- **Instant AI Title Summaries**: 1-click spoiler-free AI synopsis and cultural trivia for any search result.
+- **Keyboard-First Workflow**: Press `/` anywhere to focus the search bar; press `Escape` or click `✕` to clear.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Local Development)
 
-### 1. Run Locally (Python Virtualenv)
+### 1. Run with Python Virtual Environment
 
 ```bash
 # Clone the repository
@@ -35,15 +37,15 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Start the application
+# Start the local development server
 python run.py
 ```
 
-The app will be live at `http://localhost:5001`. Open the ⚙️ **API Settings** modal in the navbar to enter your Azure OpenAI / Foundry credentials.
+Open `http://localhost:5001`. Click **API Settings** in the top navigation bar to configure your Azure AI Foundry / OpenAI credentials.
 
 ---
 
-### 2. Run with Docker
+### 2. Run with Docker Compose
 
 ```bash
 docker compose up --build
@@ -53,21 +55,43 @@ Access the application at `http://localhost:5001`.
 
 ---
 
-## ☁️ Azure Cloud Deployment
+## 🚀 CI/CD & Deployment Architecture
 
-The application is deployed to an isolated Azure Resource Group (`rg-imdb-intelligence`):
+### 1. Automated Deployment via GitHub Actions (Recommended)
 
-1. **Storage Account**: `stimdbdataeastus` with blob container `imdb-data`.
-2. **App Service Plan**: `asp-imdb-intelligence` (Linux).
-3. **Web App**: `imdb-intelligence-app.azurewebsites.net`.
+Every push to the `main` branch automatically triggers the GitHub Actions workflow at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-### Deploy Updates to Azure Web App
+```
+┌──────────────────────────┐       ┌──────────────────────────────┐       ┌──────────────────────────────┐
+│  git push origin main    │ ────> │   GitHub Actions CI/CD       │ ────> │   Azure App Service (Linux)  │
+│  (Code + Templates + CSS)│       │   - Build & verification     │       │   imdb-intelligence-app      │
+│                          │       │   - Zip artifact packaging   │       │   .azurewebsites.net         │
+└──────────────────────────┘       └──────────────────────────────┘       └──────────────────────────────┘
+```
+
+#### How to configure GitHub Actions Secrets for automatic deployment:
+1. Download the publish profile XML from the Azure Portal or Azure CLI:
+   ```bash
+   az webapp deployment list-publishing-profiles \
+     --name imdb-intelligence-app \
+     --resource-group rg-imdb-intelligence \
+     --xml
+   ```
+2. In your GitHub repository, go to **Settings** ➔ **Secrets and variables** ➔ **Actions**.
+3. Create a new repository secret named `AZURE_WEBAPP_PUBLISH_PROFILE` and paste the XML contents.
+4. Any future `git push origin main` will automatically build and deploy the update live in ~1-2 minutes!
+
+---
+
+### 2. Manual Deployment via Azure CLI
+
+To deploy directly from your local terminal:
 
 ```bash
 # Create deployment package
-zip -r deploy.zip app run.py config.py requirements.txt -x "*.DS_Store" "*__pycache__*"
+zip -r deploy.zip app run.py config.template.py requirements.txt -x "*.DS_Store" "*__pycache__*"
 
-# Deploy to Azure
+# Deploy to Azure App Service
 az webapp deploy \
   --name imdb-intelligence-app \
   --resource-group rg-imdb-intelligence \
@@ -79,7 +103,7 @@ az webapp deploy \
 
 ## 🔄 Automated ETL Pipeline (IMDb TSVs ➔ Azure Parquet)
 
-To download the latest daily dataset from IMDb (`https://datasets.imdbws.com/`) and convert directly to ZSTD-compressed Parquet in Azure Blob Storage:
+To refresh Parquet datasets directly from IMDb's official data dumps (`https://datasets.imdbws.com/`) into Azure Blob Storage:
 
 ```bash
 python scripts/etl_imdb_to_parquet.py \
@@ -94,26 +118,27 @@ python scripts/etl_imdb_to_parquet.py --tables titles ratings
 
 ---
 
-## 📊 Dataset Schema
+## 📊 Dataset Schema (Parquet / DuckDB Views)
 
-| Table | Remote URI | Description |
+| Table | Remote URI | Schema Fields |
 | :--- | :--- | :--- |
-| **`titles`** | `azure://imdb-data/titles.parquet` | All movies, series, episodes, release years, runtime, genres |
-| **`ratings`** | `azure://imdb-data/ratings.parquet` | Weighted average IMDb ratings and vote counts |
-| **`people`** | `azure://imdb-data/people.parquet` | Cast and crew names, birth and death years |
-| **`crew`** | `azure://imdb-data/crew.parquet` | Principal cast/crew roles, characters, and billing order |
-| **`episodes`** | `azure://imdb-data/episodes.parquet` | TV series season and episode number relationships |
-| **`akas`** | `azure://imdb-data/akas.parquet` | International localized and alternative titles |
+| **`titles`** | `azure://imdb-data/titles.parquet` | `title_id`, `type`, `primary_title`, `original_title`, `is_adult`, `premiered`, `ended`, `runtime_minutes`, `genres` |
+| **`ratings`** | `azure://imdb-data/ratings.parquet` | `title_id`, `rating`, `votes` |
+| **`people`** | `azure://imdb-data/people.parquet` | `person_id`, `name`, `born`, `died` |
+| **`crew`** | `azure://imdb-data/crew.parquet` | `title_id`, `person_id`, `category`, `job`, `characters` |
+| **`episodes`** | `azure://imdb-data/episodes.parquet` | `episode_title_id`, `show_title_id`, `season_number`, `episode_number` |
+| **`akas`** | `azure://imdb-data/akas.parquet` | `title_id`, `title`, `region`, `language`, `types`, `attributes`, `is_original_title` |
 
 ---
 
-## 💡 Example Queries
+## 💡 Example Natural Language Queries
 
-- *"Find movies where Robert De Niro and Al Pacino acted together"*
-- *"Highest rated sci-fi movies from the 2020s with over 100,000 votes"*
-- *"List all episodes of The Office TV show sorted by rating"*
-- *"Best movies starring Tom Hanks released before 2000"*
-- *"Directors who made both horror and comedy films"*
+- *"Movies where Leonardo DiCaprio and Kate Winslet worked together"*
+- *"Highest rated sci-fi movies from 2010s"*
+- *"Christopher Nolan movies"*
+- *"Best movies from 2020 with over 50,000 votes"*
+- *"Directors who made both horror and comedy movies"*
+- *"Draw a chart of Tom Hanks movies by year"*
 
 ---
 

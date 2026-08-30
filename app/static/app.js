@@ -1,9 +1,8 @@
-// IMDb Intelligence — Simple Search & AI Chat JavaScript
-// Components: AJAX Search, Post-Search Filters, Shareable URLs, Suggested Chips, Azure Foundry / OpenAI Settings, AI Summary, AI Chat
+// ═══════════════════════════════════════════════════════════════════
+// IMDb Intelligence — Digital Command Console Frontend Logic
+// ═══════════════════════════════════════════════════════════════════
 
-// ════════════════════════════════════════════════════
-//  GLOBAL AJAX SETUP FOR DYNAMIC AZURE CREDENTIALS
-// ════════════════════════════════════════════════════
+// ── Global AJAX Setup for Client-Side Azure OpenAI Credentials ────
 $.ajaxSetup({
     beforeSend: function (xhr) {
         const customKey = localStorage.getItem('imdb_azure_api_key');
@@ -26,23 +25,16 @@ $.ajaxSetup({
     }
 });
 
-// ════════════════════════════════════════════════════
-//  SETTINGS & AZURE FOUNDRY CREDENTIAL MANAGER
-// ════════════════════════════════════════════════════
+// ── Settings & Credentials Manager ────────────────────────────────
 function initializeSettingsModal() {
     const $modal = $('#settingsModal');
     if (!$modal.length) return;
 
-    // Load from LocalStorage into inputs
-    const customKey = localStorage.getItem('imdb_azure_api_key') || '';
-    const customEndpoint = localStorage.getItem('imdb_azure_endpoint') || '';
-    const customModel = localStorage.getItem('imdb_azure_model') || '';
-    const customVersion = localStorage.getItem('imdb_azure_api_version') || '';
-
-    $('#customApiKey').val(customKey);
-    $('#customEndpoint').val(customEndpoint);
-    $('#customModel').val(customModel);
-    $('#customApiVersion').val(customVersion);
+    // Populate inputs from LocalStorage
+    $('#customApiKey').val(localStorage.getItem('imdb_azure_api_key') || '');
+    $('#customEndpoint').val(localStorage.getItem('imdb_azure_endpoint') || '');
+    $('#customModel').val(localStorage.getItem('imdb_azure_model') || '');
+    $('#customApiVersion').val(localStorage.getItem('imdb_azure_api_version') || '');
 
     updateSettingsBadge();
 
@@ -66,36 +58,24 @@ function initializeSettingsModal() {
         const model = $('#customModel').val().trim();
         const version = $('#customApiVersion').val().trim();
 
-        if (key) {
-            localStorage.setItem('imdb_azure_api_key', key);
-        } else {
-            localStorage.removeItem('imdb_azure_api_key');
-        }
+        if (key) localStorage.setItem('imdb_azure_api_key', key);
+        else localStorage.removeItem('imdb_azure_api_key');
 
-        if (endpoint) {
-            localStorage.setItem('imdb_azure_endpoint', endpoint);
-        } else {
-            localStorage.removeItem('imdb_azure_endpoint');
-        }
+        if (endpoint) localStorage.setItem('imdb_azure_endpoint', endpoint);
+        else localStorage.removeItem('imdb_azure_endpoint');
 
-        if (model) {
-            localStorage.setItem('imdb_azure_model', model);
-        } else {
-            localStorage.removeItem('imdb_azure_model');
-        }
+        if (model) localStorage.setItem('imdb_azure_model', model);
+        else localStorage.removeItem('imdb_azure_model');
 
-        if (version) {
-            localStorage.setItem('imdb_azure_api_version', version);
-        } else {
-            localStorage.removeItem('imdb_azure_api_version');
-        }
+        if (version) localStorage.setItem('imdb_azure_api_version', version);
+        else localStorage.removeItem('imdb_azure_api_version');
 
         updateSettingsBadge();
-        showToast('Credentials saved to browser LocalStorage!');
+        showToast('API credentials saved to browser LocalStorage!');
         bootstrap.Modal.getInstance($modal[0])?.hide();
     });
 
-    // Clear Key
+    // Clear Credentials
     $('#resetSettingsBtn').on('click', function () {
         localStorage.removeItem('imdb_azure_api_key');
         localStorage.removeItem('imdb_azure_endpoint');
@@ -108,7 +88,7 @@ function initializeSettingsModal() {
         $('#customApiVersion').val('');
 
         updateSettingsBadge();
-        showToast('Cleared credentials from browser.');
+        showToast('Cleared API credentials.');
         bootstrap.Modal.getInstance($modal[0])?.hide();
     });
 }
@@ -119,9 +99,9 @@ function updateSettingsBadge() {
     if (!$badge.length) return;
 
     if (customKey && customKey.trim()) {
-        $badge.removeClass('bg-secondary bg-warning text-dark').addClass('bg-success text-white').html('<i class="fas fa-check-circle me-1"></i> API Key Active');
+        $badge.addClass('status-active').html('<i class="fa-solid fa-circle-check me-1"></i> Active');
     } else {
-        $badge.removeClass('bg-secondary bg-success text-white').addClass('bg-warning text-dark').html('<i class="fas fa-key me-1"></i> Set API Key');
+        $badge.removeClass('status-active').html('Set API Key');
     }
 }
 
@@ -133,7 +113,7 @@ function ensureApiKeyConfigured() {
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
-        showToast('Please set your Azure AI Foundry / OpenAI key first.');
+        showToast('Please configure your Azure AI Foundry / OpenAI key to search.');
         return false;
     }
     return true;
@@ -143,139 +123,348 @@ function showToast(message) {
     $('#toastMsg').text(message);
     const toastEl = document.getElementById('copyToast');
     if (toastEl) {
-        const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+        const toast = new bootstrap.Toast(toastEl, { delay: 2800 });
         toast.show();
     }
 }
 
-// ════════════════════════════════════════════════════
-//  MAIN SEARCH PAGE LOGIC
-// ════════════════════════════════════════════════════
+// ── Main Search Application Controller ────────────────────────────
 $(document).ready(function () {
-    console.log('✅ IMDb Intelligence initialized');
+    console.log('🎬 IMDb Intelligence Console Ready');
 
-    // ── State ──────────────────────────────────────────
     let allResults = [];
     let allColumnNames = [];
     let activeGenreFilters = new Set();
     let dataTableInstance = null;
     let lastQuery = '';
 
-    // ── Init ──────────────────────────────────────────
     initializeSettingsModal();
-    initializeSearchForm();
+    initializeSearchControls();
     initializeSuggestedChips();
     initializeFilters();
     initializeShareableURL();
     initializeAISummary();
-    initializeTooltips();
+    initializeSQLInspector();
 
-    // Check for ?q= in URL and auto-search
+    // Auto-search if ?q= parameter is present in URL
     const urlParams = new URLSearchParams(window.location.search);
     const urlQuery = urlParams.get('q');
     if (urlQuery) {
         $('#query').val(urlQuery);
+        toggleClearButton(true);
         executeSearch(urlQuery);
     }
 
-    function initializeSearchForm() {
+    let activeAbortController = null;
+    let agentTimerInterval = null;
+    let searchStartTime = 0;
+
+    // ── Search Input & Keyboard Shortcuts ─────────────────────────
+    function initializeSearchControls() {
         const $form = $('#searchForm');
+        const $query = $('#query');
+        const $clearBtn = $('#clearQueryBtn');
+        const $cancelBtn = $('#cancelSearchBtn');
+        const $abortBtn = $('#abortFromLoadingBtn');
+        const $dismissCorrBtn = $('#dismissCorrectionBtn');
+
         $form.on('submit', function (e) {
             e.preventDefault();
-            const query = $('#query').val().trim();
+            const query = $query.val().trim();
             if (!query) return;
             executeSearch(query);
         });
 
-        $('#query').on('keydown', function (e) {
-            if (e.key === 'Escape') {
-                $(this).val('').focus();
+        $query.on('input', function () {
+            toggleClearButton($(this).val().length > 0 && !activeAbortController);
+        });
+
+        $clearBtn.on('click', function () {
+            $query.val('').focus();
+            toggleClearButton(false);
+        });
+
+        // Cancel / Abort buttons
+        $cancelBtn.on('click', cancelActiveSearch);
+        $abortBtn.on('click', cancelActiveSearch);
+
+        // Dismiss correction banner
+        $dismissCorrBtn.on('click', function () {
+            $('#correctionBanner').addClass('d-none');
+        });
+
+        // Global '/' shortcut to focus search input, 'Escape' to abort/clear
+        $(document).on('keydown', function (e) {
+            if (e.key === '/' && !$(e.target).is('input, textarea, select')) {
+                e.preventDefault();
+                $query.focus().select();
+            } else if (e.key === 'Escape') {
+                if (activeAbortController) {
+                    cancelActiveSearch();
+                } else if ($(e.target).is('#query')) {
+                    $query.val('');
+                    toggleClearButton(false);
+                }
             }
         });
     }
 
-    function executeSearch(query) {
+    function cancelActiveSearch() {
+        if (activeAbortController) {
+            activeAbortController.abort();
+            activeAbortController = null;
+            stopAgentTimer();
+            hideLoading();
+            showToast('Search canceled.');
+        }
+    }
+
+    function toggleClearButton(show) {
+        if (show) $('#clearQueryBtn').removeClass('d-none');
+        else $('#clearQueryBtn').addClass('d-none');
+    }
+
+    // ── Live Agent Timer & Activity Timeline ──────────────────────
+    function startAgentTimer() {
+        searchStartTime = Date.now();
+        $('#agentLiveTimer').text('0.0s');
+        if (agentTimerInterval) clearInterval(agentTimerInterval);
+        agentTimerInterval = setInterval(function () {
+            const elapsed = ((Date.now() - searchStartTime) / 1000).toFixed(1);
+            $('#agentLiveTimer').text(`${elapsed}s`);
+        }, 100);
+    }
+
+    function stopAgentTimer() {
+        if (agentTimerInterval) {
+            clearInterval(agentTimerInterval);
+            agentTimerInterval = null;
+        }
+    }
+
+    function addTimelineStep(msg, type = 'info', icon = 'fa-circle-notch fa-spin') {
+        $('#agentCurrentStepMsg').text(msg);
+        const elapsed = ((Date.now() - searchStartTime) / 1000).toFixed(1);
+        const $item = $(`
+            <div class="agent-step-item ${type} fade-in">
+                <i class="fa-solid ${icon} agent-step-icon"></i>
+                <div class="flex-grow-1">
+                    <span>${escapeHtml(msg)}</span>
+                </div>
+                <span class="font-mono text-muted small">${elapsed}s</span>
+            </div>
+        `);
+        const $timeline = $('#agentActivityTimeline');
+        $timeline.prepend($item);
+    }
+
+    // ── Search Execution with Streaming & Cancellation ───────────
+    async function executeSearch(query) {
         if (!ensureApiKeyConfigured()) {
             return;
         }
 
+        // Cancel previous search if running
+        if (activeAbortController) {
+            activeAbortController.abort();
+        }
+        activeAbortController = new AbortController();
+
         lastQuery = query;
 
+        // Push state to browser URL
         const url = new URL(window.location);
         url.searchParams.set('q', query);
         history.pushState({ query: query }, '', url);
 
-        addToQueryHistory(query);
         showLoading();
+        startAgentTimer();
+        $('#agentActivityTimeline').empty();
+        $('#correctionBanner').addClass('d-none');
+        $('#noResultsDiagnosisBox').addClass('d-none');
 
-        $.ajax({
-            url: '/api/search',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ query: query }),
-            timeout: 60000,
-            success: function (response) {
-                hideLoading();
+        addTimelineStep('Analyzing natural language query...', 'info', 'fa-brain');
 
-                if (response.success && response.results && response.results.length > 0) {
-                    allResults = response.results;
-                    allColumnNames = response.column_names;
+        const headers = { 'Content-Type': 'application/json' };
+        const customKey = localStorage.getItem('imdb_azure_api_key');
+        const customEndpoint = localStorage.getItem('imdb_azure_endpoint');
+        const customModel = localStorage.getItem('imdb_azure_model');
+        const customVersion = localStorage.getItem('imdb_azure_api_version');
 
-                    showResultsMeta(response);
-                    buildGenreFilters(allResults);
-                    renderResultsTable(allResults, allColumnNames);
-                    resetFilters();
-                } else if (response.success && response.row_count === 0) {
-                    allResults = [];
-                    hideResultsMeta();
-                    showNoResults();
-                } else {
-                    showError(response.error || 'Unknown error', response.suggestions);
-                }
-            },
-            error: function (xhr) {
-                hideLoading();
-                let msg = 'Something went wrong. Please try again.';
+        if (customKey && customKey.trim()) headers['X-Azure-API-Key'] = customKey.trim();
+        if (customEndpoint && customEndpoint.trim()) headers['X-Azure-Endpoint'] = customEndpoint.trim();
+        if (customModel && customModel.trim()) headers['X-Azure-Model'] = customModel.trim();
+        if (customVersion && customVersion.trim()) headers['X-Azure-API-Version'] = customVersion.trim();
+
+        try {
+            const response = await fetch('/api/search/stream', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ query: query }),
+                signal: activeAbortController.signal
+            });
+
+            if (!response.ok) {
+                let errorMsg = 'Failed to execute query across Parquet catalog.';
                 let suggestions = [];
                 try {
-                    const resp = JSON.parse(xhr.responseText);
-                    msg = resp.error || msg;
-                    suggestions = resp.suggestions || [];
+                    const errData = await response.json();
+                    errorMsg = errData.error || errorMsg;
+                    suggestions = errData.suggestions || [];
                 } catch (_) {}
-                showError(msg, suggestions);
+                stopAgentTimer();
+                hideLoading();
+                activeAbortController = null;
+                showError(errorMsg, suggestions);
+                return;
             }
-        });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop(); // Keep incomplete chunk in buffer
+
+                for (const block of lines) {
+                    const trimmed = block.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const jsonStr = trimmed.replace(/^data:\s*/, '');
+                    try {
+                        const event = JSON.parse(jsonStr);
+                        handleStreamEvent(event);
+                    } catch (e) {
+                        console.warn('Could not parse SSE chunk:', jsonStr, e);
+                    }
+                }
+            }
+
+            stopAgentTimer();
+            hideLoading();
+            activeAbortController = null;
+
+        } catch (err) {
+            stopAgentTimer();
+            hideLoading();
+            if (err.name === 'AbortError') {
+                console.log('Search aborted by user');
+            } else {
+                console.error('Streaming search error:', err);
+                showError(err.message || 'An unexpected error occurred during execution.');
+            }
+            activeAbortController = null;
+        }
+    }
+
+    function handleStreamEvent(event) {
+        if (event.type === 'status') {
+            let icon = 'fa-circle-notch fa-spin';
+            let stepType = 'info';
+            if (event.stage === 'probing') {
+                icon = 'fa-database';
+            } else if (event.stage === 'reflecting') {
+                icon = 'fa-wand-magic-sparkles';
+            } else if (event.stage === 'executing') {
+                icon = 'fa-bolt';
+            }
+            addTimelineStep(event.message, stepType, icon);
+
+        } else if (event.type === 'sql') {
+            $('#sqlDisplay').text(event.sql || '-- No SQL');
+            addTimelineStep(`Generated ANSI SQL (${event.sql.slice(0, 60)}...)`, 'info', 'fa-code');
+
+        } else if (event.type === 'retry') {
+            let retryMsg = event.message || 'Intent auto-correction applied. Re-executing query...';
+            if (event.corrected_entity) {
+                retryMsg = `Auto-corrected typo ➔ "${event.corrected_entity}". Re-executing...`;
+            }
+            addTimelineStep(retryMsg, 'retry', 'fa-wand-magic-sparkles');
+            if (event.new_sql) {
+                $('#sqlDisplay').text(event.new_sql);
+            }
+
+        } else if (event.type === 'result') {
+            if (event.success && event.results && event.results.length > 0) {
+                allResults = event.results;
+                allColumnNames = event.column_names;
+
+                showResultsMeta(event);
+                buildGenreFilters(allResults);
+                renderResultsTable(allResults, allColumnNames);
+                resetFilters();
+
+                // Show Auto-Correction Banner if intent reflection was applied
+                if (event.correction_note || event.corrected_entity) {
+                    const entityLabel = event.corrected_entity ? `<strong>${escapeHtml(event.corrected_entity)}</strong>` : 'corrected entity';
+                    const noteText = event.correction_note ? ` &bull; ${escapeHtml(event.correction_note)}` : '';
+                    $('#correctionMessage').html(`Showing results for ${entityLabel} (interpreted from "<em>${escapeHtml(event.query)}</em>")${noteText}`);
+                    $('#correctionBanner').removeClass('d-none');
+                } else {
+                    $('#correctionBanner').addClass('d-none');
+                }
+
+            } else if (event.success && event.row_count === 0) {
+                allResults = [];
+                hideResultsMeta();
+                showNoResults(event);
+            } else {
+                showError(event.error || 'No records returned from query execution.', event.suggestions);
+            }
+
+        } else if (event.type === 'error') {
+            showError(event.error || 'Query execution failed.', event.suggestions);
+        }
     }
 
     function showLoading() {
         $('#loadingState').removeClass('d-none');
         $('#errorState, #noResultsState, #resultsContainer, #resultsMeta').addClass('d-none');
-        $('#searchBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Searching...');
+        $('#searchBtn').addClass('d-none');
+        $('#cancelSearchBtn').removeClass('d-none');
+        $('#clearQueryBtn').addClass('d-none');
     }
 
     function hideLoading() {
         $('#loadingState').addClass('d-none');
-        $('#searchBtn').prop('disabled', false).html('<i class="fas fa-bolt me-1"></i>Search');
+        $('#searchBtn').removeClass('d-none').prop('disabled', false).html('<i class="fa-solid fa-bolt-lightning me-1"></i> <span>Execute</span>');
+        $('#cancelSearchBtn').addClass('d-none');
+        toggleClearButton($('#query').val().length > 0);
     }
 
     function showResultsMeta(response) {
         $('#resultsMeta').removeClass('d-none');
         if (response.row_count > response.results.length) {
-            $('#resultCount').text(`${response.results.length.toLocaleString()} (of ${response.row_count.toLocaleString()} total)`);
+            $('#resultCount').text(`${response.results.length.toLocaleString()} of ${response.row_count.toLocaleString()}`);
         } else {
             $('#resultCount').text(response.row_count.toLocaleString());
         }
-        $('#executionTime').text(response.execution_time ? `in ${response.execution_time}s` : '');
-        $('#sqlDisplay').text(response.sql_query || '');
+        $('#executionTime').text(response.execution_time ? `${response.execution_time}s` : '0.2s');
+        $('#sqlDisplay').text(response.sql_query || '-- No SQL query');
     }
 
     function hideResultsMeta() {
         $('#resultsMeta').addClass('d-none');
     }
 
-    function showNoResults() {
+    function showNoResults(eventData = null) {
         $('#noResultsState').removeClass('d-none');
         $('#resultsContainer').addClass('d-none');
+
+        if (eventData && (eventData.explanation || eventData.diagnosis)) {
+            let diagText = eventData.explanation || '';
+            if (eventData.diagnosis === 'GENUINE_EMPTY') {
+                diagText += ' Entity was confirmed in IMDb catalog, but no titles matched the combined query filters.';
+            }
+            $('#noResultsDiagnosisText').text(diagText);
+            $('#noResultsDiagnosisBox').removeClass('d-none');
+        } else {
+            $('#noResultsDiagnosisBox').addClass('d-none');
+        }
     }
 
     function showError(message, suggestions) {
@@ -288,10 +477,11 @@ $(document).ready(function () {
             const $chips = $('#errorSuggestionChips').empty();
             suggestions.forEach(function (s) {
                 $chips.append(
-                    $('<button class="chip chip-suggestion"></button>')
+                    $('<button class="cinema-chip"></button>')
                         .text(s)
                         .on('click', function () {
                             $('#query').val(s);
+                            toggleClearButton(true);
                             executeSearch(s);
                         })
                 );
@@ -309,6 +499,7 @@ $(document).ready(function () {
         if (lastQuery) executeSearch(lastQuery);
     });
 
+    // ── Table Rendering with DataTables ───────────────────────────
     function renderResultsTable(results, columnNames) {
         if (dataTableInstance) {
             dataTableInstance.destroy();
@@ -325,30 +516,32 @@ $(document).ready(function () {
             'premiered': 'Year',
             'runtime_minutes': 'Runtime',
             'genres': 'Genres',
-            'rating': 'Rating',
+            'rating': 'IMDb Rating',
             'votes': 'Votes',
             'name': 'Name',
             'person_id': 'Person ID',
-            'type': 'Type',
+            'type': 'Format',
             'is_adult': 'Adult',
             'ended': 'Ended',
             'born': 'Born',
             'died': 'Died',
             'category': 'Role',
-            'characters': 'Characters',
+            'characters': 'Character',
             'season_number': 'Season',
             'episode_number': 'Episode'
         };
 
         const numericCols = ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number', 'born', 'died', 'ended'];
 
+        // Build Table Header
         columnNames.forEach(function (col) {
             const label = friendlyNames[col] || col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            const th = $('<th class="fw-semibold"></th>').text(label);
+            const th = $('<th></th>').text(label);
             if (numericCols.includes(col)) th.attr('data-type', 'numeric');
             $head.append(th);
         });
 
+        // Build Table Rows
         results.forEach(function (row) {
             const $tr = $('<tr></tr>');
             columnNames.forEach(function (col) {
@@ -356,22 +549,30 @@ $(document).ready(function () {
                 const $td = $('<td></td>');
 
                 if (col === 'title_id' && val) {
-                    $td.html(`<a href="https://www.imdb.com/title/${escapeHtml(val)}/" target="_blank" class="text-decoration-none"><i class="fas fa-external-link-alt me-1"></i>${escapeHtml(val)}</a>`);
+                    $td.html(`<a href="https://www.imdb.com/title/${escapeHtml(val)}/" target="_blank" rel="noopener noreferrer" class="imdb-link-badge"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${escapeHtml(val)}</a>`);
                 } else if (col === 'primary_title' && val) {
                     const titleId = row['title_id'] || '';
-                    $td.html(`<div class="d-flex align-items-center"><span class="me-2">${escapeHtml(val)}</span>${titleId ? `<button class="btn btn-sm btn-outline-primary ai-summary-btn" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="AI Summary"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}</div>`);
+                    $td.html(`
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="fw-semibold text-white">${escapeHtml(val)}</span>
+                            ${titleId ? `<button class="btn-ai-synopsis" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
+                        </div>
+                    `);
                 } else if (col === 'rating' && val != null) {
-                    $td.html(`<span class="badge bg-warning text-dark"><i class="fas fa-star"></i> ${val}</span>`);
+                    $td.html(`<span class="badge-rating"><i class="fa-solid fa-star text-gold"></i> ${val}</span>`);
                     $td.attr('data-sort', val);
                 } else if (col === 'votes' && val != null) {
-                    $td.html(`<span class="text-muted">${Number(val).toLocaleString()} votes</span>`);
+                    $td.html(`<span class="votes-count-cell">${Number(val).toLocaleString()}</span>`);
                     $td.attr('data-sort', val);
                 } else if (col === 'premiered' && val) {
-                    $td.html(`<span class="badge bg-secondary">${val}</span>`);
+                    $td.html(`<span class="badge-year">${val}</span>`);
                     $td.attr('data-sort', val);
                 } else if (col === 'genres' && val) {
                     const chips = val.split(',').map(g => `<span class="genre-chip-inline">${escapeHtml(g.trim())}</span>`).join(' ');
                     $td.html(chips);
+                } else if (col === 'runtime_minutes' && val) {
+                    $td.html(`<span class="font-mono text-secondary">${val} min</span>`);
+                    $td.attr('data-sort', val);
                 } else {
                     $td.text(val != null ? val : '—');
                     if (numericCols.includes(col) && val != null) $td.attr('data-sort', val);
@@ -413,24 +614,26 @@ $(document).ready(function () {
             searching: true,
             responsive: true,
             language: {
-                search: 'Filter results:',
-                lengthMenu: 'Show _MENU_ per page',
-                info: 'Showing _START_–_END_ of _TOTAL_',
-                paginate: { first: 'First', last: 'Last', next: '→', previous: '←' },
-                emptyTable: 'No matching results',
-                zeroRecords: 'No matching results'
+                search: 'Search results:',
+                lengthMenu: 'Show _MENU_',
+                info: 'Showing _START_ to _END_ of _TOTAL_',
+                paginate: { first: '«', last: '»', next: '›', previous: '‹' },
+                emptyTable: 'No matching records in Parquet',
+                zeroRecords: 'No matching records'
             },
             columnDefs: columnDefs,
             order: votesIdx >= 0 ? [[votesIdx, 'desc']] : [],
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>><"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            dom: '<"row align-items-center mb-3"<"col-sm-6"l><"col-sm-6 d-flex justify-content-sm-end"f>><"table-responsive"t><"row align-items-center mt-3"<"col-sm-6"i><"col-sm-6 d-flex justify-content-sm-end"p>>',
             drawCallback: function () {
                 $(this.api().table().node()).find('tbody tr').addClass('fade-in');
             }
         });
 
-        $('html, body').animate({ scrollTop: $('#resultsMeta').offset().top - 80 }, 400);
+        // Smooth scroll towards results
+        $('html, body').animate({ scrollTop: $('#resultsMeta').offset().top - 90 }, 350);
     }
 
+    // ── Interactive Filters ───────────────────────────────────────
     function initializeFilters() {
         $('#toggleFiltersBtn').on('click', function () {
             $('#filterPanel').toggleClass('d-none');
@@ -459,12 +662,12 @@ $(document).ready(function () {
         activeGenreFilters.clear();
 
         if (genres.size === 0) {
-            $container.html('<span class="text-muted small">No genre data in these results</span>');
+            $container.html('<span class="text-muted small">No genre metadata available</span>');
             return;
         }
 
         Array.from(genres).sort().forEach(function (genre) {
-            const $chip = $('<button class="chip chip-filter"></button>')
+            const $chip = $('<button class="chip-filter"></button>')
                 .text(genre)
                 .on('click', function () {
                     $(this).toggleClass('active');
@@ -532,50 +735,80 @@ $(document).ready(function () {
         $('#activeFilterCount').addClass('d-none');
     }
 
+    // ── URL Sharing & Popstate ────────────────────────────────────
     function initializeShareableURL() {
-        window.addEventListener('popstate', function (e) {
+        window.addEventListener('popstate', function () {
             const params = new URLSearchParams(window.location.search);
             const q = params.get('q');
             if (q) {
                 $('#query').val(q);
+                toggleClearButton(true);
                 executeSearch(q);
             }
         });
 
         $('#copyLinkBtn').on('click', function () {
             const url = window.location.href;
-            navigator.clipboard.writeText(url).then(function () {
-                showToast('Search link copied!');
-            }).catch(function () {
-                const input = document.createElement('input');
-                input.value = url;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                showToast('Search link copied!');
-            });
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(function () {
+                    showToast('Shareable query link copied!');
+                }).catch(function () {
+                    fallbackCopy(url);
+                });
+            } else {
+                fallbackCopy(url);
+            }
         });
     }
 
+    function fallbackCopy(text) {
+        const input = document.createElement('input');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast('Link copied to clipboard!');
+    }
+
+    // ── Suggested Query Chips ─────────────────────────────────────
     function initializeSuggestedChips() {
-        $(document).on('click', '.chip[data-query]', function () {
+        $(document).on('click', '.cinema-chip[data-query]', function () {
             const q = $(this).attr('data-query');
             $('#query').val(q);
+            toggleClearButton(true);
             executeSearch(q);
         });
     }
 
+    // ── SQL Terminal Copy ─────────────────────────────────────────
+    function initializeSQLInspector() {
+        $('#copySqlBtn').on('click', function () {
+            const sqlText = $('#sqlDisplay').text();
+            if (!sqlText) return;
+            navigator.clipboard.writeText(sqlText).then(function () {
+                showToast('SQL statement copied to clipboard!');
+            }).catch(function () {
+                fallbackCopy(sqlText);
+            });
+        });
+    }
+
+    // ── AI Synopsis Modal ─────────────────────────────────────────
     function initializeAISummary() {
-        $(document).on('click', '.ai-summary-btn', function () {
+        $(document).on('click', '.btn-ai-synopsis', function () {
             if (!ensureApiKeyConfigured()) return;
             const titleId = $(this).data('title-id');
             const titleName = $(this).data('title-name');
-            $('#aiSummaryModal').modal('show');
+            
+            const modalEl = document.getElementById('aiSummaryModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
             $('#aiSummaryLoading').removeClass('d-none');
-            $('#aiSummaryContent').addClass('d-none');
-            $('#aiSummaryError').addClass('d-none');
+            $('#aiSummaryContent, #aiSummaryError').addClass('d-none');
             $('#aiSummaryTitle').text(titleName);
+            
             generateAISummary(titleId, titleName);
         });
 
@@ -584,8 +817,7 @@ $(document).ready(function () {
             const titleName = $(this).data('title-name');
             if (titleId && titleName) {
                 $('#aiSummaryLoading').removeClass('d-none');
-                $('#aiSummaryContent').addClass('d-none');
-                $('#aiSummaryError').addClass('d-none');
+                $('#aiSummaryContent, #aiSummaryError').addClass('d-none');
                 generateAISummary(titleId, titleName);
             }
         });
@@ -597,17 +829,17 @@ $(document).ready(function () {
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({ title_id: titleId, title_name: titleName }),
-            timeout: 30000,
+            timeout: 35000,
             success: function (response) {
                 if (response.success) {
                     displayAISummary(response.title_name, response.summary, titleId, titleName);
                 } else {
-                    showAISummaryError(response.error || 'Unknown error', titleId, titleName);
+                    showAISummaryError(response.error || 'Unable to generate synopsis.', titleId, titleName);
                 }
             },
             error: function (xhr, status) {
-                let msg = 'Failed to generate summary';
-                if (status === 'timeout') msg = 'Request timed out. Try again.';
+                let msg = 'Failed to generate synopsis.';
+                if (status === 'timeout') msg = 'Request timed out. Please try again.';
                 else if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
                 showAISummaryError(msg, titleId, titleName);
             }
@@ -615,8 +847,7 @@ $(document).ready(function () {
     }
 
     function displayAISummary(titleName, summary, titleId, originalName) {
-        $('#aiSummaryLoading').addClass('d-none');
-        $('#aiSummaryError').addClass('d-none');
+        $('#aiSummaryLoading, #aiSummaryError').addClass('d-none');
         $('#aiSummaryTitle').text(titleName);
         $('#aiSummaryText').html(formatSummaryText(summary));
         $('#aiSummaryContent').removeClass('d-none');
@@ -624,8 +855,7 @@ $(document).ready(function () {
     }
 
     function showAISummaryError(msg, titleId, titleName) {
-        $('#aiSummaryLoading').addClass('d-none');
-        $('#aiSummaryContent').addClass('d-none');
+        $('#aiSummaryLoading, #aiSummaryContent').addClass('d-none');
         $('#aiSummaryErrorMessage').text(msg);
         $('#aiSummaryError').removeClass('d-none');
         $('#regenerateSummary').data('title-id', titleId).data('title-name', titleName).show();
@@ -645,20 +875,6 @@ $(document).ready(function () {
                 .join('');
         }
         return text;
-    }
-
-    function initializeTooltips() {
-        [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function (el) {
-            new bootstrap.Tooltip(el);
-        });
-    }
-
-    function addToQueryHistory(query) {
-        let history = JSON.parse(localStorage.getItem('queryHistory') || '[]');
-        history = history.filter(item => item.query !== query);
-        history.unshift({ query: query, timestamp: Date.now() });
-        history = history.slice(0, 10);
-        localStorage.setItem('queryHistory', JSON.stringify(history));
     }
 
     function escapeHtml(unsafe) {
