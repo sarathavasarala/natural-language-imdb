@@ -577,6 +577,19 @@ $(document).ready(function () {
         columnNames.forEach(function (col) {
             const label = friendlyNames[col] || col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             const th = $('<th></th>').text(label);
+            if (col === 'primary_title' || col === 'original_title' || col === 'title' || col === 'name') {
+                th.addClass('col-title-header');
+            } else if (col === 'title_id' || col === 'person_id') {
+                th.addClass('col-id-header');
+            } else if (col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') {
+                th.addClass('col-year-header');
+            } else if (col === 'rating' || col === 'average_rating') {
+                th.addClass('col-rating-header');
+            } else if (col === 'votes') {
+                th.addClass('col-votes-header');
+            } else if (col === 'genres') {
+                th.addClass('col-genres-header');
+            }
             if (numericCols.includes(col)) th.attr('data-type', 'numeric');
             $head.append(th);
         });
@@ -589,25 +602,31 @@ $(document).ready(function () {
                 const $td = $('<td></td>');
 
                 if (col === 'title_id' && val) {
+                    $td.addClass('col-id-cell');
                     $td.html(`<a href="https://www.imdb.com/title/${escapeHtml(val)}/" target="_blank" rel="noopener noreferrer" class="imdb-link-badge"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${escapeHtml(val)}</a>`);
-                } else if (col === 'primary_title' && val) {
+                } else if ((col === 'primary_title' || col === 'original_title' || col === 'title' || col === 'name') && val) {
                     const titleId = row['title_id'] || '';
+                    $td.addClass('col-title-cell');
                     $td.html(`
                         <div class="d-flex align-items-center justify-content-between gap-2">
-                            <span class="fw-semibold text-white" style="word-break: break-word; min-width: 0;">${escapeHtml(val)}</span>
+                            <span class="title-text-cell">${escapeHtml(val)}</span>
                             ${titleId ? `<button class="btn-ai-synopsis flex-shrink-0" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
                         </div>
                     `);
-                } else if (col === 'rating' && val != null) {
+                } else if ((col === 'rating' || col === 'average_rating') && val != null) {
+                    $td.addClass('col-rating-cell');
                     $td.html(`<span class="badge-rating"><i class="fa-solid fa-star text-gold"></i> ${val}</span>`);
                     $td.attr('data-sort', val);
                 } else if (col === 'votes' && val != null) {
+                    $td.addClass('col-votes-cell');
                     $td.html(`<span class="votes-count-cell">${Number(val).toLocaleString()}</span>`);
                     $td.attr('data-sort', val);
-                } else if (col === 'premiered' && val) {
+                } else if ((col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') && val) {
+                    $td.addClass('col-year-cell');
                     $td.html(`<span class="badge-year">${val}</span>`);
                     $td.attr('data-sort', val);
                 } else if (col === 'genres' && val) {
+                    $td.addClass('col-genres-cell');
                     const chips = val.split(',').map(g => `<span class="genre-chip-inline">${escapeHtml(g.trim())}</span>`).join(' ');
                     $td.html(chips);
                 } else if (col === 'runtime_minutes' && val) {
@@ -652,7 +671,8 @@ $(document).ready(function () {
             pageLength: 25,
             ordering: true,
             searching: true,
-            responsive: true,
+            autoWidth: false,
+            responsive: false,
             language: {
                 search: 'Filter results:',
                 lengthMenu: 'Show _MENU_',

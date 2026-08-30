@@ -813,12 +813,20 @@ code, kbd, samp, pre {
     box-shadow: var(--shadow-md);
 }
 
+.table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+
 .table-cinema {
     --bs-table-bg: transparent;
     --bs-table-color: var(--text-primary);
     --bs-table-hover-bg: rgba(245, 197, 24, 0.04);
     --bs-table-hover-color: #FFFFFF;
     margin-bottom: 0;
+    min-width: 660px;
+    width: 100% !important;
 }
 
 .table-cinema thead th {
@@ -829,15 +837,66 @@ code, kbd, samp, pre {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--border-medium);
-    padding: 1rem 0.9rem;
+    padding: 0.9rem 0.85rem;
     white-space: nowrap;
 }
 
 .table-cinema tbody td {
-    padding: 0.9rem 0.9rem;
+    padding: 0.85rem 0.85rem;
     border-bottom: 1px solid var(--border-subtle);
     font-size: 0.88rem;
     vertical-align: middle;
+}
+
+/* Dedicated Column Styling */
+.table-cinema thead th.col-title-header,
+.table-cinema tbody td.col-title-cell {
+    min-width: 180px;
+    max-width: 340px;
+}
+
+.title-text-cell {
+    font-weight: 600;
+    color: #FFFFFF;
+    word-break: normal;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    display: inline-block;
+}
+
+.table-cinema thead th.col-id-header,
+.table-cinema tbody td.col-id-cell {
+    min-width: 105px;
+    width: 110px;
+    white-space: nowrap;
+}
+
+.table-cinema thead th.col-year-header,
+.table-cinema tbody td.col-year-cell {
+    min-width: 70px;
+    width: 75px;
+    white-space: nowrap;
+}
+
+.table-cinema thead th.col-rating-header,
+.table-cinema tbody td.col-rating-cell {
+    min-width: 85px;
+    width: 90px;
+    white-space: nowrap;
+}
+
+.table-cinema thead th.col-votes-header,
+.table-cinema tbody td.col-votes-cell {
+    min-width: 85px;
+    width: 95px;
+    white-space: nowrap;
+}
+
+.table-cinema thead th.col-genres-header,
+.table-cinema tbody td.col-genres-cell {
+    min-width: 135px;
+    white-space: normal;
 }
 
 .table-cinema tbody tr {
