@@ -67,8 +67,18 @@ html, body {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     min-height: 100vh;
     overflow-x: hidden;
+    width: 100%;
+    position: relative;
+}
+
+code, kbd, samp, pre {
+    font-family: var(--font-mono);
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 ::selection {
@@ -171,17 +181,6 @@ html, body {
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-}
-
-/* Catalog Badge */
-.cinema-catalog-badge {
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    background: rgba(245, 197, 24, 0.08);
-    border: 1px solid rgba(245, 197, 24, 0.2);
-    color: #F3F4F6;
-    font-size: 0.78rem;
-    font-weight: 600;
 }
 
 /* Settings Button */
