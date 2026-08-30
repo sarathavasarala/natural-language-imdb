@@ -909,7 +909,16 @@ def api_search_stream():
         corrected_entity = reflection.get("corrected_entity")
 
         if diagnosis in ("MISSPELLED_ENTITY", "OVERLY_STRICT_FILTER") and corrected_sql and validate_sql_query(corrected_sql):
-            yield f"data: {json.dumps({'type': 'retry', 'stage': 'retrying', 'title': 'Auto-Correction', 'message': f'Re-querying catalog with corrected entity \"{corrected_entity}\"...', 'corrected_entity': corrected_entity, 'new_sql': corrected_sql, 'attempt': 2})}\n\n"
+            retry_payload = {
+                'type': 'retry',
+                'stage': 'retrying',
+                'title': 'Auto-Correction',
+                'message': f"Re-querying catalog with corrected entity '{corrected_entity}'...",
+                'corrected_entity': corrected_entity,
+                'new_sql': corrected_sql,
+                'attempt': 2
+            }
+            yield f"data: {json.dumps(retry_payload)}\n\n"
             try:
                 retry_results, retry_cols = execute_sql_query(corrected_sql)
                 retry_rows = len(retry_results)

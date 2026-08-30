@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Git Pre-Push Hook: Verifies Python syntax and runs test suite
+set -e
+
+echo "🔍 Running pre-push checks..."
+
+# Determine python command (prefer virtual environment if active or present)
+if [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+    PY_CMD="$VIRTUAL_ENV/bin/python"
+elif [ -x "./venv/bin/python" ]; then
+    PY_CMD="./venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PY_CMD="python3"
+else
+    PY_CMD="python"
+fi
+
+echo "  -> Using Python: $($PY_CMD --version)"
+
+# 1. Compile all Python files to verify syntax
+echo "  -> Verifying Python syntax..."
+$PY_CMD -m compileall -q app tests scripts run.py
+
+# 2. Run unit tests
+echo "  -> Running test suite..."
+$PY_CMD -m unittest discover -s tests -v
+
+echo "✅ Pre-push verification passed! Proceeding with git push."
+exit 0
