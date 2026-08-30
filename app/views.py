@@ -12,6 +12,7 @@ from datetime import datetime
 from types import SimpleNamespace
 import uuid
 import duckdb
+import certifi
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -171,6 +172,14 @@ def get_duckdb_database():
             _duckdb_con.execute("INSTALL azure; LOAD azure;")
             _duckdb_con.execute("INSTALL httpfs; LOAD httpfs;")
             
+            # Configure CA certificates for reliable SSL in Linux container environments
+            try:
+                ca_cert_path = certifi.where()
+                _duckdb_con.execute(f"SET ca_cert_file = '{ca_cert_path}';")
+                logger.info(f"Configured DuckDB CA certificate path: {ca_cert_path}")
+            except Exception as e:
+                logger.warning(f"Could not set DuckDB ca_cert_file: {e}")
+            
             if AZURE_STORAGE_CONNECTION_STRING:
                 logger.info("Configuring DuckDB Azure Secret...")
                 _duckdb_con.execute(f"""
@@ -183,14 +192,17 @@ def get_duckdb_database():
         if not _views_initialized and AZURE_STORAGE_CONNECTION_STRING:
             container = AZURE_STORAGE_CONTAINER_NAME or 'imdb-data'
             tables = ['ratings', 'titles', 'people', 'crew', 'episodes', 'akas']
+            all_succeeded = True
             for tbl in tables:
                 blob_url = f"azure://{container}/{tbl}.parquet"
                 try:
                     _duckdb_con.execute(f"CREATE OR REPLACE VIEW {tbl} AS SELECT * FROM '{blob_url}'")
                     logger.info(f"Initialized DuckDB view '{tbl}' -> {blob_url}")
                 except Exception as e:
+                    all_succeeded = False
                     logger.warning(f"Could not initialize DuckDB view '{tbl}': {e}")
-            _views_initialized = True
+            if all_succeeded:
+                _views_initialized = True
             
         return _duckdb_con.cursor()
 
@@ -234,15 +246,12 @@ def execute_sql_query(sql_query):
             cursor.close()
 
 def fix_single_quotes_in_sql(sql_query):
-    """Post-process SQL to properly escape single quotes in string literals."""
-    try:
-        def fix_like_pattern(match):
-            like_content = match.group(1)
-            fixed_content = re.sub(r"(?<!')\'(?!\')", "''", like_content)
-            return f"LIKE '{fixed_content}'"
-        
-        sql_query = re.sub(r"LIKE\s+'([^']*(?:'[^']*)*)'", fix_like_pattern, sql_query, flags=re.IGNORECASE)
+    """Safely escape unescaped apostrophes inside words in SQL string literals without corrupting multi-clause queries."""
+    if not sql_query:
         return sql_query
+    try:
+        # Replace unescaped word apostrophes like O'Brien -> O''Brien without swallowing subsequent SQL clauses
+        return re.sub(r"(?<=[a-zA-Z])'(?=[a-zA-Z])", "''", sql_query)
     except Exception as e:
         logger.warning(f"Error in SQL quote fixing: {str(e)}, returning original query")
         return sql_query

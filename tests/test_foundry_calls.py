@@ -110,6 +110,40 @@ class FoundryCallTests(unittest.TestCase):
         client.responses.create.assert_not_called()
         self.assertFalse(_should_use_responses_fallback(error))
 
+    def test_fix_single_quotes_does_not_corrupt_multiclause_like_queries(self):
+        from app.views import fix_single_quotes_in_sql
+        query = (
+            "SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes "
+            "FROM people p "
+            "JOIN crew c ON p.person_id = c.person_id "
+            "JOIN titles t ON c.title_id = t.title_id "
+            "LEFT JOIN ratings r ON t.title_id = r.title_id "
+            "WHERE p.name LIKE '%Christopher Nolan%' "
+            "AND c.category = 'director' "
+            "AND t.type = 'movie' "
+            "ORDER BY t.premiered DESC;"
+        )
+        result = fix_single_quotes_in_sql(query)
+        self.assertEqual(result, query)
+
+    def test_fix_single_quotes_escapes_unescaped_apostrophes(self):
+        from app.views import fix_single_quotes_in_sql
+        query = "SELECT * FROM people WHERE name = 'Conan O'Brien' AND category = 'actor'"
+        expected = "SELECT * FROM people WHERE name = 'Conan O''Brien' AND category = 'actor'"
+        self.assertEqual(fix_single_quotes_in_sql(query), expected)
+
+    def test_fix_single_quotes_preserves_already_escaped_quotes(self):
+        from app.views import fix_single_quotes_in_sql
+        query = "SELECT * FROM people WHERE name = 'Conan O''Brien' AND category = 'actor'"
+        self.assertEqual(fix_single_quotes_in_sql(query), query)
+
+    def test_validate_sql_query_blocks_dangerous_keywords(self):
+        from app.views import validate_sql_query
+        self.assertFalse(validate_sql_query("DROP TABLE titles;"))
+        self.assertFalse(validate_sql_query("DELETE FROM people WHERE person_id = '123'"))
+        self.assertFalse(validate_sql_query("UPDATE titles SET primary_title = 'hacked'"))
+        self.assertFalse(validate_sql_query("TRUNCATE ratings;"))
+
 
 if __name__ == "__main__":
     unittest.main()
