@@ -6,13 +6,14 @@ import json
 import time
 import re
 import threading
+import fcntl
 from openai import AzureOpenAI, OpenAI
 import sys
 from datetime import datetime
 from types import SimpleNamespace
 import uuid
 import duckdb
-import certifi
+from azure.storage.blob import BlobServiceClient
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -160,50 +161,81 @@ def get_azure_client(creds=None):
 # Thread-safe DuckDB Connection Manager
 _duckdb_lock = threading.Lock()
 _duckdb_con = None
-_views_initialized = False
+DUCKDB_BLOB_NAME = os.getenv("DUCKDB_BLOB_NAME", "imdb.duckdb")
+DUCKDB_DATABASE_PATH = os.getenv(
+    "DUCKDB_DATABASE_PATH",
+    "/home/data/imdb.duckdb" if os.getenv("WEBSITE_SITE_NAME") else "db/imdb.duckdb"
+)
+
+def _local_database_is_current(database_path, etag):
+    etag_path = f"{database_path}.etag"
+    if not os.path.exists(database_path) or not os.path.exists(etag_path):
+        return False
+    with open(etag_path, "r", encoding="utf-8") as etag_file:
+        return etag_file.read().strip() == etag
+
+
+def ensure_local_duckdb_database():
+    """Download the immutable DuckDB artifact to persistent local storage when needed."""
+    database_path = os.path.abspath(DUCKDB_DATABASE_PATH)
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        if os.path.exists(database_path):
+            return database_path
+        raise RuntimeError(
+            f"DuckDB database not found at {database_path} and Azure storage is not configured."
+        )
+
+    os.makedirs(os.path.dirname(database_path), exist_ok=True)
+    lock_path = f"{database_path}.lock"
+    container = AZURE_STORAGE_CONTAINER_NAME or "imdb-data"
+    blob_client = BlobServiceClient.from_connection_string(
+        AZURE_STORAGE_CONNECTION_STRING
+    ).get_blob_client(container=container, blob=DUCKDB_BLOB_NAME)
+
+    with open(lock_path, "a", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        properties = blob_client.get_blob_properties()
+        etag = properties.etag.strip('"')
+        if _local_database_is_current(database_path, etag):
+            logger.info("Using current local DuckDB database: %s", database_path)
+            return database_path
+
+        temp_path = f"{database_path}.{os.getpid()}.download"
+        temp_etag_path = f"{database_path}.etag.{os.getpid()}.download"
+        logger.info(
+            "Downloading DuckDB database artifact %s/%s (%0.1f MiB)...",
+            container,
+            DUCKDB_BLOB_NAME,
+            properties.size / 1024 / 1024,
+        )
+        try:
+            with open(temp_path, "wb") as database_file:
+                blob_client.download_blob(max_concurrency=4).readinto(database_file)
+                database_file.flush()
+                os.fsync(database_file.fileno())
+            with open(temp_etag_path, "w", encoding="utf-8") as etag_file:
+                etag_file.write(etag)
+                etag_file.flush()
+                os.fsync(etag_file.fileno())
+            os.replace(temp_path, database_path)
+            os.replace(temp_etag_path, f"{database_path}.etag")
+        finally:
+            for partial_path in (temp_path, temp_etag_path):
+                if os.path.exists(partial_path):
+                    os.remove(partial_path)
+
+        logger.info("DuckDB database is ready at %s", database_path)
+        return database_path
+
 
 def get_duckdb_database():
-    """Get or initialize the shared in-process DuckDB connection with Azure Blob Storage views"""
-    global _duckdb_con, _views_initialized
+    """Get a read-only connection to the local DuckDB database artifact."""
+    global _duckdb_con
     with _duckdb_lock:
         if _duckdb_con is None:
-            logger.info("Initializing in-memory DuckDB engine with Azure extension...")
-            _duckdb_con = duckdb.connect(database=':memory:', read_only=False)
-            _duckdb_con.execute("INSTALL azure; LOAD azure;")
-            _duckdb_con.execute("INSTALL httpfs; LOAD httpfs;")
-            
-            # Configure CA certificates for reliable SSL in Linux container environments
-            try:
-                ca_cert_path = certifi.where()
-                _duckdb_con.execute(f"SET ca_cert_file = '{ca_cert_path}';")
-                logger.info(f"Configured DuckDB CA certificate path: {ca_cert_path}")
-            except Exception as e:
-                logger.warning(f"Could not set DuckDB ca_cert_file: {e}")
-            
-            if AZURE_STORAGE_CONNECTION_STRING:
-                logger.info("Configuring DuckDB Azure Secret...")
-                _duckdb_con.execute(f"""
-                    CREATE SECRET IF NOT EXISTS (
-                        TYPE AZURE,
-                        CONNECTION_STRING '{AZURE_STORAGE_CONNECTION_STRING}'
-                    );
-                """)
-                
-        if not _views_initialized and AZURE_STORAGE_CONNECTION_STRING:
-            container = AZURE_STORAGE_CONTAINER_NAME or 'imdb-data'
-            tables = ['ratings', 'titles', 'people', 'crew', 'episodes', 'akas']
-            all_succeeded = True
-            for tbl in tables:
-                blob_url = f"azure://{container}/{tbl}.parquet"
-                try:
-                    _duckdb_con.execute(f"CREATE OR REPLACE VIEW {tbl} AS SELECT * FROM '{blob_url}'")
-                    logger.info(f"Initialized DuckDB view '{tbl}' -> {blob_url}")
-                except Exception as e:
-                    all_succeeded = False
-                    logger.warning(f"Could not initialize DuckDB view '{tbl}': {e}")
-            if all_succeeded:
-                _views_initialized = True
-            
+            database_path = ensure_local_duckdb_database()
+            logger.info("Opening local DuckDB database: %s", database_path)
+            _duckdb_con = duckdb.connect(database=database_path, read_only=True)
         return _duckdb_con.cursor()
 
 def get_database_connection():

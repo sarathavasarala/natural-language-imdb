@@ -1,6 +1,10 @@
 import unittest
+import os
+import tempfile
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+import duckdb
 
 from app.views import (
     _responses_api_completion,
@@ -143,6 +147,34 @@ class FoundryCallTests(unittest.TestCase):
         self.assertFalse(validate_sql_query("DELETE FROM people WHERE person_id = '123'"))
         self.assertFalse(validate_sql_query("UPDATE titles SET primary_title = 'hacked'"))
         self.assertFalse(validate_sql_query("TRUNCATE ratings;"))
+
+    def test_local_duckdb_database_is_opened_read_only(self):
+        import app.views as views
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database_path = os.path.join(temp_dir, "imdb.duckdb")
+            connection = duckdb.connect(database_path)
+            connection.execute("CREATE TABLE titles (title_id VARCHAR)")
+            connection.execute("INSERT INTO titles VALUES ('tt0000001')")
+            connection.close()
+
+            old_connection = views._duckdb_con
+            views._duckdb_con = None
+            try:
+                with patch.object(views, "DUCKDB_DATABASE_PATH", database_path), patch.object(
+                    views, "AZURE_STORAGE_CONNECTION_STRING", ""
+                ):
+                    cursor = views.get_duckdb_database()
+                    self.assertEqual(
+                        cursor.execute("SELECT * FROM titles").fetchall(),
+                        [("tt0000001",)],
+                    )
+                    with self.assertRaises(duckdb.InvalidInputException):
+                        cursor.execute("CREATE TABLE should_fail (id INTEGER)")
+            finally:
+                if views._duckdb_con is not None:
+                    views._duckdb_con.close()
+                views._duckdb_con = old_connection
 
 
 if __name__ == "__main__":

@@ -15,6 +15,12 @@ services:
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2025-04-01-preview}
       - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
       - AZURE_STORAGE_CONTAINER_NAME=${AZURE_STORAGE_CONTAINER_NAME:-imdb-data}
+      - DUCKDB_DATABASE_PATH=/app/data/imdb.duckdb
+      - DUCKDB_BLOB_NAME=${DUCKDB_BLOB_NAME:-imdb.duckdb}
     volumes:
       - ./app:/app/app
+      - imdb-data:/app/data
     restart: unless-stopped
+
+volumes:
+  imdb-data:

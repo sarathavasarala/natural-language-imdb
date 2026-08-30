@@ -52,6 +52,8 @@ INTERVIEW_PREP.md
 
 # Database and cache
 db/imdb.db
+db/*.duckdb
+db/*.duckdb.*
 downloads/
 deploy.zip
 

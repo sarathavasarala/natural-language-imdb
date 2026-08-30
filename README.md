@@ -1,6 +1,6 @@
 # IMDb Intelligence — Natural Language Text-to-SQL Search
 
-An intelligent search engine and analytical dashboard for the entire 10M+ IMDb catalog. Converts natural language questions into ANSI SQL queries via **Azure AI Foundry / OpenAI** and executes them directly against **Azure Blob Storage Parquet** files via in-process **DuckDB** with zero local disk footprint.
+An intelligent search engine and analytical dashboard for the entire 10M+ IMDb catalog. Converts natural language questions into ANSI SQL queries via **Azure AI Foundry / OpenAI** and executes them against a local, read-only **DuckDB** database synchronized from Azure Blob Storage.
 
 ![IMDb Intelligence Interface](natural%20language%20imdb.jpeg)
 
@@ -12,7 +12,7 @@ An intelligent search engine and analytical dashboard for the entire 10M+ IMDb c
 
 - **Projectionist's Digital Command Console**: Modern cinematic OLED dark aesthetic (`#07090E`), IMDb luminous amber accents (`#F5C518`), ambient backlight aura, and high-legibility typography (`Outfit` + `JetBrains Mono`).
 - **Natural Language to SQL**: Converts complex conversational questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
-- **Serverless Parquet Engine (DuckDB)**: Queries remote ZSTD-compressed Parquet files directly on Azure Blob Storage over HTTP Range Requests (~1.3 GB cloud total vs. 19 GB local SQLite).
+- **Local DuckDB Query Engine**: Downloads a compact database artifact from Azure Blob Storage once, then serves fast local joins without a managed database.
 - **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI modal; it is saved in browser `localStorage` and sent over HTTPS headers without persisting secrets on the server.
 - **Real-Time Telemetry & SQL Inspector**: Monospace performance badges (query execution latency in seconds, row count) and an interactive, syntax-highlighted SQL drawer with 1-click clipboard copy.
 - **Interactive Multi-Filter Drawer**: Filter results dynamically by release year ranges, IMDb rating thresholds, and active genre tags with live count badges.
@@ -101,7 +101,7 @@ az webapp deploy \
 
 ---
 
-## 🔄 Automated ETL Pipeline (IMDb TSVs ➔ Azure Parquet)
+## 🔄 Dataset refresh
 
 To refresh Parquet datasets directly from IMDb's official data dumps (`https://datasets.imdbws.com/`) into Azure Blob Storage:
 
@@ -116,11 +116,23 @@ To refresh specific tables only:
 python scripts/etl_imdb_to_parquet.py --tables titles ratings
 ```
 
+After refreshing the Parquet source files, build and upload the database artifact:
+
+```bash
+python scripts/build_duckdb_database.py \
+  --connection-string "<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
+  --container "imdb-data"
+```
+
+The web app downloads `imdb.duckdb` to persistent local storage when its Blob
+ETag changes. Restart the App Service after publishing a refreshed artifact so
+each worker opens the new database.
+
 ---
 
-## 📊 Dataset Schema (Parquet / DuckDB Views)
+## 📊 Dataset Schema
 
-| Table | Remote URI | Schema Fields |
+| Table | Source artifact | Schema Fields |
 | :--- | :--- | :--- |
 | **`titles`** | `azure://imdb-data/titles.parquet` | `title_id`, `type`, `primary_title`, `original_title`, `is_adult`, `premiered`, `ended`, `runtime_minutes`, `genres` |
 | **`ratings`** | `azure://imdb-data/ratings.parquet` | `title_id`, `rating`, `votes` |
