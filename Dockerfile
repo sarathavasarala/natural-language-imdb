@@ -25,5 +25,5 @@ COPY . .
 
 EXPOSE 8080
 
-# Run with production Gunicorn server
-CMD exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 --threads 4 --timeout 120 run:app
+# Synchronize the database before accepting traffic.
+CMD python scripts/sync_duckdb_database.py && exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 --threads 4 --timeout 120 run:app

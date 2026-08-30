@@ -137,6 +137,9 @@ $(document).ready(function () {
     let activeGenreFilters = new Set();
     let dataTableInstance = null;
     let lastQuery = '';
+    let activeAbortController = null;
+    let agentTimerInterval = null;
+    let searchStartTime = 0;
 
     initializeSettingsModal();
     initializeSearchControls();
@@ -154,10 +157,6 @@ $(document).ready(function () {
         toggleClearButton(true);
         executeSearch(urlQuery);
     }
-
-    let activeAbortController = null;
-    let agentTimerInterval = null;
-    let searchStartTime = 0;
 
     // ── Search Input & Keyboard Shortcuts ─────────────────────────
     function initializeSearchControls() {

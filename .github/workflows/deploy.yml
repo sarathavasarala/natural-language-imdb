@@ -35,7 +35,7 @@ jobs:
 
       - name: Package Application
         run: |
-          zip -r deploy.zip app run.py config.template.py requirements.txt -x "*.DS_Store" "*__pycache__*" "*.git*"
+          zip -r deploy.zip app scripts/sync_duckdb_database.py run.py config.template.py requirements.txt -x "*.DS_Store" "*__pycache__*" "*.git*"
 
       - name: Deploy to Azure Web App
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
