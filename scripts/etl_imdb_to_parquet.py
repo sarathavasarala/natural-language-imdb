@@ -133,15 +133,32 @@ def convert_tsv_to_parquet(tsv_path: str, parquet_path: str, sql_template: str):
     file_size_mb = os.path.getsize(parquet_path) / (1024 * 1024)
     logger.info(f"Generated {parquet_path} ({file_size_mb:.1f} MB) in {elapsed:.1f}s")
 
-def process_table(table_key: str, connection_string: str, container_name: str, temp_dir: str):
+TMDB_MOVIES_DATASET_URL = os.getenv(
+    "TMDB_MOVIES_DATASET_URL",
+    "https://raw.githubusercontent.com/datasets/the-movie-database-movies/master/data/movies.csv"
+)
+
+def process_table(table_key: str, connection_string: str, container_name: str, temp_dir: str, tmdb_url: str = TMDB_MOVIES_DATASET_URL):
     config = DATASETS[table_key]
     tsv_filename = config["url"].split("/")[-1]
     tsv_path = os.path.join(temp_dir, tsv_filename)
     blob_url = f"azure://{container_name}/{config['parquet_name']}"
+    tmdb_path = None
     
     try:
         download_file(config["url"], tsv_path)
         
+        # Ingest TMDb metadata for titles table if processing titles
+        if table_key == "titles" and tmdb_url:
+            try:
+                tmdb_filename = "tmdb_movies.csv"
+                tmdb_path = os.path.join(temp_dir, tmdb_filename)
+                logger.info("Downloading TMDb open dataset for language, country, and poster metadata...")
+                download_file(tmdb_url, tmdb_path)
+            except Exception as e:
+                logger.warning(f"Could not download TMDb dataset ({e}). Proceeding with IMDb titles only.")
+                tmdb_path = None
+
         logger.info(f"Transforming & Uploading {tsv_filename} -> {blob_url} via DuckDB...")
         start_time = time.time()
         
@@ -154,7 +171,38 @@ def process_table(table_key: str, connection_string: str, container_name: str, t
             );
         """)
         
-        query = config["sql"].format(tsv_path=tsv_path)
+        if table_key == "titles" and tmdb_path and os.path.exists(tmdb_path):
+            query = f"""
+                SELECT 
+                    t.tconst AS title_id,
+                    t.titleType AS type,
+                    t.primaryTitle AS primary_title,
+                    t.originalTitle AS original_title,
+                    tmdb.original_language AS original_language,
+                    tmdb.origin_country AS origin_country,
+                    TRY_CAST(t.isAdult AS INTEGER) AS is_adult,
+                    TRY_CAST(t.startYear AS INTEGER) AS premiered,
+                    TRY_CAST(t.endYear AS INTEGER) AS ended,
+                    TRY_CAST(t.runtimeMinutes AS INTEGER) AS runtime_minutes,
+                    t.genres,
+                    tmdb.overview AS overview,
+                    tmdb.poster_path AS poster_path
+                FROM read_csv('{tsv_path}', delim='\t', nullstr='\\N', header=True, quote='', ignore_errors=True) t
+                LEFT JOIN (
+                    SELECT 
+                        imdb_id,
+                        original_language,
+                        origin_country,
+                        overview,
+                        poster_path
+                    FROM read_csv_auto('{tmdb_path}', ignore_errors=True)
+                    WHERE imdb_id IS NOT NULL AND imdb_id != ''
+                ) tmdb ON t.tconst = tmdb.imdb_id
+                WHERE t.titleType IN ('movie', 'tvMovie', 'tvSeries', 'tvMiniSeries', 'tvSpecial')
+            """
+        else:
+            query = config["sql"].format(tsv_path=tsv_path)
+
         copy_sql = f"COPY ({query}) TO '{blob_url}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 100000);"
         con.execute(copy_sql)
         con.close()
@@ -162,8 +210,9 @@ def process_table(table_key: str, connection_string: str, container_name: str, t
         elapsed = time.time() - start_time
         logger.info(f"Successfully processed & uploaded {config['parquet_name']} in {elapsed:.1f}s!")
     finally:
-        if os.path.exists(tsv_path):
-            os.remove(tsv_path)
+        for p in (tsv_path, tmdb_path):
+            if p and os.path.exists(p):
+                os.remove(p)
         logger.info(f"Cleaned up temporary files for {table_key}.")
 
 def main():
@@ -173,6 +222,7 @@ def main():
     parser.add_argument("--container", default="imdb-data", help="Azure Blob Container Name")
     parser.add_argument("--tables", nargs="+", default=list(DATASETS.keys()),
                         choices=list(DATASETS.keys()), help="Tables to process")
+    parser.add_argument("--tmdb-url", default=TMDB_MOVIES_DATASET_URL, help="URL to TMDb open movies CSV/Parquet")
     parser.add_argument("--temp-dir", default=None, help="Custom temporary directory")
     args = parser.parse_args()
 
@@ -187,7 +237,7 @@ def main():
     total_start = time.time()
     for table_key in args.tables:
         logger.info(f"\n========================================\nProcessing: {table_key}\n========================================")
-        process_table(table_key, args.connection_string, args.container, temp_dir)
+        process_table(table_key, args.connection_string, args.container, temp_dir, tmdb_url=args.tmdb_url)
         
     total_elapsed = time.time() - total_start
     logger.info(f"\nETL Pipeline completed successfully in {total_elapsed/60:.2f} minutes!")
