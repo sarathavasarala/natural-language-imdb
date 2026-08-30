@@ -247,10 +247,10 @@ $(document).ready(function () {
         const $item = $(`
             <div class="agent-step-item ${type} fade-in">
                 <i class="fa-solid ${icon} agent-step-icon"></i>
-                <div class="flex-grow-1">
+                <div class="flex-grow-1 min-w-0">
                     <span>${escapeHtml(msg)}</span>
                 </div>
-                <span class="font-mono text-muted small">${elapsed}s</span>
+                <span class="font-mono text-muted small flex-shrink-0">${elapsed}s</span>
             </div>
         `);
         const $timeline = $('#agentActivityTimeline');
@@ -552,8 +552,8 @@ $(document).ready(function () {
                     const titleId = row['title_id'] || '';
                     $td.html(`
                         <div class="d-flex align-items-center justify-content-between gap-2">
-                            <span class="fw-semibold text-white">${escapeHtml(val)}</span>
-                            ${titleId ? `<button class="btn-ai-synopsis" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
+                            <span class="fw-semibold text-white" style="word-break: break-word; min-width: 0;">${escapeHtml(val)}</span>
+                            ${titleId ? `<button class="btn-ai-synopsis flex-shrink-0" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
                         </div>
                     `);
                 } else if (col === 'rating' && val != null) {
