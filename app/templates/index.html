@@ -109,8 +109,8 @@
                 </div>
 
                 <!-- Suggested Query Chips -->
-                <div class="suggested-chips-cinema mt-3">
-                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-center">
+                <div class="suggested-chips-cinema mt-2">
+                    <div class="d-flex align-items-center flex-wrap gap-1 justify-content-center">
                         <span class="chips-prompt-label">
                             <i class="fa-regular fa-compass me-1 text-gold"></i>Try:
                         </span>
@@ -430,7 +430,7 @@
                             <label for="customEndpoint" class="cinema-form-label">
                                 <span>Endpoint URL</span> <span class="text-gold">*</span>
                             </label>
-                            <input type="text" class="form-control cinema-input" id="customEndpoint" placeholder="https://sarathavasarala-south-i-resource.services.ai.azure.com/openai/v1" required>
+                            <input type="text" class="form-control cinema-input" id="customEndpoint" placeholder="https://your-resource.services.ai.azure.com/openai/v1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                             <div class="form-text text-muted small mt-1">
                                 <i class="fa-solid fa-link me-1 text-gold"></i> Paste your Foundry endpoint (with or without <code>/openai/v1</code>) or standard Azure OpenAI URL.
                             </div>
@@ -441,7 +441,7 @@
                                 <span>API Key</span> <span class="text-gold">*</span>
                             </label>
                             <div class="input-group">
-                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your API key here..." required>
+                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your API key here..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                                 <button class="btn btn-cinema-addon" type="button" id="toggleApiKeyVisibility" title="Toggle visibility">
                                     <i class="fa-regular fa-eye" id="toggleApiKeyIcon"></i>
                                 </button>
@@ -456,16 +456,16 @@
                                 <label for="customModel" class="cinema-form-label">
                                     <span>Deployment / Model Name</span>
                                 </label>
-                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="gpt-5.6-luna">
+                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="gpt-4o" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                                 <div class="form-text text-muted small mt-1">
-                                    e.g. <code>gpt-5.6-luna</code>, <code>gpt-4o</code>, <code>gpt-5.4</code>
+                                    e.g. <code>gpt-4o</code>, <code>gpt-5.4</code>, <code>gpt-5.6-luna</code>
                                 </div>
                             </div>
                             <div class="col-sm-6 mb-2">
                                 <label for="customApiVersion" class="cinema-form-label">
                                     <span>API Version</span>
                                 </label>
-                                <input type="text" class="form-control cinema-input" id="customApiVersion" placeholder="2025-04-01-preview">
+                                <input type="text" class="form-control cinema-input" id="customApiVersion" placeholder="2025-04-01-preview" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                                 <div class="form-text text-muted small mt-1">
                                     Default: <code>2025-04-01-preview</code> (or leave empty)
                                 </div>

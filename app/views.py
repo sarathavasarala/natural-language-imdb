@@ -723,13 +723,10 @@ def get_suggested_queries():
     """Return a list of suggested example queries"""
     return [
         "Movies with Tom Hanks",
-        "Highest rated sci-fi movies from 2010s", 
+        "Highest rated sci-fi movies from 2010s",
         "Christopher Nolan movies",
-        "Movies where Leonardo DiCaprio and Kate Winslet worked together",
-        "Best movies from 2020",
-        "Directors who made both horror and comedy movies",
-        "Draw a chart of Tom Hanks movies by year",
-        "Show genre distribution of top 100 movies"
+        "DiCaprio and Kate Winslet movies",
+        "Best movies from 2020"
     ]
 
 def get_title_info(title_id):
