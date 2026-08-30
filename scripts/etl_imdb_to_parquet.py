@@ -135,7 +135,7 @@ def convert_tsv_to_parquet(tsv_path: str, parquet_path: str, sql_template: str):
 
 TMDB_MOVIES_DATASET_URL = os.getenv(
     "TMDB_MOVIES_DATASET_URL",
-    "https://raw.githubusercontent.com/datasets/the-movie-database-movies/master/data/movies.csv"
+    "https://huggingface.co/datasets/ada-datadruids/full_tmdb_movies_dataset/resolve/main/TMDB_movie_dataset_v11.csv"
 )
 
 def process_table(table_key: str, connection_string: str, container_name: str, temp_dir: str, tmdb_url: str = TMDB_MOVIES_DATASET_URL):
@@ -192,10 +192,10 @@ def process_table(table_key: str, connection_string: str, container_name: str, t
                     SELECT 
                         imdb_id,
                         original_language,
-                        origin_country,
+                        production_countries AS origin_country,
                         overview,
                         poster_path
-                    FROM read_csv_auto('{tmdb_path}', ignore_errors=True)
+                    FROM read_csv('{tmdb_path}', header=True, ignore_errors=True, all_varchar=True)
                     WHERE imdb_id IS NOT NULL AND imdb_id != ''
                 ) tmdb ON t.tconst = tmdb.imdb_id
                 WHERE t.titleType IN ('movie', 'tvMovie', 'tvSeries', 'tvMiniSeries', 'tvSpecial')
@@ -215,9 +215,19 @@ def process_table(table_key: str, connection_string: str, container_name: str, t
                 os.remove(p)
         logger.info(f"Cleaned up temporary files for {table_key}.")
 
+def get_default_connection_string():
+    conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    if not conn:
+        try:
+            import config
+            conn = getattr(config, "AZURE_STORAGE_CONNECTION_STRING", None)
+        except Exception:
+            pass
+    return conn
+
 def main():
     parser = argparse.ArgumentParser(description="IMDb TSV to Azure Parquet ETL")
-    parser.add_argument("--connection-string", default=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+    parser.add_argument("--connection-string", default=get_default_connection_string(),
                         help="Azure Storage Connection String")
     parser.add_argument("--container", default="imdb-data", help="Azure Blob Container Name")
     parser.add_argument("--tables", nargs="+", default=list(DATASETS.keys()),

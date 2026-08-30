@@ -49,13 +49,23 @@ def build_database(connection_string, container_name, output_path):
                         max_concurrency=8,
                     ).readinto(parquet_file)
 
-                connection.execute(
-                    f"""
-                    CREATE TABLE {table} AS
-                    SELECT * FROM read_parquet(?)
-                    """,
-                    [parquet_path],
-                )
+                if table in ("crew", "akas"):
+                    connection.execute(
+                        f"""
+                        CREATE TABLE {table} AS
+                        SELECT * FROM read_parquet(?)
+                        WHERE title_id IN (SELECT title_id FROM titles)
+                        """,
+                        [parquet_path],
+                    )
+                else:
+                    connection.execute(
+                        f"""
+                        CREATE TABLE {table} AS
+                        SELECT * FROM read_parquet(?)
+                        """,
+                        [parquet_path],
+                    )
                 row_count = connection.execute(
                     f"SELECT count(*) FROM {table}"
                 ).fetchone()[0]
@@ -121,13 +131,24 @@ def upload_database(
     logger.info("Uploaded database artifact with ETag %s", blob.get_blob_properties().etag)
 
 
+def get_default_connection_string():
+    conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    if not conn:
+        try:
+            import config
+            conn = getattr(config, "AZURE_STORAGE_CONNECTION_STRING", None)
+        except Exception:
+            pass
+    return conn
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build a local DuckDB database from the IMDb Parquet blobs."
     )
     parser.add_argument(
         "--connection-string",
-        default=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+        default=get_default_connection_string(),
         help="Azure Storage connection string",
     )
     parser.add_argument("--container", default="imdb-data")
