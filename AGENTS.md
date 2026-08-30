@@ -6,12 +6,12 @@ This document provides system design, architectural references, and workflows fo
 
 ## 1. Project Overview
 
-`imdb_project` is an intelligent conversational search engine and analytical dashboard for the entire IMDb dataset. It allows users to search movies, TV series, actors, directors, and ratings using natural conversational language.
+`imdb_project` is an intelligent search engine and analytical dashboard for the entire IMDb dataset. It allows users to search movies, TV series, actors, directors, and ratings using natural conversational language.
 
 ### Core Capabilities:
 - **Natural Language Text-to-SQL**: Converts complex queries into standard ANSI SQL using Azure AI Foundry / Azure OpenAI models (e.g. `gpt-4o`, `gpt-5.4`).
 - **Cloud-Native DuckDB Query Engine**: Executes queries directly against remote ZSTD-compressed Parquet datasets stored in **Azure Blob Storage** via HTTP Range Requests (Zero local disk requirement, ~1.3 GB cloud storage).
-- **Interactive AI Chat & Visualizations**: Interactive conversational interface capable of generating dynamic Chart.js visualizations (timelines, bar charts) and instant title summaries.
+- **Interactive Data Explorer & Summaries**: Fast tabular results with dynamic filters, sorting, query suggestions, and on-demand AI movie/show summaries.
 - **Client-Side Key Management (LocalStorage)**: Secure BYOK (Bring Your Own Key) model where users configure their Azure OpenAI keys via the UI settings modal. Keys are persisted in browser `localStorage` and sent over HTTPS request headers without needing hardcoded server secrets.
 
 ---
@@ -23,7 +23,6 @@ This document provides system design, architectural references, and workflows fo
                                │             Browser Client             │
                                │  - HTML5 / Bootstrap 5 / DataTables    │
                                │  - LocalStorage (API Key / Endpoint)   │
-                               │  - Chart.js Visualizations             │
                                └───────────────────┬────────────────────┘
                                                    │ HTTPS + Headers
                                                    ▼
@@ -32,7 +31,7 @@ This document provides system design, architectural references, and workflows fo
 │                                                                       │
 │  app/views.py                                                         │
 │  ├── Dynamic Azure Credential Extractor (X-Azure-API-Key / Header)    │
-│  ├── AzureOpenAI Client (Tool calling & Text-to-SQL generation)       │
+│  ├── AzureOpenAI Client (Text-to-SQL & Title Summarization)           │
 │  └── In-Memory DuckDB Engine (Loaded with 'azure' & 'httpfs' ext)     │
 └───────────────┬───────────────────────────────────────┬───────────────┘
                 │                                       │
@@ -62,11 +61,10 @@ imdb_project/
 │   ├── __init__.py          # Flask application factory
 │   ├── views.py             # Route handlers, DuckDB query execution, LLM prompts
 │   ├── templates/
-│   │   ├── index.html       # Simple Search page + Settings Modal
-│   │   └── chat.html        # AI Chat & Visualization page + Settings Modal
+│   │   └── index.html       # Simple Search page + Settings Modal
 │   └── static/
 │       ├── style.css        # Custom UI styling, gradients, and badges
-│       ├── app.js           # AJAX handlers, DataTables, LocalStorage manager, Chart.js
+│       ├── app.js           # AJAX handlers, DataTables, LocalStorage manager
 │       └── favicon.png      # Application favicon
 ├── scripts/
 │   └── etl_imdb_to_parquet.py # Automated ETL pipeline (IMDb TSVs -> Azure Blob Parquet)

@@ -13,8 +13,8 @@ A modern web application that converts natural language questions into SQL queri
 - **Natural Language to SQL**: Converts questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
 - **Serverless Parquet Engine (DuckDB)**: Queries compressed Parquet files directly on Azure Blob Storage over HTTP Range Requests with **zero local disk footprint** (~1.3 GB cloud total vs. 19 GB SQLite).
 - **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI; it stays saved in your browser's `localStorage` and is never persisted on the server.
-- **AI Chat & Data Visualizations**: Conversational assistant that creates dynamic Chart.js visualizations (timelines, bar charts) and title summaries.
-- **Interactive Data Explorer**: Instant client-side filtering, sorting, pagination, and SQL query export.
+- **Instant AI Title Summaries**: Click "AI Summary" on any search result to generate an instant, engaging overview of the film or TV show.
+- **Interactive Data Explorer**: Instant client-side filtering, sorting, pagination, query suggestions, and SQL query export.
 - **Containerized & Cloud-Ready**: Fully Dockerized with Gunicorn and pre-cached DuckDB Azure extensions.
 
 ---
@@ -39,7 +39,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-The app will be live at `http://localhost:5001`. Open the ⚙️ **Settings** modal in the navbar to enter your Azure OpenAI / Foundry credentials.
+The app will be live at `http://localhost:5001`. Open the ⚙️ **API Settings** modal in the navbar to enter your Azure OpenAI / Foundry credentials.
 
 ---
 
@@ -112,7 +112,7 @@ python scripts/etl_imdb_to_parquet.py --tables titles ratings
 - *"Find movies where Robert De Niro and Al Pacino acted together"*
 - *"Highest rated sci-fi movies from the 2020s with over 100,000 votes"*
 - *"List all episodes of The Office TV show sorted by rating"*
-- *"Show a chart of Tom Hanks movies by year"*
+- *"Best movies starring Tom Hanks released before 2000"*
 - *"Directors who made both horror and comedy films"*
 
 ---

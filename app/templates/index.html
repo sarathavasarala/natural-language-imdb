@@ -36,15 +36,10 @@
                 IMDb Intelligence
             </a>
             <div class="navbar-nav ms-auto d-flex align-items-center flex-row gap-2">
-                <a class="nav-link active px-2" href="{{ url_for('main.home') }}">
-                    <i class="fas fa-search me-1"></i>Simple Search
-                </a>
-                <a class="nav-link px-2" href="{{ url_for('main.chat') }}">
-                    <i class="fas fa-comments me-1"></i>AI Chat
-                </a>
-                <button class="btn btn-outline-warning btn-sm ms-2 d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Key">
-                    <i class="fas fa-gear"></i>
-                    <span id="settingsStatusBadge" class="badge bg-secondary ms-1">Server Key</span>
+                <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#settingsModal" id="settingsBtn" title="Configure Azure AI Foundry / OpenAI Key">
+                    <i class="fas fa-key me-1"></i>
+                    <span>API Settings</span>
+                    <span id="settingsStatusBadge" class="badge bg-warning text-dark ms-1">Set API Key</span>
                 </button>
             </div>
         </div>
