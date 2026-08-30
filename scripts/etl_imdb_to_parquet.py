@@ -14,6 +14,10 @@ import argparse
 import logging
 import tempfile
 import urllib.request
+
+# Ensure project root is in sys.path for config import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import duckdb
 from azure.storage.blob import BlobServiceClient
 

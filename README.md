@@ -1,180 +1,81 @@
-# IMDb Intelligence — Natural Language Text-to-SQL Search
+# IMDb Intelligence
+Natural language search across IMDb, enriched with TMDb.
 
-An intelligent search engine and analytical dashboard for the entire 10M+ IMDb catalog. Converts natural language questions into ANSI SQL queries via **Azure AI Foundry / OpenAI** and executes them against a local, read-only **DuckDB** database synchronized from Azure Blob Storage.
+IMDb Intelligence translates plain English questions into SQL and runs them against a local DuckDB database. It combines IMDb's cast, crew, and rating histories with TMDb's open metadata to give you original languages, countries of origin, plot summaries, and posters across 1.35 million movies and TV series.
 
-![IMDb Intelligence Interface](natural%20language%20imdb.jpeg)
-
-🌐 **Live Production Application:** [https://imdb-intelligence-app.azurewebsites.net](https://imdb-intelligence-app.azurewebsites.net)
-
----
-
-## 🌟 Key Features
-
-- **Projectionist's Digital Command Console**: Modern cinematic OLED dark aesthetic (`#07090E`), IMDb luminous amber accents (`#F5C518`), ambient backlight aura, and high-legibility typography (`Outfit` + `JetBrains Mono`).
-- **Natural Language to SQL**: Converts complex conversational questions into optimized ANSI SQL queries via Azure OpenAI (`gpt-4o`, `gpt-5.4`).
-- **Local DuckDB Query Engine**: Downloads a compact database artifact from Azure Blob Storage once, then serves fast local joins without a managed database.
-- **Client-Side Key Management (LocalStorage)**: Bring Your Own Key (BYOK) model. Enter your Azure AI Foundry / OpenAI key securely in the UI modal; it is saved in browser `localStorage` and sent over HTTPS headers without persisting secrets on the server.
-- **Real-Time Telemetry & SQL Inspector**: Monospace performance badges (query execution latency in seconds, row count) and an interactive, syntax-highlighted SQL drawer with 1-click clipboard copy.
-- **Interactive Multi-Filter Drawer**: Filter results dynamically by release year ranges, IMDb rating thresholds, and active genre tags with live count badges.
-- **Instant AI Title Summaries**: 1-click spoiler-free AI synopsis and cultural trivia for any search result.
-- **Keyboard-First Workflow**: Press `/` anywhere to focus the search bar; press `Escape` or click `✕` to clear.
+**Live app:** [imdb-intelligence-app.azurewebsites.net](https://imdb-intelligence-app.azurewebsites.net/)
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## What you can do
+- **Search in plain English**: Ask for titles by actor, director, genre, release decade, country, and rating thresholds.
+- **Filter by original language and country**: Search for genuine regional cinema (e.g. Japanese anime, Spanish thrillers, Telugu films) without dubbed Hollywood releases cluttering results.
+- **See the SQL query**: Inspect the exact SQL query generated for each question, along with execution times and row counts.
+- **Browse posters and plot summaries**: View TMDb poster artwork and story overviews directly in the results table.
+- **Get title summaries**: Generate a quick spoiler-free plot overview and background trivia for any title.
+- **Refine results**: Use interactive sliders and badges to narrow down results by release year, rating, or genre.
+- **Bring your own key**: Enter your Azure OpenAI or OpenAI API key in the UI settings; keys stay in your browser's local storage and are never saved on the server.
 
-### 1. Run with Python Virtual Environment
+---
 
+## The dataset
+The database combines official IMDb dumps with TMDb's open movie catalog, pruned of individual TV episode entries to keep searches fast:
+
+- **1.35M titles**: Feature films, TV series, mini-series, and TV movies with TMDb language codes, origin countries, and plot summaries.
+- **1.71M ratings**: Official IMDb aggregate ratings and vote counts.
+- **15.6M people**: Actors, directors, writers, and crew members.
+- **13.2M credits**: Cast and crew title associations (`crew_lookup`).
+- **7.75M localized titles**: Regional release names and alternative titles.
+
+---
+
+## How it works
+- **Natural Language to SQL**: User queries are translated into standard ANSI SQL using Azure OpenAI or OpenAI models.
+- **IMDb + TMDb Enrichment**: IMDb's raw dumps lack clean original language and country tags. Joining with TMDb provides accurate `original_language` and `origin_country` metadata, ensuring language searches match original productions rather than localized dubs.
+- **DuckDB Engine**: Data is stored in an indexed, read-only DuckDB database file (~2.38 GB). The backend runs analytical queries locally in memory, keeping response times under a few hundred milliseconds without requiring an external database server.
+- **Cloud Sync**: The web app checks Azure Blob Storage on startup and syncs the DuckDB artifact only when the remote version changes.
+
+---
+
+## Example queries
+- *"Highest rated sci-fi movies from 2010s with over 100k votes"*
+- *"Movies where Leonardo DiCaprio and Kate Winslet worked together"*
+- *"Best Korean thriller movies released after 2015"*
+- *"Top rated animated movies directed by Hayao Miyazaki"*
+- *"Highest rated movies from India released after 2000 with at least 30k votes"*
+- *"Spanish horror movies with rating above 7.5"*
+
+---
+
+## Tech Stack
+
+| Layer | Stack |
+| :--- | :--- |
+| **Frontend** | HTML5, Bootstrap 5, Vanilla JavaScript, DataTables |
+| **Backend** | Python 3.11+, Flask, Gunicorn, Server-Sent Events |
+| **Database** | DuckDB, Parquet |
+| **AI / Translation** | Azure OpenAI / OpenAI API (`gpt-4o`, `gpt-5.4`) |
+| **Hosting & Storage** | Azure App Service (Linux), Azure Blob Storage |
+| **Data Sources** | IMDb Datasets, TMDb Open Movies Dataset |
+
+---
+
+## Running locally
+
+### Prerequisites
+- Python 3.10+
+- Azure OpenAI or OpenAI API key
+
+### Setup
 ```bash
-# Clone the repository
 git clone https://github.com/sarathavasarala/natural-language-imdb.git
 cd natural-language-imdb
 
-# Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Start the local development server
 python run.py
 ```
 
-Open `http://localhost:5001`. Click **API Settings** in the top navigation bar to configure your Azure AI Foundry / OpenAI credentials.
-
----
-
-### 2. Run with Docker Compose
-
-```bash
-docker compose up --build
-```
-
-Access the application at `http://localhost:5001`.
-
----
-
-## 🚀 CI/CD & Deployment Architecture
-
-### 1. Automated Deployment via GitHub Actions (Recommended)
-
-Every push to the `main` branch automatically triggers the GitHub Actions workflow at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
-
-```
-┌──────────────────────────┐       ┌──────────────────────────────┐       ┌──────────────────────────────┐
-│  git push origin main    │ ────> │   GitHub Actions CI/CD       │ ────> │   Azure App Service (Linux)  │
-│  (Code + Templates + CSS)│       │   - Build & verification     │       │   imdb-intelligence-app      │
-│                          │       │   - Zip artifact packaging   │       │   .azurewebsites.net         │
-└──────────────────────────┘       └──────────────────────────────┘       └──────────────────────────────┘
-```
-
-#### How to configure GitHub Actions Secrets for automatic deployment:
-1. Download the publish profile XML from the Azure Portal or Azure CLI:
-   ```bash
-   az webapp deployment list-publishing-profiles \
-     --name imdb-intelligence-app \
-     --resource-group rg-imdb-intelligence \
-     --xml
-   ```
-2. In your GitHub repository, go to **Settings** ➔ **Secrets and variables** ➔ **Actions**.
-3. Create a new repository secret named `AZURE_WEBAPP_PUBLISH_PROFILE` and paste the XML contents.
-4. Any future `git push origin main` will automatically build and deploy the update live in ~1-2 minutes!
-
----
-
-### 2. Manual Deployment via Azure CLI
-
-To deploy directly from your local terminal:
-
-```bash
-# Create deployment package
-zip -r deploy.zip app run.py config.template.py requirements.txt -x "*.DS_Store" "*__pycache__*"
-
-# Deploy to Azure App Service
-az webapp deploy \
-  --name imdb-intelligence-app \
-  --resource-group rg-imdb-intelligence \
-  --src-path deploy.zip \
-  --type zip
-```
-
----
-
-## 🔄 Dataset refresh
-
-To refresh Parquet datasets directly from IMDb's official data dumps (`https://datasets.imdbws.com/`) into Azure Blob Storage:
-
-```bash
-python scripts/etl_imdb_to_parquet.py \
-  --connection-string "<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
-  --container "imdb-data"
-```
-
-To refresh specific tables only:
-```bash
-python scripts/etl_imdb_to_parquet.py --tables titles ratings
-```
-
-After refreshing the Parquet source files, build and upload the database artifact:
-
-```bash
-python scripts/build_duckdb_database.py \
-  --connection-string "<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
-  --container "imdb-data"
-```
-
-To optimize and republish an existing local artifact without rebuilding it:
-
-```bash
-AZURE_STORAGE_CONNECTION_STRING="<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
-python scripts/optimize_duckdb_database.py
-```
-
-The startup command downloads `imdb.duckdb` to persistent storage when its Blob
-ETag changes, then copies it to the App Service instance's local `/tmp` disk
-before Gunicorn accepts traffic. Configure `DUCKDB_CACHE_PATH` as
-`/home/data/imdb.duckdb` and `DUCKDB_DATABASE_PATH` as `/tmp/imdb.duckdb`.
-Restart the App Service after publishing a refreshed artifact.
-
----
-
-## 📊 Dataset Schema
-
-The database combines the authoritative depth of **IMDb** ratings, cast, and crew with **TMDb (The Movie Database)** open metadata for universal language, country of origin, plot summaries, and posters, while pruning ~10 million individual TV episode rows for ultra-fast queries:
-
-| Table | Description | Key Schema Fields |
-| :--- | :--- | :--- |
-| **`titles`** | Movies & TV Series catalog (~1.3M titles) | `title_id`, `type`, `primary_title`, `original_title`, `original_language` (ISO 639-1: `en`, `es`, `fr`, `de`, `ja`, `ko`, `it`, `zh`, `hi`, `te`, `ta`, etc.), `origin_country` (ISO 3166-1: `US`, `GB`, `IN`, `KR`, `JP`, `FR`, `DE`, etc.), `premiered`, `ended`, `runtime_minutes`, `genres`, `overview`, `poster_path` |
-| **`ratings`** | Official IMDb Ratings (1.7M+ ratings) | `title_id`, `rating` (1.0 to 10.0), `votes` |
-| **`people`** | Actors, Directors & Writers (15.6M people) | `person_id`, `name`, `born`, `died` |
-| **`crew_lookup`** | Fast indexed person-to-title credits (10.3M rows) | `person_id`, `category` (`director`, `actor`, `actress`, `writer`, `producer`), `title_id` |
-| **`akas`** | Localized & alternative release titles (5.4M rows) | `title_id`, `title`, `region`, `language`, `types`, `attributes`, `is_original_title` |
-
----
-
-## 💡 Example Natural Language Queries
-
-### Global Cinema & Country Filters:
-- *"Highest rated movies from India released after 2000 with at least 30k votes"*
-- *"Best Korean thriller movies from the 2010s"*
-- *"Top rated French comedy movies"*
-- *"Japanese anime movies with rating above 8"*
-- *"Best Spanish horror movies"*
-
-### People, Pairings & Filmographies:
-- *"Movies where Leonardo DiCaprio and Kate Winslet worked together"*
-- *"Christopher Nolan movies sorted by rating"*
-- *"Movies directed by S.S. Rajamouli"*
-- *"Best Tom Hanks movies from 1990s"*
-
-### Genre & Analytical Queries:
-- *"Highest rated sci-fi movies from 2010s with over 100k votes"*
-- *"Best drama TV series with at least 500,000 votes"*
-- *"Directors who made both horror and comedy movies"*
-
----
-
-## 📄 License
-
-IMDb datasets are provided for personal and non-commercial use only by IMDb. TMDb metadata is provided via TMDb open export feeds.
+Open `http://localhost:5001` in your browser and click **API Settings** to add your API credentials.
