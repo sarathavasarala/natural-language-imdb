@@ -181,6 +181,9 @@ $(document).ready(function () {
         $clearBtn.on('click', function () {
             $query.val('').focus();
             toggleClearButton(false);
+            $('#resultsContainer, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner').addClass('d-none');
+            $('#suggestedChipsSection').removeClass('d-none');
+            history.pushState({}, '', window.location.pathname);
         });
 
         // Cancel / Abort buttons
@@ -468,7 +471,7 @@ $(document).ready(function () {
 
     function showLoading() {
         $('#loadingState').removeClass('d-none');
-        $('#errorState, #noResultsState, #resultsContainer, #resultsMeta').addClass('d-none');
+        $('#errorState, #noResultsState, #resultsContainer, #resultsMeta, #suggestedChipsSection').addClass('d-none');
         $('#searchBtn').addClass('d-none');
         $('#cancelSearchBtn').removeClass('d-none');
         $('#clearQueryBtn').addClass('d-none');
@@ -696,7 +699,7 @@ $(document).ready(function () {
             },
             columnDefs: columnDefs,
             order: votesIdx >= 0 ? [[votesIdx, 'desc']] : [],
-            dom: '<"row align-items-center mb-3"<"col-sm-6"l><"col-sm-6 d-flex justify-content-sm-end"f>><"table-responsive"t><"row align-items-center mt-3"<"col-sm-6"i><"col-sm-6 d-flex justify-content-sm-end"p>>',
+            dom: '<"table-controls-header d-flex align-items-center justify-content-between flex-wrap gap-2"<"d-flex align-items-center"l><"d-flex align-items-center"f>><"table-responsive"t><"table-controls-footer d-flex align-items-center justify-content-between flex-wrap gap-2"<"d-flex align-items-center"i><"d-flex align-items-center"p>>',
             drawCallback: function () {
                 $(this.api().table().node()).find('tbody tr').addClass('fade-in');
             }
