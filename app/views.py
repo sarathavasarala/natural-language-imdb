@@ -307,6 +307,10 @@ def _check_tmdb_columns_available():
     global _has_tmdb_columns
     if _has_tmdb_columns is not None:
         return _has_tmdb_columns
+    if _duckdb_con is None:
+        db_path = DUCKDB_DATABASE_PATH or "db/imdb.duckdb"
+        if not os.path.exists(db_path):
+            return False
     try:
         cursor = get_database_connection()
         cols = [c[0] for c in cursor.execute("DESCRIBE titles").fetchall()]
