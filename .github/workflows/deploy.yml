@@ -35,8 +35,14 @@ jobs:
           zip -r deploy.zip app run.py config.template.py requirements.txt -x "*.DS_Store" "*__pycache__*" "*.git*"
 
       - name: Deploy to Azure Web App
+        if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'imdb-intelligence-app'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: deploy.zip
+
+      - name: Notice on Missing Publish Profile
+        if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE == '' }}
+        run: |
+          echo "::notice::AZURE_WEBAPP_PUBLISH_PROFILE secret is not configured in GitHub repository secrets. Build and test verification passed, but deployment was skipped. To enable auto-deployment, add AZURE_WEBAPP_PUBLISH_PROFILE in Repository Settings > Secrets > Actions."
