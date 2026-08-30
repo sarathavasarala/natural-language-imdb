@@ -70,6 +70,17 @@ def build_database(connection_string, container_name, output_path):
         logger.info("Creating person lookup indexes...")
         connection.execute("CREATE INDEX people_name_idx ON people(name)")
         connection.execute("CREATE INDEX people_id_idx ON people(person_id)")
+        connection.execute("CREATE INDEX titles_id_idx ON titles(title_id)")
+        connection.execute("CREATE INDEX ratings_id_idx ON ratings(title_id)")
+        logger.info("Creating sorted crew lookup table...")
+        connection.execute(
+            """
+            CREATE TABLE crew_lookup AS
+            SELECT person_id, category, title_id
+            FROM crew
+            ORDER BY person_id, category, title_id
+            """
+        )
         connection.execute("ANALYZE")
         connection.execute("CHECKPOINT")
     finally:

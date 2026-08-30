@@ -7,6 +7,7 @@ import time
 import re
 import threading
 import fcntl
+import shutil
 from openai import AzureOpenAI, OpenAI
 import sys
 from datetime import datetime
@@ -57,6 +58,7 @@ DATABASE SCHEMA:
 - titles: title_id (VARCHAR), type (VARCHAR), primary_title (VARCHAR), original_title (VARCHAR), is_adult (INTEGER), premiered (INTEGER), ended (INTEGER), runtime_minutes (INTEGER), genres (VARCHAR)
 - akas: title_id (VARCHAR), title (VARCHAR), region (VARCHAR), language (VARCHAR), types (VARCHAR), attributes (VARCHAR), is_original_title (INTEGER)
 - crew: title_id (VARCHAR), person_id (VARCHAR), category (VARCHAR), job (VARCHAR), characters (VARCHAR)
+- crew_lookup: person_id (VARCHAR), category (VARCHAR), title_id (VARCHAR), sorted for fast person-credit lookups
 - episodes: episode_title_id (VARCHAR), show_title_id (VARCHAR), season_number (INTEGER), episode_number (INTEGER)
 - ratings: title_id (VARCHAR), rating (REAL), votes (INTEGER)
 """
@@ -202,6 +204,12 @@ def ensure_local_duckdb_database():
 
         temp_path = f"{database_path}.{os.getpid()}.download"
         temp_etag_path = f"{database_path}.etag.{os.getpid()}.download"
+        free_bytes = shutil.disk_usage(os.path.dirname(database_path)).free
+        if os.path.exists(database_path) and free_bytes < properties.size * 1.1:
+            logger.info("Removing stale database before download due to limited disk space.")
+            os.remove(database_path)
+            if os.path.exists(f"{database_path}.etag"):
+                os.remove(f"{database_path}.etag")
         logger.info(
             "Downloading DuckDB database artifact %s/%s (%0.1f MiB)...",
             container,
@@ -287,6 +295,19 @@ def fix_single_quotes_in_sql(sql_query):
     except Exception as e:
         logger.warning(f"Error in SQL quote fixing: {str(e)}, returning original query")
         return sql_query
+
+
+def optimize_generated_sql(sql_query):
+    """Route ordinary credit joins through the compact, person-sorted lookup table."""
+    if re.search(r"\b(?:job|characters)\b", sql_query, flags=re.IGNORECASE):
+        return sql_query
+    return re.sub(
+        r"\b(FROM|JOIN)\s+crew\b",
+        r"\1 crew_lookup",
+        sql_query,
+        flags=re.IGNORECASE,
+    )
+
 
 def validate_sql_query(sql_query):
     """Basic validation of SQL query for security and syntax"""
@@ -571,7 +592,9 @@ Diagnose and provide the JSON response.
             sql = re.sub(r'^```sql\s*', '', sql, flags=re.IGNORECASE)
             sql = re.sub(r'^```\s*', '', sql)
             sql = re.sub(r'\s*```$', '', sql)
-            data["corrected_sql"] = fix_single_quotes_in_sql(sql.strip())
+            data["corrected_sql"] = optimize_generated_sql(
+                fix_single_quotes_in_sql(sql.strip())
+            )
             
         return data
     except Exception as e:
@@ -593,52 +616,78 @@ def generate_response(user_query, creds=None):
     client, model_name = get_azure_client(creds=creds)
     
     system_message = f"""
-    You are an expert SQL query generator for IMDb database analysis. Your task is to convert natural language queries into precise standard SQL queries.
+You generate read-only DuckDB SQL for IMDb search.
 
-    {DB_SCHEMA_PROMPT}
+{DB_SCHEMA_PROMPT}
 
-    AVOIDING DUPLICATES:
-    - ALWAYS use SELECT DISTINCT when joining tables, especially with crew/people tables
-    - When multiple crew members are involved, use proper subqueries or GROUP BY with aggregation
-    - Be extra careful with queries involving actors, directors, or multiple people relationships
+PHYSICAL DESIGN:
+- people.name, people.person_id, titles.title_id, and ratings.title_id have lookup indexes.
+- crew_lookup is a compact copy of person_id/category/title_id sorted by person_id.
+- crew is a much larger detail table. Use it only when job or characters is requested.
 
-    IMPORTANT RULES:
-    1. ALWAYS use SELECT DISTINCT to prevent duplicate results from JOINs
-    2. ALWAYS include ratings and votes when available
-    3. Use proper JOINs for relationships
-    4. For name searches: Try exact match first, then LIKE as fallback
-    5. For crew queries: Filter by category early (actor, actress, director, etc.)
-    6. For title queries: Filter by type early (movie, tvMovie, tvSeries, etc.)
-    7. Include ORDER BY for better results (ratings DESC, premiered DESC, votes DESC)
-    8. Limit results when appropriate to prevent overly large returns
-    9. ESCAPE SINGLE QUOTES: Replace single quotes (') with double single quotes ('') in names (e.g., O'Brien becomes O''Brien)
+RULES:
+1. Return one SELECT or WITH query and no prose or markdown.
+2. Use exact people.name equality. Never add OR LIKE to a name; zero-result recovery handles misspellings.
+3. Start person searches with a MATERIALIZED matched_people CTE so the name index resolves IDs before credit joins.
+4. Use crew_lookup for every person-to-title relationship. Apply its category filter before joining titles.
+5. For multiple named people, group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of names.
+6. Include title_id, primary_title, premiered, genres, rating, and votes when they fit the request.
+7. Prevent genuine duplicate titles with DISTINCT or GROUP BY.
+8. Use movie types IN ('movie', 'tvMovie') when the user asks for movies.
+9. Add a deterministic ORDER BY and LIMIT 100 unless the user requests an aggregate or a smaller limit.
+10. Escape apostrophes inside string literals by doubling them.
 
-    INDEX-OPTIMIZED EXAMPLES:
+EXAMPLES:
 
-    Query: "Movies with Jim Carrey rated above 7"
-    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM people p 
-         JOIN crew c ON p.person_id = c.person_id 
-         JOIN titles t ON c.title_id = t.title_id 
-         JOIN ratings r ON t.title_id = r.title_id 
-         WHERE p.name = 'Jim Carrey'
-         AND c.category IN ('actor', 'actress')
-         AND t.type IN ('movie', 'tvMovie') 
-         AND r.rating > 7.0 
-         ORDER BY r.rating DESC, r.votes DESC;
+User: Christopher Nolan movies
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Christopher Nolan'
+)
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
 
-    Query: "Highest rated sci-fi movies from 2010s"
-    SQL: SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes 
-         FROM titles t 
-         JOIN ratings r ON t.title_id = r.title_id 
-         WHERE t.type IN ('movie', 'tvMovie') 
-         AND t.premiered BETWEEN 2010 AND 2019
-         AND t.genres LIKE '%Sci-Fi%' 
-         AND r.votes >= 1000 
-         ORDER BY r.rating DESC, r.votes DESC;
+User: Movies where Leonardo DiCaprio and Kate Winslet worked together
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id, name
+    FROM people
+    WHERE name IN ('Leonardo DiCaprio', 'Kate Winslet')
+),
+shared_titles AS (
+    SELECT c.title_id
+    FROM matched_people p
+    JOIN crew_lookup c ON c.person_id = p.person_id
+    WHERE c.category IN ('actor', 'actress')
+    GROUP BY c.title_id
+    HAVING COUNT(DISTINCT p.name) = 2
+)
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+FROM shared_titles s
+JOIN titles t ON t.title_id = s.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
 
-    Return ONLY the SQL query without markdown formatting or explanations.
-    """
+User: Highest rated sci-fi movies from the 2010s
+SQL:
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+FROM titles t
+JOIN ratings r ON r.title_id = t.title_id
+WHERE t.type IN ('movie', 'tvMovie')
+  AND t.premiered BETWEEN 2010 AND 2019
+  AND t.genres LIKE '%Sci-Fi%'
+  AND r.votes >= 1000
+ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
+LIMIT 100;
+"""
     
     try:
         response = safe_chat_completion(
@@ -659,7 +708,7 @@ def generate_response(user_query, creds=None):
         sql_query = re.sub(r'\s*```$', '', sql_query)
         sql_query = sql_query.strip()
         
-        sql_query = fix_single_quotes_in_sql(sql_query)
+        sql_query = optimize_generated_sql(fix_single_quotes_in_sql(sql_query))
         
         processing_time = time.time() - start_time
         logger.info(f"Generated SQL in {processing_time:.2f}s: {sql_query[:100]}...")
@@ -793,7 +842,7 @@ def api_search_stream():
         if not validate_sql_query(sql_query):
             yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'message': 'Refining search criteria...'})}\n\n"
             try:
-                retry_query = f"Simple query: {user_query}. Return only a standard SELECT with JOINs, no subqueries."
+                retry_query = f"Regenerate valid DuckDB SQL for: {user_query}"
                 sql_query = generate_response(retry_query, creds=creds)
             except Exception as e:
                 pass
@@ -890,7 +939,7 @@ def api_search():
         # Validate SQL
         if not validate_sql_query(sql_query):
             logger.warning(f"[{request_id}] SQL validation failed, attempting re-prompt...")
-            retry_query = f"Simple query: {user_query}. Return only a standard SELECT with JOINs, no subqueries."
+            retry_query = f"Regenerate valid DuckDB SQL for: {user_query}"
             sql_query = generate_response(retry_query, creds=creds)
             
             if not validate_sql_query(sql_query):

@@ -148,6 +148,22 @@ class FoundryCallTests(unittest.TestCase):
         self.assertFalse(validate_sql_query("UPDATE titles SET primary_title = 'hacked'"))
         self.assertFalse(validate_sql_query("TRUNCATE ratings;"))
 
+    def test_generated_credit_query_uses_compact_lookup(self):
+        from app.views import optimize_generated_sql
+
+        query = (
+            "SELECT c.title_id FROM people p "
+            "JOIN crew c ON p.person_id = c.person_id "
+            "WHERE p.name = 'Christopher Nolan'"
+        )
+        self.assertIn("JOIN crew_lookup c", optimize_generated_sql(query))
+
+    def test_generated_crew_detail_query_keeps_full_table(self):
+        from app.views import optimize_generated_sql
+
+        query = "SELECT c.job, c.characters FROM crew c WHERE c.title_id = 'tt1'"
+        self.assertEqual(optimize_generated_sql(query), query)
+
     def test_local_duckdb_database_is_opened_read_only(self):
         import app.views as views
 

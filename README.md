@@ -124,6 +124,13 @@ python scripts/build_duckdb_database.py \
   --container "imdb-data"
 ```
 
+To optimize and republish an existing local artifact without rebuilding it:
+
+```bash
+AZURE_STORAGE_CONNECTION_STRING="<YOUR_AZURE_STORAGE_CONNECTION_STRING>" \
+python scripts/optimize_duckdb_database.py
+```
+
 The startup command downloads `imdb.duckdb` to persistent storage when its Blob
 ETag changes, then copies it to the App Service instance's local `/tmp` disk
 before Gunicorn accepts traffic. Configure `DUCKDB_CACHE_PATH` as

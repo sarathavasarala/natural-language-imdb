@@ -827,7 +827,7 @@ $(document).ready(function () {
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({ title_id: titleId, title_name: titleName }),
-            timeout: 35000,
+            timeout: 100000,
             success: function (response) {
                 if (response.success) {
                     displayAISummary(response.title_name, response.summary, titleId, titleName);
@@ -837,7 +837,7 @@ $(document).ready(function () {
             },
             error: function (xhr, status) {
                 let msg = 'Failed to generate synopsis.';
-                if (status === 'timeout') msg = 'Request timed out. Please try again.';
+                if (status === 'timeout') msg = 'Synopsis generation took too long. Please try again.';
                 else if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
                 showAISummaryError(msg, titleId, titleName);
             }
