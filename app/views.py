@@ -6,7 +6,7 @@ import json
 import time
 import re
 import threading
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 import sys
 from datetime import datetime
 import uuid
@@ -110,20 +110,53 @@ def get_azure_credentials(req=None):
 
 def get_azure_client(creds=None):
     """
-    Returns the Azure OpenAI client and model name initialized with given credentials.
+    Returns the AI client (OpenAI v1 router or AzureOpenAI) and model name initialized with given credentials.
+    Automatically detects and handles:
+    - Azure AI Foundry endpoints (e.g. https://<resource>.services.ai.azure.com/openai/v1 or root)
+    - Azure AI Model inference endpoints (/models or /v1)
+    - Classic Azure OpenAI endpoints (e.g. https://<resource>.openai.azure.com)
     """
     if creds is None:
         creds = get_azure_credentials(request if has_request_context() else None)
     
-    if not creds["api_key"] or not creds["endpoint"]:
-        raise ValueError("Azure OpenAI API Key or Endpoint is not configured. Please set it in config.py or in the UI settings.")
+    api_key = (creds.get("api_key") or "").strip()
+    endpoint = (creds.get("endpoint") or "").strip().rstrip("/")
+    api_version = (creds.get("api_version") or "2025-04-01-preview").strip()
+    model = (creds.get("model") or "gpt-5.6-luna").strip()
+    
+    if not api_key or not endpoint:
+        raise ValueError("AI API Key or Endpoint is not configured. Please set it in config.py or in the UI settings.")
 
+    # 1. Direct Foundry / OpenAI-compatible v1 router
+    if "/openai/v1" in endpoint or "/v1" in endpoint or "/models" in endpoint:
+        logger.info(f"Connecting via OpenAI v1 router to Foundry endpoint: {endpoint}")
+        client = OpenAI(
+            base_url=endpoint,
+            api_key=api_key,
+            default_headers={"api-key": api_key}
+        )
+        return client, model
+
+    # 2. Foundry domain without /openai/v1 suffix
+    if "services.ai.azure.com" in endpoint:
+        foundry_v1_url = f"{endpoint}/openai/v1"
+        logger.info(f"Connecting via Foundry services.ai.azure.com router: {foundry_v1_url}")
+        client = OpenAI(
+            base_url=foundry_v1_url,
+            api_key=api_key,
+            default_headers={"api-key": api_key}
+        )
+        return client, model
+
+    # 3. Classic Azure OpenAI (.openai.azure.com or .cognitiveservices.azure.com)
+    clean_endpoint = re.sub(r'/openai.*$', '', endpoint)
+    logger.info(f"Connecting via AzureOpenAI client to endpoint: {clean_endpoint}")
     client = AzureOpenAI(
-        api_key=creds["api_key"],
-        api_version=creds["api_version"],
-        azure_endpoint=creds["endpoint"]
+        azure_endpoint=clean_endpoint,
+        api_version=api_version,
+        api_key=api_key
     )
-    return client, creds["model"]
+    return client, model
 
 # Thread-safe DuckDB Connection Manager
 _duckdb_lock = threading.Lock()

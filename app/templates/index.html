@@ -413,7 +413,7 @@
                         <div class="mb-3">
                             <label for="customApiKey" class="cinema-form-label">API Key <span class="text-gold">*</span></label>
                             <div class="input-group">
-                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your Azure OpenAI key here..." required>
+                                <input type="password" class="form-control cinema-input" id="customApiKey" placeholder="Paste your Foundry / OpenAI key here..." required>
                                 <button class="btn btn-cinema-addon" type="button" id="toggleApiKeyVisibility" title="Toggle visibility">
                                     <i class="fa-regular fa-eye" id="toggleApiKeyIcon"></i>
                                 </button>
@@ -421,12 +421,12 @@
                         </div>
                         <div class="mb-3">
                             <label for="customEndpoint" class="cinema-form-label">Endpoint URL <span class="text-gold">*</span></label>
-                            <input type="url" class="form-control cinema-input" id="customEndpoint" placeholder="https://your-resource.openai.azure.com" required>
+                            <input type="url" class="form-control cinema-input" id="customEndpoint" placeholder="https://<resource>.services.ai.azure.com/openai/v1" required>
                         </div>
                         <div class="row g-2">
                             <div class="col-sm-6 mb-3">
-                                <label for="customModel" class="cinema-form-label">Model Name</label>
-                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="e.g. gpt-4o or gpt-5.4">
+                                <label for="customModel" class="cinema-form-label">Deployment / Model Name</label>
+                                <input type="text" class="form-control cinema-input" id="customModel" placeholder="e.g. gpt-5.6-luna or gpt-4o">
                             </div>
                             <div class="col-sm-6 mb-3">
                                 <label for="customApiVersion" class="cinema-form-label">API Version</label>
