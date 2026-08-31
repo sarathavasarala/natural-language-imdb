@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">IMDb Intelligence</title>
+  <desc id="desc">A minimal gold tile with an abstract Q mark on a dark background.</desc>
+  <defs>
+    <radialGradient id="background" cx="50%" cy="38%" r="72%">
+      <stop offset="0" stop-color="#181C26"/>
+      <stop offset="0.62" stop-color="#0B0E14"/>
+      <stop offset="1" stop-color="#05070B"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD84A"/>
+      <stop offset="0.5" stop-color="#F5C518"/>
+      <stop offset="1" stop-color="#DFA900"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#000" flood-opacity=".5"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#background)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="146" y="146" width="732" height="732" rx="210" fill="url(#gold)"/>
+    <circle cx="496" cy="490" r="188" fill="none" stroke="#11151E" stroke-width="96"/>
+    <path d="m624 624 114 114" fill="none" stroke="#11151E" stroke-linecap="round" stroke-width="96"/>
+  </g>
+</svg>
