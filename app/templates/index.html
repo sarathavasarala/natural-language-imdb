@@ -82,9 +82,9 @@
                                    id="query" 
                                    name="query" 
                                    class="search-input" 
-                                   placeholder="e.g., Movies where Leonardo DiCaprio and Kate Winslet worked together..."
-                                   autocomplete="off"
-                                   spellcheck="false"
+                                   placeholder="e.g., Leonardo DiCaprio & Kate Winslet movies..." 
+                                   autocomplete="off" 
+                                   spellcheck="false" 
                                    required>
                             <div class="search-action-group">
                                 <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)">
@@ -92,8 +92,8 @@
                                 </button>
                                 <span class="kbd-shortcut d-none d-md-inline-flex" title="Press / to focus">/</span>
                                 <button type="submit" class="btn-search-cinema" id="searchBtn">
-                                    <i class="fa-solid fa-magnifying-glass me-1"></i>
-                                    <span>Search</span>
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <span class="ms-1 d-none d-sm-inline">Search</span>
                                 </button>
                             </div>
                         </div>
@@ -301,7 +301,7 @@
             </div>
 
             <!-- Results Table Container (Desktop / Spreadsheet View) -->
-            <div id="resultsContainer" class="results-table-container d-none mb-5">
+            <div id="resultsContainer" class="results-table-container d-none d-md-block mb-5">
                 <div class="cinema-table-card">
                     <table id="resultsTable" class="table table-cinema align-middle mb-0" style="width:100%">
                         <thead>

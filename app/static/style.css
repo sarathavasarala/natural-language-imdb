@@ -275,8 +275,9 @@ code, kbd, samp, pre {
 /* ── Search Console ──────────────────────────────────────────────── */
 .search-console-wrapper {
     position: relative;
-    max-width: 820px;
+    max-width: 860px;
     margin: 0 auto;
+    width: 100%;
 }
 
 .search-input-shell {
@@ -285,8 +286,9 @@ code, kbd, samp, pre {
     align-items: center;
     background: var(--bg-surface);
     border: 1.5px solid var(--border-medium);
-    border-radius: 16px;
-    padding: 0.4rem 0.5rem 0.4rem 1.25rem;
+    border-radius: 18px;
+    padding: 0.45rem 0.55rem 0.45rem 1.35rem;
+    min-height: 58px;
     box-shadow: var(--shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.03);
     transition: var(--transition-base);
 }
@@ -303,6 +305,7 @@ code, kbd, samp, pre {
     font-size: 1.15rem;
     margin-right: 0.85rem;
     transition: var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .search-input-shell:focus-within .search-leading-icon {
@@ -311,6 +314,7 @@ code, kbd, samp, pre {
 
 .search-input {
     flex-grow: 1;
+    min-width: 0;
     background: transparent;
     border: none;
     outline: none;
@@ -318,11 +322,12 @@ code, kbd, samp, pre {
     font-size: 1.05rem;
     font-weight: 500;
     font-family: var(--font-sans);
-    padding: 0.6rem 0;
+    padding: 0.6rem 0.5rem 0.6rem 0;
+    text-overflow: ellipsis;
 }
 
 .search-input::placeholder {
-    color: var(--text-muted);
+    color: rgba(156, 163, 175, 0.75);
     font-weight: 400;
 }
 
@@ -330,20 +335,22 @@ code, kbd, samp, pre {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .btn-clear-query {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .btn-clear-query:hover {
@@ -370,7 +377,7 @@ code, kbd, samp, pre {
     background: var(--gold-primary);
     color: var(--text-inverse);
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 0.65rem 1.4rem;
     font-weight: 700;
     font-size: 0.95rem;
@@ -378,6 +385,10 @@ code, kbd, samp, pre {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    flex-shrink: 0;
     transition: var(--transition-fast);
     box-shadow: 0 4px 14px rgba(245, 197, 24, 0.3);
 }
@@ -1819,7 +1830,17 @@ code, kbd, samp, pre {
    RESPONSIVE ADAPTATIONS & NATIVE MOBILE APP SHELL
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Dual View Layout Rules: Desktop Table vs Mobile Cards */
 @media (max-width: 768px) {
+    #resultsContainer,
+    .results-table-container {
+        display: none !important;
+    }
+
+    #mobileResultsFeed:not(.d-none) {
+        display: flex !important;
+    }
+
     .hero-title {
         font-size: clamp(1.75rem, 5.5vw, 2.2rem);
     }
@@ -1857,7 +1878,9 @@ code, kbd, samp, pre {
     }
 
     .search-input-shell {
-        padding: 0.35rem 0.4rem 0.35rem 0.85rem;
+        min-height: 56px;
+        padding: 0.35rem 0.5rem 0.35rem 1.1rem;
+        border-radius: 16px;
     }
 
     .search-input {
@@ -1865,8 +1888,10 @@ code, kbd, samp, pre {
     }
 
     .btn-search-cinema {
-        padding: 0.55rem 1rem;
-        font-size: 0.88rem;
+        padding: 0.55rem 1.15rem;
+        font-size: 0.9rem;
+        min-height: 44px;
+        border-radius: 12px;
     }
 
     .results-meta-cinema {
@@ -1927,6 +1952,16 @@ code, kbd, samp, pre {
     }
 }
 
+@media (min-width: 769px) {
+    #mobileResultsFeed {
+        display: none !important;
+    }
+
+    #resultsContainer:not(.d-none) {
+        display: block !important;
+    }
+}
+
 @media (max-width: 576px) {
     /* Navbar */
     .brand-title {
@@ -1972,32 +2007,56 @@ code, kbd, samp, pre {
         line-height: 1.45;
     }
 
-    /* Search Console */
+    /* Search Console (Roomy and Spacious on Small Screens) */
+    .search-console-wrapper {
+        width: 100%;
+        padding: 0 0.15rem;
+    }
+
     .search-input-shell {
-        padding: 0.25rem 0.35rem 0.25rem 0.75rem;
-        border-radius: 12px;
+        min-height: 54px;
+        padding: 0.35rem 0.45rem 0.35rem 0.95rem;
+        border-radius: 16px;
+        gap: 0.35rem;
     }
 
     .search-leading-icon {
-        font-size: 0.95rem;
-        margin-right: 0.45rem;
+        font-size: 1.05rem;
+        margin-right: 0.4rem;
+        flex-shrink: 0;
     }
 
     .search-input {
         font-size: 16px !important;
-        padding: 0.45rem 0;
+        padding: 0.5rem 0.25rem 0.5rem 0;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .search-action-group {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-shrink: 0;
     }
 
     .btn-search-cinema {
-        padding: 0.48rem 0.8rem;
-        font-size: 0.82rem;
-        border-radius: 8px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.88rem;
+        border-radius: 12px;
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        flex-shrink: 0;
     }
 
     .btn-clear-query {
-        width: 26px;
-        height: 26px;
-        font-size: 0.82rem;
+        width: 28px;
+        height: 28px;
+        font-size: 0.85rem;
+        flex-shrink: 0;
     }
 
     /* Stepper Card on Mobile */
