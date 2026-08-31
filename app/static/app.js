@@ -934,7 +934,7 @@ $(document).ready(function () {
 
     // ── AI Synopsis Modal ─────────────────────────────────────────
     function initializeAISummary() {
-        $(document).on('click', '.btn-ai-synopsis', function () {
+        $(document).on('click', '.btn-ai-synopsis, .btn-card-synopsis', function () {
             if (!ensureApiKeyConfigured()) return;
             const titleId = $(this).data('title-id');
             const titleName = $(this).data('title-name');

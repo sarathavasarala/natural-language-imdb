@@ -67,6 +67,12 @@ class TestReflectionAndStreaming(unittest.TestCase):
         data_lines = response.get_data(as_text=True)
         self.assertIn('"type": "error"', data_lines)
 
+    def test_mobile_synopsis_button_handler_present_in_js(self):
+        with open("app/static/app.js", "r", encoding="utf-8") as f:
+            js_content = f.read()
+        self.assertIn(".btn-card-synopsis", js_content)
+        self.assertIn("'.btn-ai-synopsis, .btn-card-synopsis'", js_content)
+
 
 if __name__ == "__main__":
     unittest.main()
