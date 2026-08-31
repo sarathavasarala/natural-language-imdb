@@ -2,12 +2,14 @@
 <html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>IMDb Intelligence | Natural Language Cinema Search</title>
     <meta name="description" content="Search the complete 10M+ IMDb catalog using natural language. Fast, intelligent movie and TV show discovery.">
     
     <!-- App icons -->
     <meta name="theme-color" content="#07090E">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="IMDb Intelligence">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon.png') }}">
@@ -30,15 +32,6 @@
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body class="cinema-body">
-    <!--
-    THESIS: Modern consumer-first cinema discovery console. Strips away backend jargon while delivering instant natural language answers, interactive filters, and rich AI synopses.
-    OWN-WORLD: Obsidian base (#0A0C10), slate-glass surfaces, luminous IMDb amber (#F5C518), emerald status badges, and Outfit typography.
-    STORY: The user explores the world's film vault effortlessly in plain English without needing to know any database syntax.
-    FIRST VIEWPORT: Atmospheric ambient gold backdrop glow, focused command search bar with keyboard shortcuts, and instant curated query pills.
-    FORM: Projectionist's Digital Command Console, position 6 of 7, seed key 3c5e3f83.
-    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
-    -->
-
     <!-- Top Ambient Glow Aura -->
     <div class="ambient-glow" aria-hidden="true"></div>
 
@@ -70,12 +63,15 @@
         <!-- Hero Search Section -->
         <section class="hero-cinema text-center">
             <div class="container" style="max-width: 900px;">
-                <h1 class="hero-title">
-                    Discover cinema through <span class="highlight-gold">natural language</span>
-                </h1>
-                <p class="hero-desc">
-                    Search by actor pairings, memorable plots, release eras, or ratings. Ask any movie or TV question in plain English.
-                </p>
+                <!-- Collapsible Hero Headline Block (Collapses smoothly on active query) -->
+                <div class="hero-collapsible" id="heroCollapsible">
+                    <h1 class="hero-title">
+                        Discover cinema through <span class="highlight-gold">natural language</span>
+                    </h1>
+                    <p class="hero-desc">
+                        Search by actor pairings, memorable plots, release eras, or ratings. Ask any movie or TV question in plain English.
+                    </p>
+                </div>
 
                 <!-- Search Console -->
                 <div class="search-console-wrapper">
@@ -94,11 +90,7 @@
                                 <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
-                                <button type="button" class="btn-cancel-search d-none" id="cancelSearchBtn" title="Cancel search">
-                                    <i class="fa-solid fa-circle-stop me-1"></i>
-                                    <span>Cancel</span>
-                                </button>
-                                <span class="kbd-shortcut d-none d-sm-inline-flex" title="Press / to focus">/</span>
+                                <span class="kbd-shortcut d-none d-md-inline-flex" title="Press / to focus">/</span>
                                 <button type="submit" class="btn-search-cinema" id="searchBtn">
                                     <i class="fa-solid fa-magnifying-glass me-1"></i>
                                     <span>Search</span>
@@ -108,9 +100,9 @@
                     </form>
                 </div>
 
-                <!-- Suggested Query Chips -->
-                <div class="suggested-chips-cinema mt-2" id="suggestedChipsSection">
-                    <div class="d-flex align-items-center flex-wrap gap-1 justify-content-center">
+                <!-- Suggested Query Chips (Single-row momentum scroll rail on mobile) -->
+                <div class="chips-scroll-rail-wrapper" id="suggestedChipsSection">
+                    <div class="chips-scroll-rail">
                         <span class="chips-prompt-label">
                             <i class="fa-regular fa-compass me-1 text-gold"></i>Try:
                         </span>
@@ -123,17 +115,16 @@
         </section>
 
         <!-- Dynamic Results & Interaction Zone -->
-        <section class="container mt-4 px-lg-4 px-3">
-            <!-- Loading State with Live Activity Stepper -->
-            <div id="loadingState" class="loading-state-cinema text-center py-4 d-none">
-                <div class="projector-loader mb-3">
-                    <div class="loader-ring"></div>
-                    <div class="loader-ring-inner"></div>
-                    <i class="fa-solid fa-film loader-center-icon"></i>
-                </div>
-                
-                <div class="agent-stepper-card mx-auto" style="max-width: 640px;">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
+        <section class="container mt-3 px-lg-4 px-3">
+            <!-- Loading State with Unified Ambient Stepper -->
+            <div id="loadingState" class="loading-state-cinema text-center py-2 d-none">
+                <div class="agent-stepper-card mx-auto">
+                    <!-- Ambient Progress Pulse Bar -->
+                    <div class="stepper-progress-track">
+                        <div class="stepper-progress-bar"></div>
+                    </div>
+
+                    <div class="stepper-header d-flex align-items-center justify-content-between mb-3">
                         <div class="d-flex align-items-center gap-2">
                             <span class="agent-pulse-dot"></span>
                             <span class="agent-live-title" id="agentStatusTitle">Searching Film Vault...</span>
@@ -142,17 +133,17 @@
                     </div>
                     
                     <p class="agent-current-step text-white fw-semibold mb-3" id="agentCurrentStepMsg">
-                        Finding the best matches across millions of movies &amp; shows...
+                        Finding matching movies &amp; shows across cinema catalog...
                     </p>
 
-                    <!-- Real-Time Activity Feed Timeline -->
+                    <!-- Real-Time Activity Feed Timeline (Connected Rail) -->
                     <div class="agent-activity-timeline text-start" id="agentActivityTimeline">
                         <!-- Dynamic step pills inserted here -->
                     </div>
 
-                    <div class="mt-3 pt-2 border-top border-dark-subtle d-flex justify-content-center">
-                        <button type="button" class="btn btn-sm btn-outline-danger btn-agent-abort" id="abortFromLoadingBtn">
-                            <i class="fa-solid fa-xmark me-1"></i> Cancel Search
+                    <div class="mt-3 pt-3 border-top border-dark-subtle d-flex justify-content-center">
+                        <button type="button" class="btn btn-sm btn-agent-abort" id="abortFromLoadingBtn">
+                            <i class="fa-solid fa-circle-stop me-1"></i> Cancel Search
                         </button>
                     </div>
                 </div>
@@ -203,7 +194,7 @@
 
             <!-- Results Control Bar -->
             <div id="resultsMeta" class="results-meta-cinema d-none">
-                <div class="meta-bar-inner d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="meta-bar-inner d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <!-- Left: Result count & speed metrics -->
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <div class="metric-badge count-badge">
@@ -267,7 +258,7 @@
                             </div>
                             
                             <!-- Year Range -->
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label class="filter-section-title">
                                     <i class="fa-regular fa-calendar me-1 text-gold"></i> Release Year
                                 </label>
@@ -279,7 +270,7 @@
                             </div>
 
                             <!-- Rating Range -->
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label class="filter-section-title">
                                     <i class="fa-solid fa-star me-1 text-gold"></i> Minimum IMDb Rating
                                 </label>
@@ -291,12 +282,12 @@
                             </div>
 
                             <!-- Filter Actions -->
-                            <div class="col-md-4 d-flex align-items-end gap-2">
+                            <div class="col-12 col-md-4 d-flex align-items-end gap-2">
                                 <button class="btn btn-filter-clear flex-fill" id="clearFilters">
                                     <i class="fa-solid fa-rotate-left me-1"></i> Reset
                                 </button>
                                 <button class="btn btn-filter-apply flex-fill" id="applyFilters">
-                                    <i class="fa-solid fa-check me-1"></i> Apply Filters
+                                    <i class="fa-solid fa-check me-1"></i> Apply
                                 </button>
                             </div>
                         </div>
@@ -304,14 +295,14 @@
                 </div>
             </div>
 
-            <!-- Results Table Container -->
+            <!-- Mobile Cinema Cards Feed (Active on Mobile / Touch Devices) -->
+            <div id="mobileResultsFeed" class="mobile-results-feed d-md-none mb-5 d-none">
+                <!-- Dynamic Cinema Movie Cards Rendered Here -->
+            </div>
+
+            <!-- Results Table Container (Desktop / Spreadsheet View) -->
             <div id="resultsContainer" class="results-table-container d-none mb-5">
                 <div class="cinema-table-card">
-                    <div class="d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom border-dark-subtle text-secondary" style="font-size: 0.75rem;">
-                        <span class="d-flex align-items-center gap-1">
-                            <i class="fa-solid fa-arrows-left-right text-gold"></i> Swipe horizontally for all details
-                        </span>
-                    </div>
                     <table id="resultsTable" class="table table-cinema align-middle mb-0" style="width:100%">
                         <thead>
                             <tr id="tableHead"></tr>
@@ -339,10 +330,15 @@
         </section>
     </main>
 
-    <!-- AI Synopsis & Trivia Modal -->
-    <div class="modal fade modal-cinema" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
+    <!-- AI Synopsis & Trivia Modal (Bottom Sheet on Mobile) -->
+    <div class="modal fade modal-cinema modal-bottom-sheet" id="aiSummaryModal" tabindex="-1" aria-labelledby="aiSummaryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content modal-content-cinema">
+                <!-- Mobile Drag Grabber Handle -->
+                <div class="sheet-grabber-bar d-md-none">
+                    <div class="sheet-grabber"></div>
+                </div>
+
                 <div class="modal-header modal-header-cinema">
                     <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
                         <div class="modal-icon-sparkle flex-shrink-0">
@@ -389,10 +385,15 @@
         </div>
     </div>
 
-    <!-- Settings Modal for Azure AI Foundry / OpenAI Credentials -->
-    <div class="modal fade modal-cinema" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <!-- Settings Modal for Azure AI Foundry / OpenAI Credentials (Bottom Sheet on Mobile) -->
+    <div class="modal fade modal-cinema modal-bottom-sheet" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content modal-content-cinema">
+                <!-- Mobile Drag Grabber Handle -->
+                <div class="sheet-grabber-bar d-md-none">
+                    <div class="sheet-grabber"></div>
+                </div>
+
                 <div class="modal-header modal-header-cinema">
                     <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
                         <div class="modal-icon-key flex-shrink-0">

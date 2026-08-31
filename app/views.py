@@ -700,7 +700,7 @@ RULES:
 3. Start person searches with a MATERIALIZED matched_people CTE so the name index resolves IDs before credit joins.
 4. Use crew_lookup for every person-to-title relationship. Apply its category filter before joining titles.
 5. For multiple named people, group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of names.
-6. Include title_id, primary_title, premiered, genres, rating, and votes when they fit the request.
+6. Include title_id, primary_title, premiered, genres, rating, votes, and poster_path when they fit the request.
 7. Prevent genuine duplicate titles with DISTINCT or GROUP BY.
 8. Filter title types:
    - For movies: WHERE t.type IN ('movie', 'tvMovie')
@@ -720,7 +720,7 @@ WITH matched_people AS MATERIALIZED (
     FROM people
     WHERE name = 'Christopher Nolan'
 )
-SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
 FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
@@ -730,7 +730,7 @@ LIMIT 100;
 
 User: Highest rated movies from India released after 2000 with at least 30k votes
 SQL:
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
 FROM titles t
 JOIN ratings r ON r.title_id = t.title_id
 WHERE t.type IN ('movie', 'tvMovie')
@@ -743,7 +743,7 @@ LIMIT 100;
 
 User: Best Korean thriller movies
 SQL:
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
 FROM titles t
 JOIN ratings r ON r.title_id = t.title_id
 WHERE t.type IN ('movie', 'tvMovie')
@@ -768,7 +768,7 @@ shared_titles AS (
     GROUP BY c.title_id
     HAVING COUNT(DISTINCT p.name) = 2
 )
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
 FROM shared_titles s
 JOIN titles t ON t.title_id = s.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
@@ -822,7 +822,7 @@ def get_title_info(title_id):
         cursor = get_database_connection()
         query = f"""
         SELECT t.title_id, t.primary_title, t.original_title, t.premiered, t.ended, 
-               t.runtime_minutes, t.genres, t.type, r.rating, r.votes
+               t.runtime_minutes, t.genres, t.type, r.rating, r.votes, t.poster_path
         FROM titles t
         LEFT JOIN ratings r ON t.title_id = r.title_id
         WHERE t.title_id = '{title_id.replace("'", "''")}'
@@ -910,9 +910,8 @@ def api_search_stream():
 
         logger.info(f"[{request_id}] Streaming search: '{user_query}'")
 
-        # Step 1: AI Query Synthesis
-        model_name = creds.get('model') or AZURE_OPENAI_MODEL or 'gpt-4o'
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'synthesizing', 'title': 'AI Query Synthesis', 'message': f'Synthesizing ANSI SQL query via Azure OpenAI ({model_name})...'})}\n\n"
+        # Step 1: Understanding Query & Synthesis
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'synthesizing', 'title': 'Interpreting Query', 'message': 'Understanding your movie criteria, actors & release era...'})}\n\n"
         
         try:
             sql_query = generate_response(user_query, creds=creds)
@@ -923,10 +922,10 @@ def api_search_stream():
 
         yield f"data: {json.dumps({'type': 'sql', 'stage': 'sql_ready', 'sql': sql_query, 'attempt': 1})}\n\n"
 
-        # Step 2: Validate SQL AST & Schema Constraints
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'validating', 'title': 'Query Validation', 'message': 'Validating SQL syntax against DuckDB catalog schema...'})}\n\n"
+        # Step 2: Validate Schema & Constraints
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'validating', 'title': 'Checking Catalog', 'message': 'Matching against IMDb catalog & film records...'})}\n\n"
         if not validate_sql_query(sql_query):
-            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'title': 'Query Optimization', 'message': 'Refining SQL query structure for DuckDB engine...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'refining', 'title': 'Refining Search', 'message': 'Refining search criteria for best accuracy...'})}\n\n"
             try:
                 retry_query = f"Regenerate valid DuckDB SQL for: {user_query}"
                 sql_query = generate_response(retry_query, creds=creds)
@@ -937,8 +936,8 @@ def api_search_stream():
                 yield f"data: {json.dumps({'type': 'error', 'error': 'Could not process this query. Try rephrasing with simpler keywords.', 'sql_query': sql_query, 'suggestions': get_suggested_queries()[:4]})}\n\n"
                 return
 
-        # Step 3: Searching remote Parquet datasets via DuckDB
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'title': 'Database Execution', 'message': 'Executing query on DuckDB across cloud Parquet tables...'})}\n\n"
+        # Step 3: Searching catalog
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'executing', 'title': 'Searching Vault', 'message': 'Searching 10M+ titles, cast & ratings...'})}\n\n"
 
         try:
             results, column_names = execute_sql_query(sql_query)
@@ -956,17 +955,17 @@ def api_search_stream():
                 results = results[:1000]
             results_dicts = [dict(zip(column_names, row)) for row in results]
             logger.info(f"[{request_id}] Search success: {total_rows} rows in {execution_time}s")
-            yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': f'Compiling {total_rows:,} matches and analytics in {execution_time}s...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': f'Found {total_rows:,} matching cinema titles...'})}\n\n"
             yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': results_dicts, 'column_names': column_names, 'sql_query': sql_query, 'row_count': total_rows, 'execution_time': execution_time, 'query': user_query, 'stage': 'completed'})}\n\n"
             return
 
         # Step 4: 0 rows returned -> Check for typos / intent matching
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'title': 'Zero-Result Diagnostics', 'message': 'Probing database for entity fuzzy matches (Jaro similarity)...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'probing', 'title': 'Smart Matching', 'message': 'Checking title spelling & finding closest matches...'})}\n\n"
 
         literals = extract_filter_literals(sql_query, user_query)
         probe_data = probe_duckdb_entities(literals)
 
-        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'title': 'Intent Diagnostics', 'message': 'Analyzing diagnostic evidence for typos or strict constraints...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'status', 'stage': 'reflecting', 'title': 'Smart Matching', 'message': 'Searching for closest name & keyword matches...'})}\n\n"
 
         reflection = reflect_on_zero_results(user_query, sql_query, probe_data, creds=creds)
         diagnosis = reflection.get("diagnosis", "GENUINE_EMPTY")
@@ -978,8 +977,8 @@ def api_search_stream():
             retry_payload = {
                 'type': 'retry',
                 'stage': 'retrying',
-                'title': 'Auto-Correction',
-                'message': f"Re-querying catalog with corrected entity '{corrected_entity}'...",
+                'title': 'Smart Match',
+                'message': f"Searching for '{corrected_entity}' instead...",
                 'corrected_entity': corrected_entity,
                 'new_sql': corrected_sql,
                 'attempt': 2

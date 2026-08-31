@@ -65,6 +65,7 @@ deploy.zip
 .hermes/
 .opencode/
 image.png
+scratch/
 
 # Virtual environment
 imdb_env/

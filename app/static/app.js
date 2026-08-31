@@ -163,7 +163,6 @@ $(document).ready(function () {
         const $form = $('#searchForm');
         const $query = $('#query');
         const $clearBtn = $('#clearQueryBtn');
-        const $cancelBtn = $('#cancelSearchBtn');
         const $abortBtn = $('#abortFromLoadingBtn');
         const $dismissCorrBtn = $('#dismissCorrectionBtn');
 
@@ -181,13 +180,13 @@ $(document).ready(function () {
         $clearBtn.on('click', function () {
             $query.val('').focus();
             toggleClearButton(false);
-            $('#resultsContainer, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner').addClass('d-none');
+            $('#heroCollapsible').removeClass('collapsed');
+            $('#resultsContainer, #mobileResultsFeed, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner').addClass('d-none');
             $('#suggestedChipsSection').removeClass('d-none');
             history.pushState({}, '', window.location.pathname);
         });
 
         // Cancel / Abort buttons
-        $cancelBtn.on('click', cancelActiveSearch);
         $abortBtn.on('click', cancelActiveSearch);
 
         // Dismiss correction banner
@@ -206,6 +205,7 @@ $(document).ready(function () {
                 } else if ($(e.target).is('#query')) {
                     $query.val('');
                     toggleClearButton(false);
+                    $('#heroCollapsible').removeClass('collapsed');
                 }
             }
         });
@@ -226,7 +226,7 @@ $(document).ready(function () {
         else $('#clearQueryBtn').addClass('d-none');
     }
 
-    // ── Live Agent Timer & Activity Timeline ──────────────────────
+    // ── Live Agent Timer & Activity Timeline (Connected Rail) ─────
     function startAgentTimer() {
         searchStartTime = Date.now();
         $('#agentLiveTimer').text('0.0s');
@@ -261,22 +261,20 @@ $(document).ready(function () {
         // Transition previous timeline step icons to completed state
         const $timeline = $('#agentActivityTimeline');
         const $prevItems = $timeline.find('.agent-step-item');
-        $prevItems.find('.agent-step-icon')
-            .removeClass('fa-circle-notch fa-spin fa-satellite-dish fa-brain fa-microchip fa-database fa-magnifying-glass fa-shield-halved fa-wand-magic-sparkles fa-stethoscope fa-arrow-rotate-right')
-            .addClass('fa-circle-check text-emerald');
         $prevItems.removeClass('active').addClass('completed');
 
         const elapsed = ((Date.now() - searchStartTime) / 1000).toFixed(1);
         const $item = $(`
             <div class="agent-step-item ${type} active fade-in">
-                <i class="fa-solid ${icon} agent-step-icon"></i>
+                <div class="agent-step-node"></div>
                 <div class="flex-grow-1 min-w-0">
                     <span>${escapeHtml(msg)}</span>
                 </div>
-                <span class="font-mono text-muted small flex-shrink-0">${elapsed}s</span>
+                <span class="timeline-time-pill">${elapsed}s</span>
             </div>
         `);
-        $timeline.prepend($item);
+        $timeline.append($item);
+        $timeline.scrollTop($timeline[0].scrollHeight);
     }
 
     function getCustomAzureHeaders(extraHeaders = {}) {
@@ -319,7 +317,7 @@ $(document).ready(function () {
         $('#correctionBanner').addClass('d-none');
         $('#noResultsDiagnosisBox').addClass('d-none');
 
-        addTimelineStep('Connecting to Azure AI and preparing prompt...', 'info', 'fa-satellite-dish', 'Initiating Search');
+        addTimelineStep('Understanding your query & movie criteria...', 'info', 'fa-satellite-dish', 'Searching Film Vault');
 
         const headers = getCustomAzureHeaders();
 
@@ -392,29 +390,20 @@ $(document).ready(function () {
         if (event.type === 'status') {
             let icon = 'fa-circle-notch fa-spin';
             let stepType = 'info';
-            let title = event.title || 'Processing Query';
+            let title = event.title || 'Searching Film Vault';
 
             if (event.stage === 'synthesizing' || event.stage === 'generating') {
                 icon = 'fa-brain text-gold';
-                if (!title) title = 'AI Query Synthesis';
             } else if (event.stage === 'validating') {
                 icon = 'fa-shield-halved text-cyan';
-                if (!title) title = 'Query Validation';
             } else if (event.stage === 'refining') {
                 icon = 'fa-wand-magic-sparkles text-gold';
-                if (!title) title = 'Query Optimization';
             } else if (event.stage === 'executing') {
                 icon = 'fa-database text-gold';
-                if (!title) title = 'Database Execution';
             } else if (event.stage === 'compiling') {
                 icon = 'fa-table-cells text-emerald';
-                if (!title) title = 'Preparing Results';
-            } else if (event.stage === 'probing') {
+            } else if (event.stage === 'probing' || event.stage === 'reflecting') {
                 icon = 'fa-magnifying-glass text-cyan';
-                if (!title) title = 'Zero-Result Diagnostics';
-            } else if (event.stage === 'reflecting') {
-                icon = 'fa-stethoscope text-gold';
-                if (!title) title = 'Intent Diagnostics';
             }
 
             addTimelineStep(event.message, stepType, icon, title);
@@ -425,18 +414,18 @@ $(document).ready(function () {
         } else if (event.type === 'retry') {
             let retryMsg = event.message || 'Searching with closest match...';
             if (event.corrected_entity) {
-                retryMsg = `Auto-correcting to "${event.corrected_entity}" & re-querying...`;
+                retryMsg = `Searching for "${event.corrected_entity}" instead...`;
             }
-            addTimelineStep(retryMsg, 'retry', 'fa-arrow-rotate-right text-gold', 'Auto-Correction');
+            addTimelineStep(retryMsg, 'retry', 'fa-arrow-rotate-right text-gold', 'Smart Match');
             if (event.new_sql) {
                 $('#sqlDisplay').text(event.new_sql);
             }
 
         } else if (event.type === 'result') {
             // Mark all items complete
-            $('#agentActivityTimeline').find('.agent-step-icon')
-                .removeClass('fa-circle-notch fa-spin fa-arrow-rotate-right fa-database fa-brain fa-microchip')
-                .addClass('fa-circle-check text-emerald');
+            $('#agentActivityTimeline').find('.agent-step-item')
+                .removeClass('active').addClass('completed');
+
             if (event.success && event.results && event.results.length > 0) {
                 allResults = event.results;
                 allColumnNames = event.column_names;
@@ -444,6 +433,7 @@ $(document).ready(function () {
                 showResultsMeta(event);
                 buildGenreFilters(allResults);
                 renderResultsTable(allResults, allColumnNames);
+                renderMobileCardsFeed(allResults);
                 resetFilters();
 
                 // Show Auto-Correction Banner if intent reflection was applied
@@ -470,17 +460,16 @@ $(document).ready(function () {
     }
 
     function showLoading() {
+        $('#heroCollapsible').addClass('collapsed');
         $('#loadingState').removeClass('d-none');
-        $('#errorState, #noResultsState, #resultsContainer, #resultsMeta, #suggestedChipsSection').addClass('d-none');
-        $('#searchBtn').addClass('d-none');
-        $('#cancelSearchBtn').removeClass('d-none');
+        $('#errorState, #noResultsState, #resultsContainer, #mobileResultsFeed, #resultsMeta, #suggestedChipsSection').addClass('d-none');
+        $('#searchBtn').prop('disabled', true).html('<i class="fa-solid fa-circle-notch fa-spin me-1"></i> <span>Searching...</span>');
         $('#clearQueryBtn').addClass('d-none');
     }
 
     function hideLoading() {
         $('#loadingState').addClass('d-none');
-        $('#searchBtn').removeClass('d-none').prop('disabled', false).html('<i class="fa-solid fa-magnifying-glass me-1"></i> <span>Search</span>');
-        $('#cancelSearchBtn').addClass('d-none');
+        $('#searchBtn').prop('disabled', false).html('<i class="fa-solid fa-magnifying-glass me-1"></i> <span>Search</span>');
         toggleClearButton($('#query').val().length > 0);
     }
 
@@ -501,7 +490,7 @@ $(document).ready(function () {
 
     function showNoResults(eventData = null) {
         $('#noResultsState').removeClass('d-none');
-        $('#resultsContainer').addClass('d-none');
+        $('#resultsContainer, #mobileResultsFeed').addClass('d-none');
 
         if (eventData && (eventData.explanation || eventData.diagnosis)) {
             let diagText = eventData.explanation || '';
@@ -517,7 +506,7 @@ $(document).ready(function () {
 
     function showError(message, suggestions) {
         $('#errorState').removeClass('d-none');
-        $('#resultsContainer, #noResultsState, #resultsMeta').addClass('d-none');
+        $('#resultsContainer, #mobileResultsFeed, #noResultsState, #resultsMeta').addClass('d-none');
         $('#errorMessage').text(message);
 
         if (suggestions && suggestions.length > 0) {
@@ -547,7 +536,7 @@ $(document).ready(function () {
         if (lastQuery) executeSearch(lastQuery);
     });
 
-    // ── Table Rendering with DataTables ───────────────────────────
+    // ── Table Rendering with DataTables (Desktop View) ───────────
     function renderResultsTable(results, columnNames) {
         if (dataTableInstance) {
             dataTableInstance.destroy();
@@ -581,8 +570,11 @@ $(document).ready(function () {
 
         const numericCols = ['votes', 'rating', 'premiered', 'runtime_minutes', 'season_number', 'episode_number', 'born', 'died', 'ended'];
 
+        // Filter out raw poster_path column from table header if title column exists
+        const visibleCols = columnNames.filter(c => c !== 'poster_path');
+
         // Build Table Header
-        columnNames.forEach(function (col) {
+        visibleCols.forEach(function (col) {
             const label = friendlyNames[col] || col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             const th = $('<th></th>').text(label);
             if (col === 'primary_title' || col === 'original_title' || col === 'title' || col === 'name') {
@@ -605,7 +597,7 @@ $(document).ready(function () {
         // Build Table Rows
         results.forEach(function (row) {
             const $tr = $('<tr></tr>');
-            columnNames.forEach(function (col) {
+            visibleCols.forEach(function (col) {
                 const val = row[col];
                 const $td = $('<td></td>');
 
@@ -616,10 +608,15 @@ $(document).ready(function () {
                     const titleId = row['title_id'] || '';
                     const posterPath = row['poster_path'] || '';
                     $td.addClass('col-title-cell');
+                    
+                    const posterImgHtml = posterPath 
+                        ? `<img src="https://image.tmdb.org/t/p/w92${escapeHtml(posterPath)}" class="movie-poster-thumb" alt="Poster" loading="lazy" onerror="this.onerror=null; this.replaceWith(Object.assign(document.createElement('div'), {className: 'movie-poster-placeholder', innerHTML: '<i class=\\\'fa-solid fa-clapperboard\\\'></i>'}));">`
+                        : `<div class="movie-poster-placeholder"><i class="fa-solid fa-clapperboard"></i></div>`;
+
                     $td.html(`
-                        <div class="d-flex align-items-center justify-content-between gap-2">
-                            <div class="d-flex align-items-center gap-2">
-                                ${posterPath ? `<img src="https://image.tmdb.org/t/p/w92${escapeHtml(posterPath)}" class="movie-poster-thumb" alt="Poster" loading="lazy">` : ''}
+                        <div class="d-flex align-items-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                ${posterImgHtml}
                                 <span class="title-text-cell">${escapeHtml(val)}</span>
                             </div>
                             ${titleId ? `<button class="btn-ai-synopsis flex-shrink-0" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
@@ -635,8 +632,6 @@ $(document).ready(function () {
                     $td.attr('data-sort', val);
                 } else if ((col === 'original_language' || col === 'origin_country') && val) {
                     $td.html(`<span class="badge-country-lang">${escapeHtml(String(val).toUpperCase())}</span>`);
-                } else if (col === 'poster_path' && val) {
-                    $td.html(`<img src="https://image.tmdb.org/t/p/w92${escapeHtml(val)}" class="movie-poster-thumb" alt="Poster" loading="lazy">`);
                 } else if ((col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') && val) {
                     $td.addClass('col-year-cell');
                     $td.html(`<span class="badge-year">${val}</span>`);
@@ -663,7 +658,7 @@ $(document).ready(function () {
 
         const columnDefs = [];
         let votesIdx = -1;
-        columnNames.forEach(function (col, idx) {
+        visibleCols.forEach(function (col, idx) {
             if (col === 'votes') votesIdx = idx;
             if (numericCols.includes(col)) {
                 columnDefs.push({
@@ -704,9 +699,75 @@ $(document).ready(function () {
                 $(this.api().table().node()).find('tbody tr').addClass('fade-in');
             }
         });
+    }
 
-        // Smooth scroll towards results
-        $('html, body').animate({ scrollTop: $('#resultsMeta').offset().top - 90 }, 350);
+    // ── Mobile Cinema Cards Feed (Tactile Mobile View) ───────────
+    function renderMobileCardsFeed(results) {
+        const $feed = $('#mobileResultsFeed').empty();
+        if (!results || results.length === 0) {
+            $feed.addClass('d-none');
+            return;
+        }
+
+        results.slice(0, 50).forEach(function (row) {
+            const title = row.primary_title || row.title || row.name || row.original_title || 'Untitled';
+            const titleId = row.title_id || row.person_id || '';
+            const year = row.premiered || row.year || row.start_year || '';
+            const rating = row.rating || row.average_rating || '';
+            const votes = row.votes || '';
+            const genres = row.genres || '';
+            const posterPath = row.poster_path || '';
+            const format = row.type ? (row.type === 'movie' ? 'Movie' : row.type === 'tvSeries' ? 'TV Series' : row.type) : '';
+            const country = row.origin_country || row.original_language || '';
+
+            const posterSrc = posterPath ? `https://image.tmdb.org/t/p/w185${escapeHtml(posterPath)}` : '';
+            const posterHtml = posterSrc
+                ? `<img src="${posterSrc}" class="movie-card-poster" alt="${escapeHtml(title)}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\\'fa-solid fa-clapperboard poster-placeholder-icon\\\'></i>';">`
+                : `<i class="fa-solid fa-clapperboard poster-placeholder-icon"></i>`;
+
+            const genreChipsHtml = genres
+                ? genres.split(',').slice(0, 3).map(g => `<span class="genre-chip-inline">${escapeHtml(g.trim())}</span>`).join('')
+                : '';
+
+            const $card = $(`
+                <div class="movie-card-mobile fade-in">
+                    <div class="movie-card-poster-box">
+                        ${posterHtml}
+                    </div>
+                    <div class="movie-card-content">
+                        <div>
+                            <div class="movie-card-header-row">
+                                <span class="movie-card-title">${escapeHtml(title)}</span>
+                                ${rating ? `<span class="badge-rating flex-shrink-0"><i class="fa-solid fa-star text-gold"></i> ${rating}</span>` : ''}
+                            </div>
+                            <div class="movie-card-meta-row mt-1">
+                                ${year ? `<span class="badge-year">${year}</span>` : ''}
+                                ${format ? `<span class="text-secondary small fw-medium">${escapeHtml(format)}</span>` : ''}
+                                ${country ? `<span class="badge-country-lang">${escapeHtml(String(country).toUpperCase())}</span>` : ''}
+                                ${votes ? `<span class="votes-count-cell ms-auto">${Number(votes).toLocaleString()} votes</span>` : ''}
+                            </div>
+                            ${genreChipsHtml ? `<div class="movie-card-genres mt-1">${genreChipsHtml}</div>` : ''}
+                        </div>
+                        <div class="movie-card-actions">
+                            ${titleId && !titleId.startsWith('nm') ? `
+                                <button class="btn-card-synopsis" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(title)}">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI Synopsis
+                                </button>
+                            ` : '<span></span>'}
+                            ${titleId ? `
+                                <a href="https://www.imdb.com/${titleId.startsWith('nm') ? 'name' : 'title'}/${escapeHtml(titleId)}/" target="_blank" rel="noopener noreferrer" class="btn-card-imdb">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> IMDb
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `);
+
+            $feed.append($card);
+        });
+
+        $feed.removeClass('d-none');
     }
 
     // ── Interactive Filters ───────────────────────────────────────
@@ -802,6 +863,7 @@ $(document).ready(function () {
 
         $('#resultCount').text(filtered.length.toLocaleString());
         renderResultsTable(filtered, allColumnNames);
+        renderMobileCardsFeed(filtered);
     }
 
     function resetFilters() {
