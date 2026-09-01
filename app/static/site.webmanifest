@@ -1,6 +1,6 @@
 {
   "name": "IMDb Intelligence",
-  "short_name": "IMDb IQ",
+  "short_name": "IMDb Intelligence",
   "description": "Natural language cinema search and IMDb analytics.",
   "start_url": "/",
   "display": "standalone",
