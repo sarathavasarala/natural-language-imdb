@@ -59,13 +59,26 @@ This document provides system design, architectural references, and workflows fo
 imdb_project/
 ├── app/
 │   ├── __init__.py          # Flask application factory
-│   ├── views.py             # Route handlers, DuckDB query execution, LLM prompts
+│   ├── views.py             # Route handlers, DuckDB query execution, LLM prompts & optimizer
 │   ├── templates/
 │   │   └── index.html       # Simple Search page + Settings Modal
 │   └── static/
 │       ├── style.css        # Custom UI styling, gradients, and badges
 │       ├── app.js           # AJAX handlers, DataTables, LocalStorage manager
 │       └── favicon.png      # Application favicon
+├── evals/
+│   ├── __init__.py          # Evaluation package initialization
+│   ├── dataset.json         # 47 curated benchmark test cases across 6 suites
+│   ├── assertions.py        # Reusable assertions & metric calculators (EX, Soft-F1)
+│   ├── engine.py            # Eval execution harness (DuckDB execution, telemetry)
+│   ├── reporter.py          # Scorecard formatter (Terminal, Markdown, JSON)
+│   ├── test_suite.py        # Pytest & unittest test suite integration
+│   ├── run.py               # Standalone CLI runner with category filters
+│   └── results/
+│       ├── report.md        # Generated Markdown scorecard
+│       └── latest_run.json  # Serialized test run artifact
+├── .github/workflows/
+│   └── evals.yml            # CI/CD automated regression workflow
 ├── scripts/
 │   └── etl_imdb_to_parquet.py # Automated ETL pipeline (IMDb TSVs -> Azure Blob Parquet)
 ├── Dockerfile               # Production container definition (Python 3.11-slim + DuckDB)
@@ -139,3 +152,8 @@ The following views are mapped automatically to `azure://imdb-data/*.parquet`:
    - Run `python scripts/etl_imdb_to_parquet.py` to refresh Parquet files directly from IMDb's official gzip dumps into Azure Blob Storage.
 4. **Isolated Resource Group**:
    - Deployments must be kept inside the dedicated resource group `rg-imdb-intelligence`.
+5. **Evaluation Benchmark Suite**:
+   - Run `python -m evals.run --mode gold` to verify database schema invariants, index compliance, and query correctness with 0 API tokens.
+   - Run `python -m unittest discover -s evals -p "test_*.py"` to execute CI/CD regression tests.
+   - Run `python -m evals.run --mode live` when testing real-time Azure OpenAI generation and reflection.
+   - Benchmark covers 6 suites: Plain & Easy, Disambiguation, Regional Cinema, Relational Joins, Typos & Reflection, and Security & Plan Invariants.

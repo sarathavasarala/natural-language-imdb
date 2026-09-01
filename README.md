@@ -79,3 +79,25 @@ python run.py
 ```
 
 Open `http://localhost:5001` in your browser and click **API Settings** to add your API credentials.
+
+---
+
+## Evaluation Suite
+
+The repository includes an evaluation benchmark suite covering 6 categories: Plain & Easy, Disambiguation & Homonyms, Regional & Local Cinema, Multi-Hop Relational Joins, Typos & Reflection, and Security & Plan Invariants.
+
+```bash
+# Run full benchmark against DuckDB baseline (Offline, 0 tokens)
+python -m evals.run --mode gold
+
+# Run specific category
+python -m evals.run --category disambiguation
+python -m evals.run --category regional_cinema
+
+# Run via standard unittest / pytest
+python -m unittest discover -s evals -p "test_*.py"
+
+# Run live against Azure OpenAI
+python -m evals.run --mode live
+```
+

@@ -317,8 +317,23 @@ def _check_tmdb_columns_available():
     return _has_tmdb_columns
 
 
+COUNTRY_CODE_MAP = {
+    'IN': 'India',
+    'FR': 'France',
+    'JP': 'Japan',
+    'KR': 'South Korea',
+    'MX': 'Mexico',
+    'CA': 'Canada',
+    'DE': 'Germany',
+    'IT': 'Italy',
+    'ES': 'Spain',
+    'GB': 'United Kingdom',
+    'UK': 'United Kingdom',
+    'US': 'United States'
+}
+
 def optimize_generated_sql(sql_query):
-    """Route ordinary credit joins through lookup table and provide backward-compatible translation if columns are missing."""
+    """Route ordinary credit joins through lookup table, expand country filters, and ensure optimal execution plans."""
     if not sql_query:
         return sql_query
     
@@ -331,7 +346,14 @@ def optimize_generated_sql(sql_query):
             flags=re.IGNORECASE,
         )
 
-    # 2. If running against an existing database artifact that lacks original_language / origin_country columns,
+    # 2. Normalize country code / name filters to cover both TMDb country strings and ISO codes
+    for code, country_name in COUNTRY_CODE_MAP.items():
+        # Match pattern: origin_country = 'IN' or t.origin_country = 'IN'
+        pattern = rf"\b(\w+\.)?origin_country\s*=\s*'{code}'"
+        replacement = rf"(\1origin_country LIKE '%{country_name}%' OR \1origin_country = '{code}')"
+        sql_query = re.sub(pattern, replacement, sql_query, flags=re.IGNORECASE)
+
+    # 3. If running against an existing database artifact that lacks original_language / origin_country columns,
     # translate them to backward-compatible akas lookups so EXPLAIN validation never fails.
     if not _check_tmdb_columns_available():
         sql_query = re.sub(
@@ -698,18 +720,26 @@ RULES:
 1. Return one SELECT or WITH query and no prose or markdown.
 2. Use exact people.name equality. Never add OR LIKE to a name; zero-result recovery handles misspellings.
 3. Start person searches with a MATERIALIZED matched_people CTE so the name index resolves IDs before credit joins.
-4. Use crew_lookup for every person-to-title relationship. Apply its category filter before joining titles.
-5. For multiple named people, group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of names.
+4. Use crew_lookup for every person-to-title relationship:
+   - For directing credits: c.category = 'director'
+   - For acting credits: c.category IN ('actor', 'actress')
+   - For writing credits: c.category = 'writer'
+5. For multiple named people (co-stars or actor+director):
+   - Group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of people.
+   - For actor + director combos: require (p.name = 'Director Name' AND c.category = 'director') OR (p.name = 'Actor Name' AND c.category IN ('actor', 'actress')).
 6. Include title_id, primary_title, premiered, genres, rating, votes, and poster_path when they fit the request.
 7. Prevent genuine duplicate titles with DISTINCT or GROUP BY.
 8. Filter title types:
    - For movies: WHERE t.type IN ('movie', 'tvMovie')
    - For TV shows / series: WHERE t.type IN ('tvSeries', 'tvMiniSeries')
+   - For TV miniseries: WHERE t.type = 'tvMiniSeries'
 9. Filter country of origin & language (universal):
-   - When user searches for movies from a country (e.g. 'movies from France', 'Japanese movies', 'movies from India', 'Korean movies', 'British films'): Use t.origin_country = '<COUNTRY_CODE>' (e.g. 'FR', 'JP', 'IN', 'KR', 'GB', 'US', 'DE', 'IT', 'ES', etc.).
-   - When user searches for movies in a specific language (e.g. 'Spanish movies', 'Telugu movies', 'French movies', 'German movies', 'Korean movies'): Use t.original_language = '<LANG_CODE>' (e.g. 'es', 'te', 'fr', 'de', 'ko', 'ja', 'it', 'hi', 'ta', etc.).
+   - Regional languages: Telugu ('te'), Hindi ('hi'), Tamil ('ta'), Malayalam ('ml'), Kannada ('kn'), Korean ('ko'), Japanese ('ja'), French ('fr'), Spanish ('es'), German ('de'), Italian ('it'), Portuguese ('pt'), Russian ('ru'), Chinese ('zh').
+   - Countries: India ('IN'), France ('FR'), Japan ('JP'), South Korea ('KR'), Mexico ('MX'), Canada ('CA'), Germany ('DE'), Italy ('IT'), Spain ('ES'), United Kingdom ('GB'), United States ('US').
+   - When searching by language (e.g. 'Telugu movies', 'Spanish thrillers', 'Korean cinema', 'Japanese anime'): use t.original_language = '<LANG_CODE>'.
+   - When searching by country (e.g. 'movies from France', 'movies from India', 'Canadian movies'): use t.origin_country = '<COUNTRY_CODE>'.
 10. Add a deterministic ORDER BY and LIMIT 100 unless the user requests an aggregate or a smaller limit.
-11. Escape apostrophes inside string literals by doubling them.
+11. Escape apostrophes inside string literals by doubling them (e.g. 'Schindler''s List').
 
 EXAMPLES:
 
@@ -728,43 +758,34 @@ LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
 LIMIT 100;
 
-User: Highest rated movies from India released after 2000 with at least 30k votes
+User: Movies where Quentin Tarantino acted
 SQL:
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
-FROM titles t
-JOIN ratings r ON r.title_id = t.title_id
-WHERE t.type IN ('movie', 'tvMovie')
-  AND t.origin_country = 'IN'
-  AND t.premiered > 2000
-  AND r.rating > 8.0
-  AND r.votes >= 30000
-ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Quentin Tarantino'
+)
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
 LIMIT 100;
 
-User: Best Korean thriller movies
-SQL:
-SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
-FROM titles t
-JOIN ratings r ON r.title_id = t.title_id
-WHERE t.type IN ('movie', 'tvMovie')
-  AND t.original_language = 'ko'
-  AND t.genres LIKE '%Thriller%'
-  AND r.votes >= 5000
-ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
-LIMIT 100;
-
-User: Movies where Leonardo DiCaprio and Kate Winslet worked together
+User: Martin Scorsese movies starring Robert De Niro
 SQL:
 WITH matched_people AS MATERIALIZED (
     SELECT person_id, name
     FROM people
-    WHERE name IN ('Leonardo DiCaprio', 'Kate Winslet')
+    WHERE name IN ('Martin Scorsese', 'Robert De Niro')
 ),
 shared_titles AS (
     SELECT c.title_id
     FROM matched_people p
     JOIN crew_lookup c ON c.person_id = p.person_id
-    WHERE c.category IN ('actor', 'actress')
+    WHERE (p.name = 'Martin Scorsese' AND c.category = 'director')
+       OR (p.name = 'Robert De Niro' AND c.category IN ('actor', 'actress'))
     GROUP BY c.title_id
     HAVING COUNT(DISTINCT p.name) = 2
 )
@@ -774,6 +795,28 @@ JOIN titles t ON t.title_id = s.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
 LIMIT 100;
+
+User: Top rated Telugu action movies
+SQL:
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM titles t
+JOIN ratings r ON r.title_id = t.title_id
+WHERE t.type IN ('movie', 'tvMovie')
+  AND t.original_language = 'te'
+  AND t.genres LIKE '%Action%'
+  AND r.votes >= 5000
+ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
+LIMIT 100;
+
+User: Avatar 2009
+SQL:
+SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM titles t
+LEFT JOIN ratings r ON r.title_id = t.title_id
+WHERE t.primary_title = 'Avatar'
+  AND t.premiered = 2009
+  AND t.type IN ('movie', 'tvMovie')
+LIMIT 10;
 """
     
     try:
