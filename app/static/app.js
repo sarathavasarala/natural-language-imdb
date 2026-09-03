@@ -1124,6 +1124,30 @@ $(document).ready(function () {
             $head.append(th);
         });
 
+        if ($.fn.dataTable && $.fn.dataTable.ext && !$.fn.dataTable.ext.type.order['num-nulls-last-pre']) {
+            $.fn.dataTable.ext.type.order['num-nulls-last-pre'] = function (data) {
+                if (data === null || data === undefined || data === '' || data === '—') {
+                    return -1;
+                }
+                const n = parseFloat(String(data).replace(/[^0-9.-]/g, ''));
+                return isNaN(n) ? -1 : n;
+            };
+
+            $.fn.dataTable.ext.type.order['num-nulls-last-asc'] = function (a, b) {
+                if (a === -1 && b === -1) return 0;
+                if (a === -1) return 1;
+                if (b === -1) return -1;
+                return a < b ? -1 : (a > b ? 1 : 0);
+            };
+
+            $.fn.dataTable.ext.type.order['num-nulls-last-desc'] = function (a, b) {
+                if (a === -1 && b === -1) return 0;
+                if (a === -1) return 1;
+                if (b === -1) return -1;
+                return a < b ? 1 : (a > b ? -1 : 0);
+            };
+        }
+
         // Build Table Rows
         results.forEach(function (row) {
             const $tr = $('<tr></tr>');
@@ -1152,30 +1176,63 @@ $(document).ready(function () {
                             ${titleId ? `<button class="btn-ai-synopsis flex-shrink-0" data-title-id="${escapeHtml(titleId)}" data-title-name="${escapeHtml(val)}" title="Generate AI Synopsis"><i class="fa-solid fa-wand-magic-sparkles"></i></button>` : ''}
                         </div>
                     `);
-                } else if ((col === 'rating' || col === 'average_rating') && val != null) {
+                } else if (col === 'rating' || col === 'average_rating') {
                     $td.addClass('col-rating-cell');
-                    $td.html(`<span class="badge-rating"><i class="fa-solid fa-star text-gold"></i> ${val}</span>`);
-                    $td.attr('data-sort', val);
-                } else if (col === 'votes' && val != null) {
+                    if (val != null && val !== '') {
+                        $td.html(`<span class="badge-rating"><i class="fa-solid fa-star text-gold"></i> ${val}</span>`);
+                        $td.attr('data-sort', val);
+                        $td.attr('data-order', val);
+                    } else {
+                        $td.addClass('text-secondary').text('—');
+                        $td.attr('data-sort', -1);
+                        $td.attr('data-order', -1);
+                    }
+                } else if (col === 'votes') {
                     $td.addClass('col-votes-cell');
-                    $td.html(`<span class="votes-count-cell">${Number(val).toLocaleString()}</span>`);
-                    $td.attr('data-sort', val);
+                    if (val != null && val !== '') {
+                        $td.html(`<span class="votes-count-cell">${Number(val).toLocaleString()}</span>`);
+                        $td.attr('data-sort', val);
+                        $td.attr('data-order', val);
+                    } else {
+                        $td.addClass('text-secondary').text('—');
+                        $td.attr('data-sort', -1);
+                        $td.attr('data-order', -1);
+                    }
                 } else if ((col === 'original_language' || col === 'origin_country') && val) {
                     $td.html(`<span class="badge-country-lang">${escapeHtml(String(val).toUpperCase())}</span>`);
-                } else if ((col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') && val) {
+                } else if (col === 'premiered' || col === 'ended' || col === 'born' || col === 'died' || col === 'year') {
                     $td.addClass('col-year-cell');
-                    $td.html(`<span class="badge-year">${val}</span>`);
-                    $td.attr('data-sort', val);
+                    if (val != null && val !== '') {
+                        $td.html(`<span class="badge-year">${val}</span>`);
+                        $td.attr('data-sort', val);
+                        $td.attr('data-order', val);
+                    } else {
+                        $td.addClass('text-secondary').text('—');
+                        $td.attr('data-sort', -1);
+                        $td.attr('data-order', -1);
+                    }
                 } else if (col === 'genres' && val) {
                     $td.addClass('col-genres-cell');
                     const chips = val.split(',').map(g => `<span class="genre-chip-inline">${escapeHtml(g.trim())}</span>`).join(' ');
                     $td.html(chips);
-                } else if (col === 'runtime_minutes' && val) {
-                    $td.html(`<span class="font-mono text-secondary">${val} min</span>`);
-                    $td.attr('data-sort', val);
+                } else if (col === 'runtime_minutes') {
+                    if (val != null && val !== '') {
+                        $td.html(`<span class="font-mono text-secondary">${val} min</span>`);
+                        $td.attr('data-sort', val);
+                        $td.attr('data-order', val);
+                    } else {
+                        $td.addClass('text-secondary').text('—');
+                        $td.attr('data-sort', -1);
+                        $td.attr('data-order', -1);
+                    }
                 } else {
-                    $td.text(val != null ? val : '—');
-                    if (numericCols.includes(col) && val != null) $td.attr('data-sort', val);
+                    const textVal = (val != null && val !== '') ? val : '—';
+                    $td.text(textVal);
+                    if (numericCols.includes(col)) {
+                        const numVal = (val != null && val !== '') ? Number(val) : -1;
+                        $td.attr('data-sort', numVal);
+                        $td.attr('data-order', numVal);
+                    }
                 }
 
                 $tr.append($td);
@@ -1193,17 +1250,7 @@ $(document).ready(function () {
             if (numericCols.includes(col)) {
                 columnDefs.push({
                     targets: idx,
-                    type: 'num',
-                    render: function (data, type, row, meta) {
-                        if (type === 'sort' || type === 'type') {
-                            const $cell = $($('#resultsTable tbody tr').eq(meta.row).find('td').eq(meta.col));
-                            const sv = $cell.attr('data-sort');
-                            if (sv !== undefined && sv !== '') return parseFloat(sv) || 0;
-                            const n = parseFloat(String(data).replace(/[^0-9.]/g, ''));
-                            return isNaN(n) ? 0 : n;
-                        }
-                        return data;
-                    }
+                    type: 'num-nulls-last'
                 });
             }
         });
