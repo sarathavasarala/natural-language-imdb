@@ -10,9 +10,11 @@ This document provides system design, architectural references, and workflows fo
 
 ### Core Capabilities:
 - **Natural Language Text-to-SQL**: Converts complex queries into standard ANSI SQL using Azure AI Foundry / Azure OpenAI models (e.g. `gpt-4o`, `gpt-5.4`).
+- **Cinema Analytics & Temporal Trends**: Answers complex aggregation, frequency, and trend questions (e.g., yearly filmography counts, career metrics, genre distributions) with interactive Chart.js visualizations.
+- **Dual-Mode Interactive Explorer**: Instant tab switching between visual analytics and underlying movie titles with click-to-drill-down filters.
 - **Cloud-Native DuckDB Query Engine**: Executes queries directly against remote ZSTD-compressed Parquet datasets stored in **Azure Blob Storage** via HTTP Range Requests (Zero local disk requirement, ~1.3 GB cloud storage).
 - **Interactive Data Explorer & Summaries**: Fast tabular results with dynamic filters, sorting, query suggestions, and on-demand AI movie/show summaries.
-- **Client-Side Key Management (LocalStorage)**: Secure BYOK (Bring Your Own Key) model where users configure their Azure OpenAI keys via the UI settings modal. Keys are persisted in browser `localStorage` and sent over HTTPS request headers without needing hardcoded server secrets.
+- **Client-Side Key Management (LocalStorage)**: Secure BYOK (Bring Your Own Key) model where users configure their Azure OpenAI keys via the UI settings modal. Keys are persisted in browser `LocalStorage` and sent over HTTPS request headers without needing hardcoded server secrets.
 
 ---
 
@@ -156,4 +158,4 @@ The following views are mapped automatically to `azure://imdb-data/*.parquet`:
    - Run `python -m evals.run --mode gold` to verify database schema invariants, index compliance, and query correctness with 0 API tokens.
    - Run `python -m unittest discover -s evals -p "test_*.py"` to execute CI/CD regression tests.
    - Run `python -m evals.run --mode live` when testing real-time Azure OpenAI generation and reflection.
-   - Benchmark covers 6 suites: Plain & Easy, Disambiguation, Regional Cinema, Relational Joins, Typos & Reflection, and Security & Plan Invariants.
+   - Benchmark covers 7 suites: Plain & Easy, Disambiguation, Regional Cinema, Relational Joins, Typos & Reflection, Security & Plan Invariants, and Aggregations & Analytics.

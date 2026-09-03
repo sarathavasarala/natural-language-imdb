@@ -2270,3 +2270,158 @@ code, kbd, samp, pre {
         width: 100%;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Cinema Analytics & Trend Visualization Dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+
+.view-mode-tabs-container {
+    margin-top: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.view-switcher-group {
+    background: var(--bg-surface-elevated);
+    padding: 3px;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    display: inline-flex;
+}
+
+.btn-view-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.45rem 0.95rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-view-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-view-tab.active {
+    background: rgba(245, 197, 24, 0.15);
+    color: var(--gold-primary);
+    border: 1px solid rgba(245, 197, 24, 0.35);
+    box-shadow: 0 0 12px rgba(245, 197, 24, 0.12);
+}
+
+.badge-tab-count {
+    background: rgba(245, 197, 24, 0.2);
+    color: var(--gold-primary);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* KPI Ribbon Cards */
+.kpi-ribbon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.kpi-stat-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.kpi-stat-card:hover {
+    border-color: rgba(245, 197, 24, 0.4);
+    transform: translateY(-2px);
+}
+
+.kpi-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--gold-primary);
+}
+
+.kpi-stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.kpi-stat-val {
+    font-family: var(--font-mono);
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    line-height: 1.1;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Analytics Chart Card */
+.analytics-chart-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.chart-header {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.btn-clear-drill-tag {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 0.2rem;
+    cursor: pointer;
+}
+
+.btn-clear-drill-tag:hover {
+    color: #FFFFFF;
+}
+
+.btn-agg-action {
+    background: rgba(245, 197, 24, 0.1);
+    color: var(--gold-primary);
+    border: 1px solid rgba(245, 197, 24, 0.25);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.btn-agg-action:hover {
+    background: var(--gold-primary);
+    color: var(--text-inverse);
+    border-color: var(--gold-primary);
+}

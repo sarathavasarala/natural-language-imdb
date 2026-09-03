@@ -385,6 +385,93 @@ def optimize_generated_sql(sql_query):
     return sql_query
 
 
+def classify_query_result(column_names, results, sql_query=""):
+    """
+    Classifies a query result into:
+    - 'AGGREGATION_SERIES': grouped analytical data (e.g. yearly trend, genre breakdown)
+    - 'AGGREGATION_SCALAR': single aggregate metric (e.g. total_movies: 12)
+    - 'TITLE_DISCOVERY': standard list of cinema titles
+    """
+    cols_lower = [c.lower() for c in column_names] if column_names else []
+    
+    # Check if this query is an ordinary title discovery query
+    is_title_query = ('title_id' in cols_lower and 'primary_title' in cols_lower)
+    
+    # Indicators of aggregate metrics
+    metric_cols = [c for c in cols_lower if any(m in c for m in ['count', 'avg', 'sum', 'min', 'max', 'total'])]
+    has_group_by = bool(re.search(r'\bGROUP\s+BY\b', sql_query or '', re.IGNORECASE))
+    
+    if not is_title_query and (metric_cols or has_group_by):
+        if len(results) == 1 and len(column_names) == 1:
+            return "AGGREGATION_SCALAR"
+        elif len(results) >= 1:
+            return "AGGREGATION_SERIES"
+            
+    # Also check single scalar row without group by (e.g. SELECT COUNT(DISTINCT ...) AS total_movies)
+    if not is_title_query and len(results) == 1 and (metric_cols or len(column_names) <= 2):
+        return "AGGREGATION_SCALAR"
+
+    return "TITLE_DISCOVERY"
+
+
+def derive_detail_sql(sql_query):
+    """
+    Given an aggregate query, derives the companion detail SQL to fetch the underlying titles,
+    allowing zero-latency drilldown on the frontend.
+    """
+    if not sql_query:
+        return None
+    try:
+        clean_sql = sql_query.strip().rstrip(';')
+        
+        # Track parentheses depth to find the top-level SELECT
+        depth = 0
+        main_select_pos = -1
+        for i, char in enumerate(clean_sql):
+            if char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+            elif depth == 0 and clean_sql[i:i+6].upper() == 'SELECT' and (i == 0 or clean_sql[i-1].isspace()):
+                main_select_pos = i
+                
+        if main_select_pos == -1:
+            return None
+            
+        cte_part = clean_sql[:main_select_pos].strip()
+        main_part = clean_sql[main_select_pos:].strip()
+        
+        # In main_part, extract the FROM clause up to GROUP BY, ORDER BY, HAVING, or LIMIT
+        m = re.search(r'\bFROM\b([\s\S]+?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bHAVING\b|\bLIMIT\b|$)', main_part, re.IGNORECASE)
+        if not m:
+            return None
+            
+        from_clause = m.group(1).strip()
+        
+        # Check if 'titles' is referenced
+        if not re.search(r'\btitles\b', from_clause, re.IGNORECASE):
+            return None
+            
+        # Check if ratings is joined
+        has_ratings = bool(re.search(r'\b(?:JOIN|FROM)\s+ratings\b', from_clause, re.IGNORECASE))
+        if not has_ratings and re.search(r'\btitles\s+t\b', from_clause, re.IGNORECASE):
+            where_m = re.search(r'\bWHERE\b', from_clause, re.IGNORECASE)
+            if where_m:
+                from_clause = from_clause[:where_m.start()] + ' LEFT JOIN ratings r ON r.title_id = t.title_id ' + from_clause[where_m.start():]
+            else:
+                from_clause = from_clause + ' LEFT JOIN ratings r ON r.title_id = t.title_id'
+                
+        detail_select = 'SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path'
+        order_clause = 'ORDER BY t.premiered ASC NULLS LAST, r.votes DESC NULLS LAST, r.rating DESC NULLS LAST LIMIT 250'
+        
+        prefix = (cte_part + '\n') if cte_part else ''
+        detail_sql = f"{prefix}{detail_select}\nFROM {from_clause}\n{order_clause};"
+        return optimize_generated_sql(detail_sql)
+    except Exception as e:
+        logger.warning(f"Could not derive detail SQL: {e}")
+        return None
+
+
 def validate_sql_query(sql_query, timeout_seconds=4.0):
     """Validation of SQL query for security, isolation, and syntax."""
     if not sql_query or not isinstance(sql_query, str):
@@ -763,7 +850,7 @@ RULES:
 5. For multiple named people (co-stars or actor+director):
    - Group credits by title_id and require COUNT(DISTINCT p.name) to equal the number of people.
    - For actor + director combos: require (p.name = 'Director Name' AND c.category = 'director') OR (p.name = 'Actor Name' AND c.category IN ('actor', 'actress')).
-6. Include title_id, primary_title, premiered, genres, rating, votes, and poster_path when they fit the request.
+6. For title discovery searches: Include title_id, primary_title, premiered, genres, rating, votes, and poster_path when they fit the request.
 7. Prevent genuine duplicate titles with DISTINCT or GROUP BY.
 8. Filter title types:
    - For movies: WHERE t.type IN ('movie', 'tvMovie')
@@ -774,8 +861,16 @@ RULES:
    - Countries: India ('IN'), France ('FR'), Japan ('JP'), South Korea ('KR'), Mexico ('MX'), Canada ('CA'), Germany ('DE'), Italy ('IT'), Spain ('ES'), United Kingdom ('GB'), United States ('US').
    - When searching by language (e.g. 'Telugu movies', 'Spanish thrillers', 'Korean cinema', 'Japanese anime'): use t.original_language = '<LANG_CODE>'.
    - When searching by country (e.g. 'movies from France', 'movies from India', 'Canadian movies'): use t.origin_country = '<COUNTRY_CODE>'.
-10. Add a deterministic ORDER BY and LIMIT 100 unless the user requests an aggregate or a smaller limit.
+10. Add a deterministic ORDER BY and LIMIT 100 for title discovery searches. For aggregate, trend, or ranking queries, omit LIMIT unless top-N is explicitly asked (e.g. LIMIT 10).
 11. Escape apostrophes inside string literals by doubling them (e.g. 'Schindler''s List').
+12. Analytical, Quantitative, and Aggregation Queries:
+    - When the user asks "how many", "count", "per year", "for each year", "average rating", "trend", "distribution", "breakdown", or "ranking":
+    - Group by the appropriate column (e.g. GROUP BY t.premiered for yearly trends, or GROUP BY t.genres).
+    - Always use meaningful, standard column aliases: 'year', 'movie_count', 'avg_rating', 'total_movies', 'total_titles'.
+    - Always count distinct titles using COUNT(DISTINCT t.title_id) AS movie_count so multiple roles or joins do not inflate film counts.
+    - Chronological ordering: For yearly trends, use ORDER BY year ASC (or premiered ASC).
+    - For single-number scalar questions (e.g. "how many movies has Christopher Nolan directed?"), return 1 row: SELECT COUNT(DISTINCT t.title_id) AS total_movies ...
+    - Do NOT select poster_path, title_id, or primary_title in the top-level SELECT when producing an aggregate summary.
 
 EXAMPLES:
 
@@ -793,6 +888,33 @@ JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
 LIMIT 100;
+
+User: how many movies did Brahmanandam act in for each year between 2020 and 2025
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Brahmanandam'
+)
+SELECT t.premiered AS year, COUNT(DISTINCT t.title_id) AS movie_count
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+WHERE t.premiered BETWEEN 2020 AND 2025
+GROUP BY t.premiered
+ORDER BY year ASC;
+
+User: how many movies has Christopher Nolan directed?
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Christopher Nolan'
+)
+SELECT COUNT(DISTINCT t.title_id) AS total_movies
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie');
 
 User: Movies where Quentin Tarantino acted
 SQL:
@@ -843,6 +965,16 @@ WHERE t.type IN ('movie', 'tvMovie')
   AND r.votes >= 5000
 ORDER BY r.rating DESC, r.votes DESC, t.premiered DESC
 LIMIT 100;
+
+User: Telugu movies released each year since 2020
+SQL:
+SELECT t.premiered AS year, COUNT(DISTINCT t.title_id) AS movie_count
+FROM titles t
+WHERE t.type IN ('movie', 'tvMovie')
+  AND t.original_language = 'te'
+  AND t.premiered >= 2020
+GROUP BY t.premiered
+ORDER BY year ASC;
 
 User: Avatar 2009
 SQL:
@@ -1033,9 +1165,47 @@ def api_search_stream():
             if total_rows > 1000:
                 results = results[:1000]
             results_dicts = [dict(zip(column_names, row)) for row in results]
-            logger.info(f"[{request_id}] Search success: {total_rows} rows in {execution_time}s")
-            yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': f'Found {total_rows:,} matching cinema titles...'})}\n\n"
-            yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': results_dicts, 'column_names': column_names, 'sql_query': sql_query, 'row_count': total_rows, 'execution_time': execution_time, 'query': user_query, 'stage': 'completed'})}\n\n"
+            
+            query_type = classify_query_result(column_names, results, sql_query)
+            is_aggregate = (query_type in ("AGGREGATION_SERIES", "AGGREGATION_SCALAR"))
+            drilldown_results = []
+            drilldown_cols = []
+            drilldown_sql = None
+
+            if is_aggregate:
+                drilldown_sql = derive_detail_sql(sql_query)
+                if drilldown_sql and validate_sql_query(drilldown_sql):
+                    try:
+                        dd_rows, dd_cols = execute_sql_query(drilldown_sql, max_rows=300)
+                        drilldown_cols = dd_cols
+                        drilldown_results = [dict(zip(dd_cols, row)) for row in dd_rows]
+                    except Exception as e:
+                        logger.warning(f"[{request_id}] Drilldown execution failed: {e}")
+
+            logger.info(f"[{request_id}] Search success ({query_type}): {total_rows} rows in {execution_time}s")
+            
+            if is_aggregate:
+                prep_msg = f"Calculated cinema trends across {total_rows} data points..."
+            else:
+                prep_msg = f"Found {total_rows:,} matching cinema titles..."
+                
+            yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': prep_msg})}\n\n"
+            yield f"data: {json.dumps({
+                'type': 'result',
+                'success': True,
+                'results': results_dicts,
+                'column_names': column_names,
+                'sql_query': sql_query,
+                'row_count': total_rows,
+                'execution_time': execution_time,
+                'query': user_query,
+                'stage': 'completed',
+                'query_type': query_type,
+                'is_aggregate': is_aggregate,
+                'drilldown_results': drilldown_results,
+                'drilldown_columns': drilldown_cols,
+                'drilldown_sql': drilldown_sql
+            })}\n\n"
             return
 
         # Step 4: 0 rows returned -> Check for typos / intent matching
@@ -1072,15 +1242,50 @@ def api_search_stream():
                     if retry_rows > 1000:
                         retry_results = retry_results[:1000]
                     retry_dicts = [dict(zip(retry_cols, row)) for row in retry_results]
+                    
+                    retry_query_type = classify_query_result(retry_cols, retry_results, corrected_sql)
+                    retry_is_agg = (retry_query_type in ("AGGREGATION_SERIES", "AGGREGATION_SCALAR"))
+                    retry_dd_results = []
+                    retry_dd_cols = []
+                    retry_dd_sql = None
+                    if retry_is_agg:
+                        retry_dd_sql = derive_detail_sql(corrected_sql)
+                        if retry_dd_sql and validate_sql_query(retry_dd_sql):
+                            try:
+                                r_rows, r_cols = execute_sql_query(retry_dd_sql, max_rows=300)
+                                retry_dd_cols = r_cols
+                                retry_dd_results = [dict(zip(r_cols, row)) for row in r_rows]
+                            except Exception as e:
+                                logger.warning(f"[{request_id}] Re-query drilldown failed: {e}")
+
                     logger.info(f"[{request_id}] Auto-corrected search success: {retry_rows} rows in {execution_time}s")
-                    yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': retry_dicts, 'column_names': retry_cols, 'sql_query': corrected_sql, 'original_sql': sql_query, 'row_count': retry_rows, 'execution_time': execution_time, 'correction_note': explanation, 'corrected_entity': corrected_entity, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed'})}\n\n"
+                    yield f"data: {json.dumps({
+                        'type': 'result',
+                        'success': True,
+                        'results': retry_dicts,
+                        'column_names': retry_cols,
+                        'sql_query': corrected_sql,
+                        'original_sql': sql_query,
+                        'row_count': retry_rows,
+                        'execution_time': execution_time,
+                        'correction_note': explanation,
+                        'corrected_entity': corrected_entity,
+                        'diagnosis': diagnosis,
+                        'query': user_query,
+                        'stage': 'completed',
+                        'query_type': retry_query_type,
+                        'is_aggregate': retry_is_agg,
+                        'drilldown_results': retry_dd_results,
+                        'drilldown_columns': retry_dd_cols,
+                        'drilldown_sql': retry_dd_sql
+                    })}\n\n"
                     return
             except Exception as e:
                 logger.warning(f"[{request_id}] Re-query failed: {e}")
 
         # If still 0 results or genuine empty
         execution_time = round(time.time() - start_time, 2)
-        yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': [], 'column_names': column_names, 'sql_query': sql_query, 'row_count': 0, 'execution_time': execution_time, 'explanation': explanation, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed'})}\n\n"
+        yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': [], 'column_names': column_names, 'sql_query': sql_query, 'row_count': 0, 'execution_time': execution_time, 'explanation': explanation, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed', 'is_aggregate': False})}\n\n"
 
     return Response(stream_with_context(generate_events()), mimetype='text/event-stream', headers={
         'Cache-Control': 'no-cache',
@@ -1157,7 +1362,24 @@ def api_search():
             results = results[:1000]
             
         results_dicts = [dict(zip(column_names, row)) for row in results]
-        logger.info(f"[{request_id}] Search returned {total_rows} rows in {execution_time}s")
+        
+        query_type = classify_query_result(column_names, results, sql_query)
+        is_aggregate = (query_type in ("AGGREGATION_SERIES", "AGGREGATION_SCALAR"))
+        drilldown_results = []
+        drilldown_cols = []
+        drilldown_sql = None
+
+        if is_aggregate:
+            drilldown_sql = derive_detail_sql(sql_query)
+            if drilldown_sql and validate_sql_query(drilldown_sql):
+                try:
+                    dd_rows, dd_cols = execute_sql_query(drilldown_sql, max_rows=300)
+                    drilldown_cols = dd_cols
+                    drilldown_results = [dict(zip(dd_cols, row)) for row in dd_rows]
+                except Exception as e:
+                    logger.warning(f"[{request_id}] Fallback drilldown failed: {e}")
+
+        logger.info(f"[{request_id}] Search returned {total_rows} rows ({query_type}) in {execution_time}s")
         
         return jsonify({
             'success': True,
@@ -1169,7 +1391,12 @@ def api_search():
             'query': user_query,
             'correction_note': correction_note,
             'corrected_entity': corrected_entity,
-            'diagnosis': diagnosis
+            'diagnosis': diagnosis,
+            'query_type': query_type,
+            'is_aggregate': is_aggregate,
+            'drilldown_results': drilldown_results,
+            'drilldown_columns': drilldown_cols,
+            'drilldown_sql': drilldown_sql
         })
         
     except Exception as e:

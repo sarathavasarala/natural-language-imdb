@@ -257,7 +257,10 @@ class EvalEngine:
                 assertion_results.append(assert_row_count_bounds(rows_dicts, min_rows=rules["min_rows"], max_rows=rules.get("max_rows")))
                 
             if col_names:
-                assertion_results.append(assert_required_columns(col_names, required=["title_id", "primary_title"]))
+                if "required_columns" in rules:
+                    assertion_results.append(assert_required_columns(col_names, required=rules["required_columns"]))
+                elif category != "aggregations_and_analytics" and not rules.get("is_aggregate"):
+                    assertion_results.append(assert_required_columns(col_names, required=["title_id", "primary_title"]))
                 
             if rules.get("must_include_title_ids"):
                 assertion_results.append(assert_must_contain_ids(rows_dicts, rules["must_include_title_ids"]))

@@ -650,5 +650,60 @@
       "check_plan_performance": true,
       "is_read_only": true
     }
+  },
+  {
+    "id": "analytical_brahmanandam_yearly_2020_2025",
+    "category": "aggregations_and_analytics",
+    "query": "how many movies did brahmanandam act in for each year between 2020 and 2025",
+    "description": "Yearly film count aggregation with materialized person CTE, group-by premiered and distinct count",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Brahmanandam') SELECT t.premiered AS year, COUNT(DISTINCT t.title_id) AS movie_count FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress') JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie') WHERE t.premiered BETWEEN 2020 AND 2025 GROUP BY t.premiered ORDER BY year ASC;",
+    "assertions": {
+      "required_columns": ["year", "movie_count"],
+      "min_rows": 6,
+      "max_rows": 6,
+      "check_plan_performance": true,
+      "is_read_only": true
+    }
+  },
+  {
+    "id": "analytical_nolan_directed_count",
+    "category": "aggregations_and_analytics",
+    "query": "how many movies has christopher nolan directed?",
+    "description": "Scalar aggregate total count for director filmography",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Christopher Nolan') SELECT COUNT(DISTINCT t.title_id) AS total_movies FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director' JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie');",
+    "assertions": {
+      "required_columns": ["total_movies"],
+      "min_rows": 1,
+      "max_rows": 1,
+      "check_plan_performance": true,
+      "is_read_only": true
+    }
+  },
+  {
+    "id": "analytical_tarantino_genres",
+    "category": "aggregations_and_analytics",
+    "query": "which genres has quentin tarantino directed the most?",
+    "description": "Categorical genre frequency aggregation for director",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Quentin Tarantino') SELECT t.genres, COUNT(DISTINCT t.title_id) AS movie_count FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director' JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie') GROUP BY t.genres ORDER BY movie_count DESC LIMIT 10;",
+    "assertions": {
+      "required_columns": ["genres", "movie_count"],
+      "min_rows": 3,
+      "max_rows": 10,
+      "check_plan_performance": true,
+      "is_read_only": true
+    }
+  },
+  {
+    "id": "analytical_telugu_movies_per_year_2020s",
+    "category": "aggregations_and_analytics",
+    "query": "how many telugu movies were released each year in the 2020s?",
+    "description": "Regional language temporal aggregation by year",
+    "gold_sql": "SELECT t.premiered AS year, COUNT(DISTINCT t.title_id) AS movie_count FROM titles t WHERE t.type IN ('movie', 'tvMovie') AND t.original_language = 'te' AND t.premiered BETWEEN 2020 AND 2029 GROUP BY t.premiered ORDER BY year ASC;",
+    "assertions": {
+      "required_columns": ["year", "movie_count"],
+      "min_rows": 5,
+      "max_rows": 10,
+      "is_read_only": true
+    }
   }
 ]

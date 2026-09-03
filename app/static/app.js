@@ -149,6 +149,7 @@ $(document).ready(function () {
     initializeShareableURL();
     initializeAISummary();
     initializeSQLInspector();
+    initializeViewSwitcher();
 
     // Auto-search if ?q= parameter is present in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -182,7 +183,7 @@ $(document).ready(function () {
             $query.val('').focus();
             toggleClearButton(false);
             $('#heroCollapsible').removeClass('collapsed');
-            $('#resultsContainer, #mobileResultsFeed, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner').addClass('d-none');
+            $('#resultsContainer, #mobileResultsFeed, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner, #analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
             $('#suggestedChipsSection').removeClass('d-none');
             history.pushState({}, '', window.location.pathname);
         });
@@ -485,10 +486,12 @@ $(document).ready(function () {
                 allColumnNames = event.column_names;
 
                 showResultsMeta(event);
-                buildGenreFilters(allResults);
-                renderResultsTable(allResults, allColumnNames);
-                renderMobileCardsFeed(allResults);
-                resetFilters();
+                
+                if (event.is_aggregate) {
+                    renderAnalyticsDashboard(event);
+                } else {
+                    renderTitleDiscoveryResults(event);
+                }
 
                 // Show Auto-Correction Banner if intent reflection was applied
                 if (event.correction_note || event.corrected_entity) {
@@ -516,7 +519,7 @@ $(document).ready(function () {
     function showLoading() {
         $('#heroCollapsible').addClass('collapsed');
         $('#loadingState').removeClass('d-none');
-        $('#errorState, #noResultsState, #resultsContainer, #mobileResultsFeed, #resultsMeta, #suggestedChipsSection').addClass('d-none');
+        $('#errorState, #noResultsState, #resultsContainer, #mobileResultsFeed, #resultsMeta, #suggestedChipsSection, #analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
         $('#searchBtn').prop('disabled', true).html('<i class="fa-solid fa-circle-notch fa-spin me-1"></i> <span>Searching...</span>');
         $('#clearQueryBtn').addClass('d-none');
     }
@@ -529,7 +532,9 @@ $(document).ready(function () {
 
     function showResultsMeta(response) {
         $('#resultsMeta').removeClass('d-none');
-        if (response.row_count > response.results.length) {
+        if (response.is_aggregate) {
+            $('#resultCount').text(`${response.results.length} data point${response.results.length !== 1 ? 's' : ''}`);
+        } else if (response.row_count > response.results.length) {
             $('#resultCount').text(`${response.results.length.toLocaleString()} of ${response.row_count.toLocaleString()}`);
         } else {
             $('#resultCount').text(response.row_count.toLocaleString());
@@ -589,6 +594,285 @@ $(document).ready(function () {
     $('#retryBtn').on('click', function () {
         if (lastQuery) executeSearch(lastQuery);
     });
+
+    // ── Cinema Analytics & Drilldown Engine ───────────────────────
+    let chartInstance = null;
+    let currentDrilldownTitles = [];
+    let currentDrilldownCols = [];
+    let activeDrilldownYear = null;
+
+    function initializeViewSwitcher() {
+        $('#tabAnalyticsBtn').on('click', function () {
+            $(this).addClass('active');
+            $('#tabTitlesBtn').removeClass('active');
+            $('#analyticsSection').removeClass('d-none');
+            $('#resultsContainer, #mobileResultsFeed').addClass('d-none');
+        });
+
+        $('#tabTitlesBtn').on('click', function () {
+            $(this).addClass('active');
+            $('#tabAnalyticsBtn').removeClass('active');
+            $('#analyticsSection').addClass('d-none');
+            $('#resultsContainer, #mobileResultsFeed').removeClass('d-none');
+        });
+
+        $('#clearDrilldownFilterBtn').on('click', function () {
+            activeDrilldownYear = null;
+            $('#drilldownFilterNotice').addClass('d-none');
+            applyTitlesDisplay(currentDrilldownTitles);
+        });
+    }
+
+    function applyTitlesDisplay(titles) {
+        if (!titles || titles.length === 0) return;
+        allResults = titles;
+        allColumnNames = currentDrilldownCols.length > 0 ? currentDrilldownCols : Object.keys(titles[0]);
+        buildGenreFilters(allResults);
+        renderResultsTable(allResults, allColumnNames);
+        renderMobileCardsFeed(allResults);
+        resetFilters();
+    }
+
+    function renderTitleDiscoveryResults(event) {
+        $('#analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
+        if (chartInstance) {
+            chartInstance.destroy();
+            chartInstance = null;
+        }
+        buildGenreFilters(allResults);
+        renderResultsTable(allResults, allColumnNames);
+        renderMobileCardsFeed(allResults);
+        resetFilters();
+    }
+
+    function renderAnalyticsDashboard(event) {
+        const rows = event.results || [];
+        const cols = event.column_names || [];
+        currentDrilldownTitles = event.drilldown_results || [];
+        currentDrilldownCols = event.drilldown_columns || [];
+        activeDrilldownYear = null;
+        $('#drilldownFilterNotice').addClass('d-none');
+
+        // Identify metric and group columns
+        const groupCol = cols.find(c => ['year', 'premiered', 'genres', 'genre', 'name', 'country', 'language', 'category'].includes(c.toLowerCase())) || cols[0];
+        const metricCol = cols.find(c => ['movie_count', 'count', 'total_movies', 'total_titles', 'avg_rating', 'votes'].includes(c.toLowerCase())) || (cols.length > 1 ? cols[1] : cols[0]);
+
+        // 1. Render KPI Stat Ribbon
+        const $ribbon = $('#analyticsKpiRibbon').empty();
+        
+        let totalCount = 0;
+        let peakVal = -Infinity;
+        let peakLabel = '';
+
+        rows.forEach(r => {
+            const v = parseFloat(r[metricCol]) || 0;
+            totalCount += v;
+            if (v > peakVal) {
+                peakVal = v;
+                peakLabel = r[groupCol];
+            }
+        });
+
+        if (event.query_type === 'AGGREGATION_SCALAR' || rows.length === 1) {
+            const val = rows[0][metricCol] || rows[0][cols[0]];
+            const label = metricCol.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            $ribbon.append(`
+                <div class="kpi-stat-card">
+                    <div class="kpi-stat-label"><i class="fa-solid fa-calculator text-gold"></i> ${escapeHtml(label)}</div>
+                    <div class="kpi-stat-val">${Number(val).toLocaleString()}</div>
+                    <div class="kpi-stat-sub">Direct aggregate metric</div>
+                </div>
+            `);
+        } else {
+            // Multiple grouped rows
+            const isYear = (groupCol.toLowerCase() === 'year' || groupCol.toLowerCase() === 'premiered');
+            const totalLabel = isYear ? 'Total Films' : 'Total Count';
+            const spanLabel = isYear && rows.length > 0 ? `${rows[0][groupCol]} – ${rows[rows.length - 1][groupCol]}` : `${rows.length} Categories`;
+            const peakText = isYear ? `${peakLabel} (${peakVal.toLocaleString()} films)` : `${peakLabel} (${peakVal.toLocaleString()})`;
+
+            $ribbon.append(`
+                <div class="kpi-stat-card">
+                    <div class="kpi-stat-label"><i class="fa-solid fa-clapperboard text-gold"></i> ${totalLabel}</div>
+                    <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
+                    <div class="kpi-stat-sub">Across ${rows.length} ${isYear ? 'years' : 'groups'}</div>
+                </div>
+                <div class="kpi-stat-card">
+                    <div class="kpi-stat-label"><i class="fa-regular fa-calendar text-cyan"></i> Era / Span</div>
+                    <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(spanLabel)}</div>
+                    <div class="kpi-stat-sub">Active coverage window</div>
+                </div>
+                <div class="kpi-stat-card">
+                    <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Peak Period</div>
+                    <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(peakText)}</div>
+                    <div class="kpi-stat-sub">Highest density output</div>
+                </div>
+            `);
+        }
+
+        // 2. Render Interactive Chart.js
+        if (event.query_type === 'AGGREGATION_SERIES' && rows.length > 1 && window.Chart) {
+            $('#analyticsChartCard').removeClass('d-none');
+            const labels = rows.map(r => String(r[groupCol]));
+            const dataVals = rows.map(r => parseFloat(r[metricCol]) || 0);
+
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+
+            const canvasEl = document.getElementById('cinemaTrendCanvas');
+            if (canvasEl) {
+                const ctx = canvasEl.getContext('2d');
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(245, 197, 24, 0.85)');
+                gradient.addColorStop(1, 'rgba(245, 197, 24, 0.2)');
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: metricCol.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                            data: dataVals,
+                            backgroundColor: gradient,
+                            borderColor: '#F5C518',
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                            hoverBackgroundColor: '#FFD13B',
+                            hoverBorderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    font: { family: "'JetBrains Mono', monospace", size: 12 }
+                                }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255, 255, 255, 0.06)' },
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    font: { family: "'JetBrains Mono', monospace", size: 12 },
+                                    beginAtZero: true,
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#12151E',
+                                titleColor: '#F5C518',
+                                bodyColor: '#E2E8F0',
+                                borderColor: 'rgba(245, 197, 24, 0.4)',
+                                borderWidth: 1,
+                                padding: 10,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function (context) {
+                                        const val = context.parsed.y;
+                                        const pct = totalCount > 0 ? ((val / totalCount) * 100).toFixed(1) : 0;
+                                        return `${val} films (${pct}% of period)`;
+                                    }
+                                }
+                            }
+                        },
+                        onClick: function (evt, elements) {
+                            if (elements && elements.length > 0 && currentDrilldownTitles.length > 0) {
+                                const index = elements[0].index;
+                                const clickedLabel = labels[index];
+                                drilldownByGroup(clickedLabel, groupCol);
+                            }
+                        }
+                    }
+                });
+            }
+        } else {
+            $('#analyticsChartCard').addClass('d-none');
+        }
+
+        // 3. Render Aggregate Breakdown Table
+        const $aggHead = $('#aggTableHead').empty();
+        const $aggBody = $('#aggTableBody').empty();
+
+        $aggHead.append(`
+            <th>${escapeHtml(groupCol.replace(/_/g, ' ').toUpperCase())}</th>
+            <th>${escapeHtml(metricCol.replace(/_/g, ' ').toUpperCase())}</th>
+            <th>% SHARE</th>
+            ${currentDrilldownTitles.length > 0 ? '<th class="text-end">ACTION</th>' : ''}
+        `);
+
+        rows.forEach(r => {
+            const gVal = r[groupCol];
+            const mVal = parseFloat(r[metricCol]) || 0;
+            const pct = totalCount > 0 ? ((mVal / totalCount) * 100).toFixed(1) : '100';
+
+            const actionHtml = currentDrilldownTitles.length > 0
+                ? `<td class="text-end"><button type="button" class="btn-agg-action" data-filter="${escapeHtml(String(gVal))}"><i class="fa-solid fa-eye me-1"></i> View ${mVal} Titles &rarr;</button></td>`
+                : '';
+
+            $aggBody.append(`
+                <tr>
+                    <td><span class="badge-year">${escapeHtml(String(gVal))}</span></td>
+                    <td><span class="fw-bold text-white font-mono">${mVal.toLocaleString()}</span></td>
+                    <td><span class="text-secondary font-mono small">${pct}%</span></td>
+                    ${actionHtml}
+                </tr>
+            `);
+        });
+
+        // Event listener for action buttons
+        $aggBody.find('.btn-agg-action').on('click', function () {
+            const filterVal = $(this).attr('data-filter');
+            drilldownByGroup(filterVal, groupCol);
+        });
+
+        // 4. Setup View Mode Switcher and Drilldown data
+        if (currentDrilldownTitles.length > 0) {
+            $('#titlesTabCountBadge').text(currentDrilldownTitles.length);
+            $('#viewModeTabs').removeClass('d-none');
+            applyTitlesDisplay(currentDrilldownTitles);
+        } else {
+            $('#viewModeTabs').addClass('d-none');
+        }
+
+        // Switch to Analytics Tab
+        $('#tabAnalyticsBtn').addClass('active');
+        $('#tabTitlesBtn').removeClass('active');
+        $('#analyticsSection').removeClass('d-none');
+        $('#resultsContainer, #mobileResultsFeed').addClass('d-none');
+    }
+
+    function drilldownByGroup(val, groupCol) {
+        if (!currentDrilldownTitles || currentDrilldownTitles.length === 0) return;
+        activeDrilldownYear = val;
+
+        const isYear = (groupCol.toLowerCase() === 'year' || groupCol.toLowerCase() === 'premiered');
+        let filtered = currentDrilldownTitles;
+
+        if (isYear) {
+            filtered = currentDrilldownTitles.filter(t => String(t.premiered) === String(val));
+        }
+
+        $('#drilldownFilterLabel').text(`Showing: ${val} (${filtered.length} titles)`);
+        $('#drilldownFilterNotice').removeClass('d-none');
+
+        applyTitlesDisplay(filtered);
+
+        // Switch to Titles Tab
+        $('#tabTitlesBtn').addClass('active');
+        $('#tabAnalyticsBtn').removeClass('active');
+        $('#analyticsSection').addClass('d-none');
+        $('#resultsContainer, #mobileResultsFeed').removeClass('d-none');
+
+        // Scroll smoothly to titles
+        document.getElementById('resultsContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     // ── Table Rendering with DataTables (Desktop View) ───────────
     function renderResultsTable(results, columnNames) {

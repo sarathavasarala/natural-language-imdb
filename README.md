@@ -9,6 +9,8 @@ IMDb Intelligence translates plain English questions into SQL and runs them agai
 
 ## What you can do
 - **Search in plain English**: Ask for titles by actor, director, genre, release decade, country, and rating thresholds.
+- **Analyze trends and film counts**: Ask quantitative and aggregation questions (e.g. *"how many movies did Brahmanandam act in for each year between 2020 and 2025"*, *"how many films has Christopher Nolan directed?"*).
+- **Interactive trend charts & drill-down**: View annual filmography trends in rich visual bar charts and click on any year bar to immediately inspect the underlying movie titles.
 - **Filter by original language and country**: Search for genuine regional cinema (e.g. Japanese anime, Spanish thrillers, Telugu films) without dubbed Hollywood releases cluttering results.
 - **See the SQL query**: Inspect the exact SQL query generated for each question, along with execution times and row counts.
 - **Browse posters and plot summaries**: View TMDb poster artwork and story overviews directly in the results table.
@@ -38,6 +40,9 @@ The database combines official IMDb dumps with TMDb's open movie catalog, pruned
 ---
 
 ## Example queries
+- *"How many movies did Brahmanandam act in for each year between 2020 and 2025"* (Temporal trend + visual chart)
+- *"How many movies has Christopher Nolan directed?"* (Scalar KPI aggregate)
+- *"Which genres has Quentin Tarantino directed the most?"* (Categorical frequency breakdown)
 - *"Highest rated sci-fi movies from 2010s with over 100k votes"*
 - *"Movies where Leonardo DiCaprio and Kate Winslet worked together"*
 - *"Best Korean thriller movies released after 2015"*
@@ -51,7 +56,7 @@ The database combines official IMDb dumps with TMDb's open movie catalog, pruned
 
 | Layer | Stack |
 | :--- | :--- |
-| **Frontend** | HTML5, Bootstrap 5, Vanilla JavaScript, DataTables |
+| **Frontend** | HTML5, Bootstrap 5, Vanilla JavaScript, DataTables, Chart.js 4.4 |
 | **Backend** | Python 3.11+, Flask, Gunicorn, Server-Sent Events |
 | **Database** | DuckDB, Parquet |
 | **AI / Translation** | Azure OpenAI / OpenAI API (`gpt-4o`, `gpt-5.4`) |
@@ -84,13 +89,14 @@ Open `http://localhost:5001` in your browser and click **API Settings** to add y
 
 ## Evaluation Suite
 
-The repository includes an evaluation benchmark suite covering 6 categories: Plain & Easy, Disambiguation & Homonyms, Regional & Local Cinema, Multi-Hop Relational Joins, Typos & Reflection, and Security & Plan Invariants.
+The repository includes an evaluation benchmark suite covering 7 categories: Plain & Easy, Disambiguation & Homonyms, Regional & Local Cinema, Multi-Hop Relational Joins, Typos & Reflection, Security & Plan Invariants, and Aggregations & Analytics.
 
 ```bash
 # Run full benchmark against DuckDB baseline (Offline, 0 tokens)
 python -m evals.run --mode gold
 
 # Run specific category
+python -m evals.run --category aggregations_and_analytics
 python -m evals.run --category disambiguation
 python -m evals.run --category regional_cinema
 

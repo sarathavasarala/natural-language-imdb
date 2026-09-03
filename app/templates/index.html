@@ -296,6 +296,72 @@
                 </div>
             </div>
 
+            <!-- View Mode Switcher Tabs (Visible when viewing Analytical & Aggregation Results) -->
+            <div class="view-mode-tabs-container d-none mb-3" id="viewModeTabs">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="btn-group view-switcher-group" role="group" aria-label="View Switcher">
+                        <button type="button" class="btn btn-view-tab active" id="tabAnalyticsBtn">
+                            <i class="fa-solid fa-chart-column me-1 text-gold"></i>
+                            <span>Analytics &amp; Trend</span>
+                        </button>
+                        <button type="button" class="btn btn-view-tab" id="tabTitlesBtn">
+                            <i class="fa-solid fa-film me-1 text-gold"></i>
+                            <span>Explore Titles</span>
+                            <span class="badge badge-tab-count ms-1" id="titlesTabCountBadge">0</span>
+                        </button>
+                    </div>
+                    <div id="drilldownFilterNotice" class="d-none">
+                        <span class="badge badge-intent d-inline-flex align-items-center gap-1">
+                            <i class="fa-solid fa-filter"></i>
+                            <span id="drilldownFilterLabel">Filtered</span>
+                            <button type="button" class="btn-clear-drill-tag ms-1" id="clearDrilldownFilterBtn" title="Show all titles">&times;</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cinema Analytics Section (Active for Aggregation & Trend Queries) -->
+            <div id="analyticsSection" class="analytics-section mb-4 d-none">
+                <!-- KPI Stat Cards Ribbon -->
+                <div id="analyticsKpiRibbon" class="kpi-ribbon-grid mb-3"></div>
+
+                <!-- Interactive Trend Chart Card -->
+                <div id="analyticsChartCard" class="analytics-chart-card mb-4">
+                    <div class="chart-header d-flex align-items-center justify-content-between p-3 border-bottom border-dark-subtle">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-chart-simple text-gold"></i>
+                            <span class="fw-semibold text-white" id="chartHeading">Annual Trend</span>
+                        </div>
+                        <span class="text-secondary small font-mono d-none d-sm-inline" id="chartActionHint">
+                            <i class="fa-solid fa-arrow-pointer text-gold me-1"></i>Click any bar to explore titles
+                        </span>
+                    </div>
+                    <div class="chart-body p-3">
+                        <div class="chart-canvas-wrapper" style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="cinemaTrendCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aggregation Breakdown Table Card -->
+                <div id="aggregateTableCard" class="cinema-table-card mb-4">
+                    <div class="p-3 border-bottom border-dark-subtle d-flex align-items-center justify-content-between">
+                        <span class="fw-semibold text-white small">
+                            <i class="fa-solid fa-table-list me-1 text-gold"></i> Metric Breakdown
+                        </span>
+                        <span class="text-secondary small" id="aggTableSubtitle">Distribution</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-cinema align-middle mb-0" id="aggregateTable">
+                            <thead>
+                                <tr id="aggTableHead"></tr>
+                            </thead>
+                            <tbody id="aggTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- Mobile Cinema Cards Feed (Active on Mobile / Touch Devices) -->
             <div id="mobileResultsFeed" class="mobile-results-feed mb-5 d-none">
                 <!-- Dynamic Cinema Movie Cards Rendered Here -->
@@ -514,6 +580,9 @@
     <script src="https://cdn.datatables.net/2.0.3/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.0.3/js/dataTables.bootstrap5.min.js"></script>
     
+    <!-- Chart.js 4.4 CDN for Cinematic Trend & Distribution Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
     <!-- Application Logic -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
