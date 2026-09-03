@@ -173,6 +173,7 @@ DUCKDB_DATABASE_PATH = os.getenv(
     "DUCKDB_DATABASE_PATH",
     "/home/data/imdb.duckdb" if os.getenv("WEBSITE_SITE_NAME") else "db/imdb.duckdb"
 )
+DUCKDB_QUERY_TIMEOUT = float(os.getenv("DUCKDB_QUERY_TIMEOUT", "30.0"))
 
 def _local_database_is_current(database_path, etag):
     etag_path = f"{database_path}.etag"
@@ -287,7 +288,7 @@ def get_database_connection():
     # Fallback to DuckDB
     return get_duckdb_database()
 
-def execute_sql_query(sql_query, max_rows=1000, timeout_seconds=15.0):
+def execute_sql_query(sql_query, max_rows=1000, timeout_seconds=DUCKDB_QUERY_TIMEOUT):
     """Execute SQL query and return results with column names, protected by row bounds and timeouts."""
     cursor = None
     timer = None
@@ -500,7 +501,7 @@ def derive_detail_sql(sql_query):
         return None
 
 
-def validate_sql_query(sql_query, timeout_seconds=4.0):
+def validate_sql_query(sql_query, timeout_seconds=8.0):
     """Validation of SQL query for security, isolation, and syntax."""
     if not sql_query or not isinstance(sql_query, str):
         return False
