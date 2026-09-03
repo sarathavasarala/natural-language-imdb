@@ -1276,7 +1276,7 @@ def api_search_stream():
                 prep_msg = f"Found {total_rows:,} matching cinema titles..."
                 
             yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': prep_msg})}\n\n"
-            yield f"data: {json.dumps({
+            result_payload = {
                 'type': 'result',
                 'success': True,
                 'results': results_dicts,
@@ -1291,7 +1291,8 @@ def api_search_stream():
                 'drilldown_results': drilldown_results,
                 'drilldown_columns': drilldown_cols,
                 'drilldown_sql': drilldown_sql
-            })}\n\n"
+            }
+            yield f"data: {json.dumps(result_payload)}\n\n"
             return
 
         # Step 4: 0 rows returned -> Check for typos / intent matching
@@ -1345,7 +1346,7 @@ def api_search_stream():
                                 logger.warning(f"[{request_id}] Re-query drilldown failed: {e}")
 
                     logger.info(f"[{request_id}] Auto-corrected search success: {retry_rows} rows in {execution_time}s")
-                    yield f"data: {json.dumps({
+                    retry_result_payload = {
                         'type': 'result',
                         'success': True,
                         'results': retry_dicts,
@@ -1364,14 +1365,29 @@ def api_search_stream():
                         'drilldown_results': retry_dd_results,
                         'drilldown_columns': retry_dd_cols,
                         'drilldown_sql': retry_dd_sql
-                    })}\n\n"
+                    }
+                    yield f"data: {json.dumps(retry_result_payload)}\n\n"
                     return
             except Exception as e:
                 logger.warning(f"[{request_id}] Re-query failed: {e}")
 
         # If still 0 results or genuine empty
         execution_time = round(time.time() - start_time, 2)
-        yield f"data: {json.dumps({'type': 'result', 'success': True, 'results': [], 'column_names': column_names, 'sql_query': sql_query, 'row_count': 0, 'execution_time': execution_time, 'explanation': explanation, 'diagnosis': diagnosis, 'query': user_query, 'stage': 'completed', 'is_aggregate': False})}\n\n"
+        empty_payload = {
+            'type': 'result',
+            'success': True,
+            'results': [],
+            'column_names': column_names,
+            'sql_query': sql_query,
+            'row_count': 0,
+            'execution_time': execution_time,
+            'explanation': explanation,
+            'diagnosis': diagnosis,
+            'query': user_query,
+            'stage': 'completed',
+            'is_aggregate': False
+        }
+        yield f"data: {json.dumps(empty_payload)}\n\n"
 
     return Response(stream_with_context(generate_events()), mimetype='text/event-stream', headers={
         'Cache-Control': 'no-cache',
