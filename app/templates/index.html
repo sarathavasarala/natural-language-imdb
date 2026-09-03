@@ -77,21 +77,22 @@
                 <div class="search-console-wrapper">
                     <form id="searchForm" class="search-form-cinema" autocomplete="off">
                         <div class="search-input-shell">
-                            <i class="fa-solid fa-magnifying-glass search-leading-icon"></i>
+                            <i class="fa-solid fa-wand-magic-sparkles search-leading-icon" title="AI Cinema Search" aria-hidden="true"></i>
                             <input type="text" 
                                    id="query" 
                                    name="query" 
                                    class="search-input" 
-                                   placeholder="e.g., Leonardo DiCaprio & Kate Winslet movies..." 
+                                   placeholder="Search movies, actors, genres..." 
                                    autocomplete="off" 
                                    spellcheck="false" 
+                                   aria-label="Search movies, TV shows, actors, and directors"
                                    required>
                             <div class="search-action-group">
-                                <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)">
+                                <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)" aria-label="Clear query">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
                                 <span class="kbd-shortcut d-none d-md-inline-flex" title="Press / to focus">/</span>
-                                <button type="submit" class="btn-search-cinema" id="searchBtn">
+                                <button type="submit" class="btn-search-cinema" id="searchBtn" aria-label="Search">
                                     <i class="fa-solid fa-magnifying-glass"></i>
                                     <span class="ms-1 d-none d-sm-inline">Search</span>
                                 </button>
@@ -100,14 +101,14 @@
                     </form>
                 </div>
 
-                <!-- Suggested Query Chips (Single-row momentum scroll rail on mobile) -->
+                <!-- Suggested Query Chips (Neat wrapped pill badges on mobile, centered row on desktop) -->
                 <div class="chips-scroll-rail-wrapper" id="suggestedChipsSection">
-                    <div class="chips-scroll-rail">
+                    <div class="chips-scroll-rail" role="region" aria-label="Suggested search queries">
                         <span class="chips-prompt-label">
-                            <i class="fa-regular fa-compass me-1 text-gold"></i>Try:
+                            <i class="fa-regular fa-compass me-1 text-gold" aria-hidden="true"></i>Try:
                         </span>
                         {% for sq in suggested_queries %}
-                        <button class="cinema-chip" data-query="{{ sq }}">{{ sq }}</button>
+                        <button type="button" class="cinema-chip" data-query="{{ sq }}">{{ sq }}</button>
                         {% endfor %}
                     </div>
                 </div>

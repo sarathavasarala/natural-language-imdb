@@ -329,12 +329,12 @@ code, kbd, samp, pre {
     font-weight: 500;
     font-family: var(--font-sans);
     padding: 0.6rem 0.5rem 0.6rem 0;
-    text-overflow: ellipsis;
 }
 
 .search-input::placeholder {
     color: rgba(156, 163, 175, 0.75);
     font-weight: 400;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
 }
 
 .search-action-group {
@@ -1756,11 +1756,18 @@ code, kbd, samp, pre {
     gap: 0.35rem;
 }
 
+.movie-card-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
 .movie-card-title {
     font-size: 1rem;
     font-weight: 700;
     color: #FFFFFF;
-    line-height: 1.25;
+    line-height: 1.3;
     word-break: break-word;
     overflow-wrap: break-word;
 }
@@ -1849,48 +1856,75 @@ code, kbd, samp, pre {
 
     .hero-title {
         font-size: clamp(1.75rem, 5.5vw, 2.2rem);
+        text-wrap: balance;
+    }
+
+    .hero-desc {
+        text-wrap: pretty;
     }
 
     .hero-cinema {
         padding: 2rem 0.75rem 0.85rem;
     }
 
-    .chips-scroll-rail {
-        justify-content: flex-start;
-        padding: 0.25rem 1rem;
+    .chips-scroll-rail-wrapper {
+        overflow: visible;
+        margin: 0.75rem auto 0;
     }
 
-    .chips-scroll-rail-wrapper::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 36px;
-        background: linear-gradient(to right, transparent, var(--bg-deep));
-        pointer-events: none;
-    }
-
+    .chips-scroll-rail-wrapper::after,
     .chips-scroll-rail-wrapper::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 20px;
-        background: linear-gradient(to left, transparent, var(--bg-deep));
-        pointer-events: none;
-        z-index: 2;
+        display: none !important;
+    }
+
+    .chips-scroll-rail {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.45rem 0.4rem;
+        padding: 0.2rem 0.5rem;
+        overflow-x: visible;
+    }
+
+    .chips-prompt-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        letter-spacing: 0.05em;
+        display: inline-flex;
+        align-items: center;
+        margin-right: 0.2rem;
+    }
+
+    .cinema-chip {
+        font-size: 0.78rem;
+        padding: 0.32rem 0.75rem;
+        border-radius: 999px;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.25;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
     }
 
     .search-input-shell {
-        min-height: 56px;
-        padding: 0.35rem 0.5rem 0.35rem 1.1rem;
+        min-height: 54px;
+        padding: 0.35rem 0.5rem 0.35rem 1rem;
         border-radius: 16px;
+        gap: 0.4rem;
+    }
+
+    .search-leading-icon {
+        color: var(--gold-primary);
+        opacity: 0.9;
     }
 
     .search-input {
         font-size: 16px;
+        padding: 0.5rem 0.25rem 0.5rem 0;
+        min-width: 0;
     }
 
     .btn-search-cinema {
@@ -2024,21 +2058,21 @@ code, kbd, samp, pre {
     }
 
     .search-input-shell {
-        min-height: 54px;
-        padding: 0.35rem 0.45rem 0.35rem 0.95rem;
+        min-height: 52px;
+        padding: 0.35rem 0.45rem 0.35rem 0.85rem;
         border-radius: 16px;
         gap: 0.35rem;
     }
 
     .search-leading-icon {
-        font-size: 1.05rem;
-        margin-right: 0.4rem;
+        font-size: 1rem;
+        margin-right: 0.25rem;
         flex-shrink: 0;
     }
 
     .search-input {
         font-size: 16px !important;
-        padding: 0.5rem 0.25rem 0.5rem 0;
+        padding: 0.45rem 0.25rem 0.45rem 0;
         min-width: 0;
         flex: 1;
     }
@@ -2067,6 +2101,16 @@ code, kbd, samp, pre {
         height: 28px;
         font-size: 0.85rem;
         flex-shrink: 0;
+    }
+
+    .chips-prompt-label {
+        font-size: 0.72rem;
+    }
+
+    .cinema-chip {
+        font-size: 0.74rem;
+        padding: 0.28rem 0.65rem;
+        min-height: 30px;
     }
 
     /* Stepper Card on Mobile */

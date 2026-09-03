@@ -852,11 +852,11 @@ LIMIT 10;
 def get_suggested_queries():
     """Return a list of suggested example queries"""
     return [
-        "Movies with Tom Hanks",
-        "Highest rated sci-fi movies from 2010s",
-        "Christopher Nolan movies",
-        "DiCaprio and Kate Winslet movies",
-        "Best movies from 2020"
+        "Tom Hanks movies",
+        "Best 2010s sci-fi",
+        "Christopher Nolan films",
+        "DiCaprio & Winslet movies",
+        "Top movies of 2024"
     ]
 
 def get_title_info(title_id):

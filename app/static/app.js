@@ -143,6 +143,7 @@ $(document).ready(function () {
 
     initializeSettingsModal();
     initializeSearchControls();
+    initializePlaceholderRotator();
     initializeSuggestedChips();
     initializeFilters();
     initializeShareableURL();
@@ -224,6 +225,59 @@ $(document).ready(function () {
     function toggleClearButton(show) {
         if (show) $('#clearQueryBtn').removeClass('d-none');
         else $('#clearQueryBtn').addClass('d-none');
+    }
+
+    // ── Dynamic Rotating Placeholder (Mobile & Small Screen Safe) ──
+    function initializePlaceholderRotator() {
+        const $input = $('#query');
+        if (!$input.length) return;
+
+        // Curated concise query prompts guaranteed to fit on mobile without truncation
+        const placeholders = [
+            'Search movies, actors, genres...',
+            'e.g., Tom Hanks movies',
+            'e.g., Best 2010s sci-fi',
+            'e.g., Christopher Nolan films',
+            'e.g., DiCaprio & Winslet',
+            'e.g., 90s crime thrillers',
+            'e.g., Top movies of 2024'
+        ];
+
+        let currentIndex = 0;
+        let rotateTimer = null;
+        let isFocused = false;
+
+        function cyclePlaceholder() {
+            if (isFocused || $input.val().length > 0) return;
+            currentIndex = (currentIndex + 1) % placeholders.length;
+            $input.attr('placeholder', placeholders[currentIndex]);
+        }
+
+        function startRotation() {
+            if (rotateTimer) clearInterval(rotateTimer);
+            rotateTimer = setInterval(cyclePlaceholder, 3800);
+        }
+
+        function stopRotation() {
+            if (rotateTimer) {
+                clearInterval(rotateTimer);
+                rotateTimer = null;
+            }
+        }
+
+        $input.on('focus', function () {
+            isFocused = true;
+            stopRotation();
+        });
+
+        $input.on('blur', function () {
+            isFocused = false;
+            if (!$input.val().trim()) {
+                startRotation();
+            }
+        });
+
+        startRotation();
     }
 
     // ── Live Agent Timer & Activity Timeline (Connected Rail) ─────
