@@ -176,15 +176,31 @@ DUCKDB_DATABASE_PATH = os.getenv(
 
 def _local_database_is_current(database_path, etag):
     etag_path = f"{database_path}.etag"
-    if not os.path.exists(database_path) or not os.path.exists(etag_path):
+    if not os.path.exists(database_path):
         return False
-    with open(etag_path, "r", encoding="utf-8") as etag_file:
-        return etag_file.read().strip() == etag
+    if os.path.getsize(database_path) > 1_000_000_000:
+        if not os.path.exists(etag_path):
+            try:
+                with open(etag_path, "w", encoding="utf-8") as f:
+                    f.write(etag)
+            except Exception:
+                pass
+            return True
+        with open(etag_path, "r", encoding="utf-8") as etag_file:
+            return etag_file.read().strip() == etag
+    return False
 
 
 def ensure_local_duckdb_database():
     """Download the immutable DuckDB artifact to persistent local storage when needed."""
     database_path = os.path.abspath(DUCKDB_DATABASE_PATH)
+
+    # In local development, use existing database file immediately without remote network checks
+    if os.path.exists(database_path) and os.path.getsize(database_path) > 1_000_000_000:
+        if not os.getenv("WEBSITE_SITE_NAME"):
+            logger.info("Using existing local DuckDB database: %s", database_path)
+            return database_path
+
     if not AZURE_STORAGE_CONNECTION_STRING:
         if os.path.exists(database_path):
             return database_path
