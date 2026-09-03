@@ -147,6 +147,44 @@ class FoundryCallTests(unittest.TestCase):
         self.assertFalse(validate_sql_query("DELETE FROM people WHERE person_id = '123'"))
         self.assertFalse(validate_sql_query("UPDATE titles SET primary_title = 'hacked'"))
         self.assertFalse(validate_sql_query("TRUNCATE ratings;"))
+        self.assertFalse(validate_sql_query("ATTACH 'evil.duckdb'"))
+        self.assertFalse(validate_sql_query("COPY titles TO 'leak.csv'"))
+        self.assertFalse(validate_sql_query("PRAGMA version"))
+        self.assertFalse(validate_sql_query("SELECT 1; DROP TABLE titles"))
+
+    def test_execute_sql_query_enforces_row_limit(self):
+        import app.views as views
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database_path = os.path.join(temp_dir, "imdb.duckdb")
+            conn = duckdb.connect(database_path)
+            conn.execute("CREATE TABLE titles (title_id VARCHAR)")
+            for i in range(50):
+                conn.execute(f"INSERT INTO titles VALUES ('tt{i:07d}')")
+            conn.close()
+
+            old_con = views._duckdb_con
+            views._duckdb_con = None
+            try:
+                with patch.object(views, "DUCKDB_DATABASE_PATH", database_path), patch.object(
+                    views, "AZURE_STORAGE_CONNECTION_STRING", ""
+                ):
+                    results, cols = views.execute_sql_query("SELECT * FROM titles", max_rows=10)
+                    self.assertEqual(len(results), 10)
+                    self.assertEqual(cols, ["title_id"])
+            finally:
+                if views._duckdb_con is not None:
+                    views._duckdb_con.close()
+                views._duckdb_con = old_con
+
+    def test_api_execute_query_forbidden_in_production(self):
+        from app import create_app
+        test_app = create_app()
+        test_app.testing = False
+        test_app.debug = False
+        with test_app.test_client() as client:
+            resp = client.post("/api/execute", json={"query": "SELECT 1"})
+            self.assertEqual(resp.status_code, 403)
+            self.assertIn("disabled in production", resp.get_json()["message"])
 
     def test_generated_credit_query_uses_compact_lookup(self):
         from app.views import optimize_generated_sql

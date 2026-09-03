@@ -265,27 +265,40 @@ def get_database_connection():
     # Fallback to DuckDB
     return get_duckdb_database()
 
-def execute_sql_query(sql_query):
-    """Execute SQL query and return results with column names"""
+def execute_sql_query(sql_query, max_rows=1000, timeout_seconds=15.0):
+    """Execute SQL query and return results with column names, protected by row bounds and timeouts."""
     cursor = None
+    timer = None
     try:
         logger.info(f"Executing SQL: {sql_query[:200]}...")
         cursor = get_database_connection()
+        
+        # Arm execution timeout watchdog for DuckDB cursors
+        if timeout_seconds and hasattr(cursor, 'interrupt'):
+            timer = threading.Timer(timeout_seconds, cursor.interrupt)
+            timer.daemon = True
+            timer.start()
+
         cursor.execute(sql_query)
         
         # Get column names
         column_names = [description[0] for description in cursor.description] if cursor.description else []
         
-        # Fetch results
-        results = cursor.fetchall()
-        logger.info(f"Query executed successfully, returned {len(results)} rows")
+        # Fetch results with a hard row ceiling to prevent Python heap OOM
+        results = cursor.fetchmany(max_rows)
+        logger.info(f"Query executed successfully, returned {len(results)} rows (capped at {max_rows})")
         
         return results, column_names
         
     except Exception as e:
+        if "interrupt" in str(e).lower() or type(e).__name__ == "InterruptException":
+            logger.error(f"SQL execution timed out after {timeout_seconds}s: {sql_query[:150]}")
+            raise TimeoutError(f"Query execution timed out after {timeout_seconds} seconds.") from e
         logger.error(f"SQL execution error: {str(e)}")
         raise
     finally:
+        if timer:
+            timer.cancel()
         if cursor and isinstance(cursor, sqlite3.Connection):
             cursor.close()
 
@@ -372,26 +385,49 @@ def optimize_generated_sql(sql_query):
     return sql_query
 
 
-def validate_sql_query(sql_query):
-    """Basic validation of SQL query for security and syntax"""
+def validate_sql_query(sql_query, timeout_seconds=4.0):
+    """Validation of SQL query for security, isolation, and syntax."""
+    if not sql_query or not isinstance(sql_query, str):
+        return False
+
     try:
-        sql_lower = sql_query.lower().strip()
+        sql_clean = sql_query.strip()
+        sql_lower = sql_clean.lower()
         
-        dangerous_patterns = ['drop', 'delete', 'update', 'insert', 'alter', 'create', 'truncate']
+        # Reject dangerous DDL, DML, and database control statements
+        dangerous_patterns = [
+            'drop', 'delete', 'update', 'insert', 'alter', 'create', 'truncate',
+            'attach', 'detach', 'copy', 'export', 'import', 'pragma', 'call', 'install', 'load'
+        ]
         for pattern in dangerous_patterns:
-            # Check for standalone keywords
             if re.search(r'\b' + pattern + r'\b', sql_lower):
                 logger.warning(f"Potentially dangerous SQL operation detected: {pattern}")
                 return False
         
+        # Enforce read-only SELECT or WITH statement
         if not sql_lower.startswith('select') and not sql_lower.startswith('with'):
             logger.warning("SQL query must be a SELECT or WITH statement")
             return False
+            
+        # Reject semicolon-chained multiple statements
+        stripped_no_semi = sql_clean.rstrip(';').strip()
+        if ';' in stripped_no_semi:
+            logger.warning("Multiple SQL statements separated by semicolon are disallowed")
+            return False
         
-        # Syntax validation using EXPLAIN
+        # Syntax validation using EXPLAIN with timeout protection
         cursor = get_database_connection()
-        cursor.execute(f"EXPLAIN {sql_query}")
-        return True
+        timer = None
+        if timeout_seconds and hasattr(cursor, 'interrupt'):
+            timer = threading.Timer(timeout_seconds, cursor.interrupt)
+            timer.daemon = True
+            timer.start()
+        try:
+            cursor.execute(f"EXPLAIN {sql_clean}")
+            return True
+        finally:
+            if timer:
+                timer.cancel()
     except Exception as e:
         logger.warning(f"SQL syntax validation failed: {str(e)}")
         return False
@@ -1209,8 +1245,22 @@ def api_validate_query():
 
 @main.route('/api/execute', methods=['POST'])
 def api_execute_query():
-    """Direct SQL execution (admin/testing)"""
-    data = request.get_json() or {}
+    """Direct SQL execution (restricted to development/testing environments)"""
+    from flask import current_app
+    admin_secret = os.getenv("ADMIN_SQL_SECRET")
+    request_secret = request.headers.get("X-Admin-Secret")
+    is_authorized = (
+        current_app.debug
+        or current_app.testing
+        or (admin_secret and request_secret == admin_secret)
+    )
+    if not is_authorized:
+        return jsonify({
+            'status': 'error',
+            'message': 'Direct SQL execution is disabled in production environments.'
+        }), 403
+
+    data = request.get_json(silent=True) or {}
     sql_query = data.get('query', '').strip()
     
     if not sql_query:
@@ -1220,11 +1270,15 @@ def api_execute_query():
         if not validate_sql_query(sql_query):
             return jsonify({'status': 'error', 'message': 'Invalid or disallowed SQL query'}), 400
         
-        results, column_names = execute_sql_query(sql_query)
+        # Execute with hard row ceiling (max 200) and 8s watchdog timeout to prevent OOM / DoS
+        results, column_names = execute_sql_query(sql_query, max_rows=200, timeout_seconds=8.0)
         return jsonify({
             'status': 'success',
+            'count': len(results),
             'results': [dict(zip(column_names, row)) for row in results]
         }), 200
+    except TimeoutError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 504
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
