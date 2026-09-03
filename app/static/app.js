@@ -70,6 +70,14 @@ function initializeSettingsModal() {
         if (version) localStorage.setItem('imdb_azure_api_version', version);
         else localStorage.removeItem('imdb_azure_api_version');
 
+        console.log(`🔑 [IMDb Settings] Saved to LocalStorage:`, {
+            endpoint: endpoint,
+            model: model || '(default)',
+            apiVersion: version || '(default)',
+            keyLength: key ? key.length : 0,
+            keyPreview: key && key.length > 8 ? `${key.substring(0, 4)}...${key.substring(key.length - 4)}` : '(none)'
+        });
+
         updateSettingsBadge();
         showToast('Settings saved to browser LocalStorage!');
         bootstrap.Modal.getInstance($modal[0])?.hide();
@@ -140,6 +148,11 @@ $(document).ready(function () {
     let activeAbortController = null;
     let agentTimerInterval = null;
     let searchStartTime = 0;
+    let lastTimelineMessage = '';
+    let chartInstance = null;
+    let currentDrilldownTitles = [];
+    let currentDrilldownCols = [];
+    let activeDrilldownYear = null;
 
     initializeSettingsModal();
     initializeSearchControls();
@@ -299,8 +312,6 @@ $(document).ready(function () {
         }
     }
 
-    let lastTimelineMessage = '';
-
     function addTimelineStep(msg, type = 'info', icon = 'fa-circle-notch fa-spin', title = '') {
         if (!msg || msg === lastTimelineMessage) return;
         lastTimelineMessage = msg;
@@ -375,6 +386,14 @@ $(document).ready(function () {
         addTimelineStep('Understanding your query & movie criteria...', 'info', 'fa-satellite-dish', 'Searching Film Vault');
 
         const headers = getCustomAzureHeaders();
+        const keyHdr = headers['X-Azure-API-Key'];
+        const keyPreview = keyHdr ? `${keyHdr.substring(0, 4)}...${keyHdr.substring(keyHdr.length - 4)} (length: ${keyHdr.length})` : '(using server config.py)';
+        
+        console.group(`🎬 [IMDb Search] "${query}"`);
+        console.log(`Endpoint:`, headers['X-Azure-Endpoint'] || '(using server config.py)');
+        console.log(`Model:`, headers['X-Azure-Model'] || '(using server config.py)');
+        console.log(`API Key:`, keyPreview);
+        console.groupEnd();
 
         try {
             const response = await fetch('/api/search/stream', {
@@ -442,6 +461,7 @@ $(document).ready(function () {
     }
 
     function handleStreamEvent(event) {
+        console.log('⚡ [IMDb Stream]:', event.type, event.stage || '', event.message || event.sql || (event.results ? `${event.results.length} rows` : '') || '');
         if (event.type === 'status') {
             let icon = 'fa-circle-notch fa-spin';
             let stepType = 'info';
@@ -512,6 +532,7 @@ $(document).ready(function () {
             }
 
         } else if (event.type === 'error') {
+            console.error('❌ [IMDb Search Error]:', event);
             showError(event.error || 'Search could not be completed.', event.suggestions);
         }
     }
@@ -596,11 +617,6 @@ $(document).ready(function () {
     });
 
     // ── Cinema Analytics & Drilldown Engine ───────────────────────
-    let chartInstance = null;
-    let currentDrilldownTitles = [];
-    let currentDrilldownCols = [];
-    let activeDrilldownYear = null;
-
     function initializeViewSwitcher() {
         $('#tabAnalyticsBtn').on('click', function () {
             $(this).addClass('active');

@@ -130,6 +130,9 @@ def get_azure_client(creds=None):
     if not api_key or not endpoint:
         raise ValueError("AI API Key or Endpoint is not configured. Please set it in config.py or in the UI settings.")
 
+    masked_key = f"{api_key[:4]}...{api_key[-4:]} (length={len(api_key)})" if len(api_key) > 8 else "***"
+    logger.info(f"AI Connection Details -> Endpoint: {endpoint} | Model: {model} | API Key: {masked_key}")
+
     # 1. Direct Foundry / OpenAI-compatible v1 router
     if "/openai/v1" in endpoint or "/v1" in endpoint or "/models" in endpoint:
         logger.info(f"Connecting via OpenAI v1 router to Foundry endpoint: {endpoint}")
@@ -137,6 +140,7 @@ def get_azure_client(creds=None):
             base_url=endpoint,
             api_key=api_key
         )
+        client._azure_creds = creds
         return client, model
 
     # 2. Foundry domain without /openai/v1 suffix
@@ -147,6 +151,7 @@ def get_azure_client(creds=None):
             base_url=foundry_v1_url,
             api_key=api_key
         )
+        client._azure_creds = creds
         return client, model
 
     # 3. Classic Azure OpenAI (.openai.azure.com or .cognitiveservices.azure.com)
@@ -157,6 +162,7 @@ def get_azure_client(creds=None):
         api_version=api_version,
         api_key=api_key
     )
+    client._azure_creds = creds
     return client, model
 
 # Thread-safe DuckDB Connection Manager
@@ -643,7 +649,30 @@ def _responses_api_completion(client, model_name, messages):
     if system_messages:
         kwargs["instructions"] = "\n\n".join(system_messages)
 
-    response = client.responses.create(**kwargs)
+    if hasattr(client, "responses") and hasattr(client.responses, "create"):
+        response = client.responses.create(**kwargs)
+    elif hasattr(client, "post"):
+        try:
+            raw = client.post("/responses", cast_to=object, body=kwargs)
+        except Exception:
+            raw = client.post("responses", cast_to=object, body=kwargs)
+        if isinstance(raw, dict):
+            output_text = raw.get("output_text")
+            if not output_text and raw.get("output"):
+                output_text = "\n".join([
+                    c.get("text", "")
+                    for item in raw.get("output", [])
+                    for c in item.get("content", [])
+                    if c.get("text")
+                ])
+            if output_text:
+                return SimpleNamespace(
+                    choices=[SimpleNamespace(message=SimpleNamespace(content=output_text))]
+                )
+        response = raw
+    else:
+        raise ValueError("Client does not support Responses API")
+
     output_text = getattr(response, "output_text", None)
     if not output_text:
         text_parts = []
@@ -667,15 +696,15 @@ def _should_use_responses_fallback(error):
     error_text = str(error).lower()
     if status_code in (404, 405):
         return True
-    return "chat completion" in error_text and any(
+    return ("chat completion" in error_text or "/openai/v1" in error_text) and any(
         phrase in error_text
-        for phrase in ("not supported", "not allowed", "unsupported", "responses api")
+        for phrase in ("not supported", "not allowed", "unsupported", "responses api", "policy")
     )
 
 def safe_chat_completion(client, model_name, messages, temperature=None, response_format=None, max_tokens=1000):
     """
     Executes chat completion with fallback for models that enforce temperature=1 / no custom temperature
-    (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series) or use the responses API.
+    (e.g., gpt-5.6-luna, reasoning models, OpenAI o-series) or use the responses API / deployment routing.
     """
     kwargs = {
         "model": model_name,
@@ -710,9 +739,43 @@ def safe_chat_completion(client, model_name, messages, temperature=None, respons
                 logger.info(f"Retrying chat completion without response_format for model {model_name}")
                 kwargs.pop("response_format")
                 continue
-            if hasattr(client, "responses") and _should_use_responses_fallback(error):
-                logger.info(f"Chat Completions unavailable for {model_name}; using Responses API")
-                return _responses_api_completion(client, model_name, messages)
+
+            if _should_use_responses_fallback(error):
+                # 1. Try AzureOpenAI deployment routing if credentials are available
+                creds = getattr(client, "_azure_creds", None)
+                if creds and isinstance(creds, dict) and not isinstance(client, AzureOpenAI):
+                    try:
+                        clean_ep = re.sub(r'/openai.*$', '', str(creds.get("endpoint") or ""))
+                        if clean_ep and clean_ep.startswith("http"):
+                            logger.info(f"Retrying with AzureOpenAI deployment-routed client at {clean_ep}...")
+                            az_client = AzureOpenAI(
+                                azure_endpoint=clean_ep,
+                                api_version=str(creds.get("api_version") or "2025-04-01-preview"),
+                                api_key=str(creds.get("api_key") or "")
+                            )
+                            return az_client.chat.completions.create(**kwargs)
+                    except Exception as az_err:
+                        logger.warning(f"AzureOpenAI deployment route fallback failed: {az_err}")
+
+                # 2. Try Responses API
+                if hasattr(client, "responses") or hasattr(client, "post"):
+                    try:
+                        logger.info(f"Chat Completions unavailable for {model_name}; using Responses API")
+                        return _responses_api_completion(client, model_name, messages)
+                    except Exception as resp_err:
+                        logger.warning(f"Responses API fallback failed: {resp_err}")
+
+            status_code = getattr(error, "status_code", None)
+            err_response = getattr(error, "response", None)
+            resp_text = getattr(err_response, "text", str(error)) if err_response else str(error)
+            req_url = getattr(err_response, "request", None)
+            req_url_str = str(req_url.url) if req_url and hasattr(req_url, "url") else "N/A"
+            logger.error("=" * 60)
+            logger.error(f"[AZURE CALL FAILED]")
+            logger.error(f"  Target URL : {req_url_str}")
+            logger.error(f"  Status Code: {status_code}")
+            logger.error(f"  Response   : {resp_text}")
+            logger.error("=" * 60)
             raise
 
 def reflect_on_zero_results(user_query, initial_sql, probe_data, creds=None):
