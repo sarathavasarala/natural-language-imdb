@@ -664,7 +664,7 @@ $(document).ready(function () {
     }
 
     function renderAnalyticsDashboard(event) {
-        const rows = event.results || [];
+        const rawRows = event.results || [];
         const cols = event.column_names || [];
         currentDrilldownTitles = event.drilldown_results || [];
         currentDrilldownCols = event.drilldown_columns || [];
@@ -676,7 +676,13 @@ $(document).ready(function () {
         const groupCol = cols.find(c => ['year', 'premiered', 'genres', 'genre', 'name', 'country', 'language', 'category'].includes(c.toLowerCase())) || cols[0];
         const metricCol = cols.find(c => ['movie_count', 'count', 'total_movies', 'total_titles', 'avg_rating', 'votes'].includes(c.toLowerCase())) || (cols.length > 1 ? cols[1] : cols[0]);
 
-        // 1. Dynamic Context-Aware KPI Stat Ribbon
+        // Clean rows: remove rows with null or empty group values (e.g. unreleased/null year)
+        const rows = rawRows.filter(r => {
+            const val = r[groupCol];
+            return val !== null && val !== undefined && String(val).toLowerCase() !== 'null' && String(val).trim() !== '';
+        });
+
+        // 1. Dynamic Context-Aware KPI Stat Ribbon (Clean 3-Card Cinema Layout)
         const $ribbon = $('#analyticsKpiRibbon').empty();
         
         let totalCount = 0;
@@ -699,7 +705,7 @@ $(document).ready(function () {
         });
 
         if (event.query_type === 'AGGREGATION_SCALAR' || rows.length === 1) {
-            const val = rows[0][metricCol] || rows[0][cols[0]];
+            const val = rows[0] ? (rows[0][metricCol] || rows[0][cols[0]]) : 0;
             const label = metricCol.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             $ribbon.append(`
                 <div class="kpi-stat-card">
@@ -708,42 +714,38 @@ $(document).ready(function () {
                     <div class="kpi-stat-sub">Direct aggregate metric</div>
                 </div>
             `);
-        } else {
+        } else if (rows.length > 0) {
             const isYear = (groupCol.toLowerCase() === 'year' || groupCol.toLowerCase() === 'premiered');
             const isGenre = groupCol.toLowerCase().includes('genre');
             const isRating = metricCol.toLowerCase().includes('rating') || metricCol.toLowerCase().includes('score');
 
-            const sortedByVal = [...rows].sort((a, b) => (parseFloat(b[metricCol]) || 0) - (parseFloat(a[metricCol]) || 0));
-            const runnerUp = sortedByVal.length > 1 ? sortedByVal[1] : null;
-            const avgPace = rows.length > 0 ? (totalCount / rows.length).toFixed(1) : 0;
             const peakPct = totalCount > 0 ? ((peakVal / totalCount) * 100).toFixed(1) : 0;
 
             if (isYear) {
-                // Temporal trend analysis
-                const minYear = rows[0][groupCol];
-                const maxYear = rows[rows.length - 1][groupCol];
-                const yearSpan = (parseInt(maxYear) && parseInt(minYear)) ? (parseInt(maxYear) - parseInt(minYear) + 1) : rows.length;
+                // Temporal trend analysis (3 cards: Total Films, Career Span, Peak Year)
+                const validYearRows = rows.filter(r => {
+                    const y = parseInt(r[groupCol]);
+                    return !isNaN(y) && y > 1800 && y < 2100;
+                });
+                const minYear = validYearRows.length > 0 ? validYearRows[0][groupCol] : (rows[0] ? rows[0][groupCol] : 'N/A');
+                const maxYear = validYearRows.length > 0 ? validYearRows[validYearRows.length - 1][groupCol] : (rows[rows.length - 1] ? rows[rows.length - 1][groupCol] : 'N/A');
+                const yearSpan = (parseInt(maxYear) && parseInt(minYear)) ? (parseInt(maxYear) - parseInt(minYear) + 1) : validYearRows.length;
 
                 $ribbon.append(`
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-clapperboard text-gold"></i> Total Films</div>
                         <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
-                        <div class="kpi-stat-sub">Across ${rows.length} active years</div>
+                        <div class="kpi-stat-sub">Across ${validYearRows.length} active release years</div>
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-regular fa-calendar-days text-cyan"></i> Career Span</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(minYear))} – ${escapeHtml(String(maxYear))}</div>
-                        <div class="kpi-stat-sub">${yearSpan}-year active window</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(minYear))} – ${escapeHtml(String(maxYear))}</div>
+                        <div class="kpi-stat-sub">${yearSpan}-year active creative window</div>
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Peak Year</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()} films)</div>
-                        <div class="kpi-stat-sub">${peakPct}% of career output</div>
-                    </div>
-                    <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-gauge-high text-cyan"></i> Annual Pace</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">~${avgPace} films / yr</div>
-                        <div class="kpi-stat-sub">Average release velocity</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()} films)</div>
+                        <div class="kpi-stat-sub">${peakPct}% of total career output</div>
                     </div>
                 `);
             } else if (isGenre) {
@@ -755,19 +757,14 @@ $(document).ready(function () {
                         <div class="kpi-stat-sub">Across ${rows.length} categories</div>
                     </div>
                     <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-star text-gold"></i> Top Genre</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
+                        <div class="kpi-stat-label"><i class="fa-solid fa-star text-gold"></i> Dominant Genre</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
                         <div class="kpi-stat-sub">${peakPct}% share of filmography</div>
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-shapes text-cyan"></i> Genre Breadth</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Genres</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${rows.length} Genres</div>
                         <div class="kpi-stat-sub">Distinct repertoire genres</div>
-                    </div>
-                    <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-chart-pie text-cyan"></i> Secondary Focus</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${runnerUp ? `${escapeHtml(String(runnerUp[groupCol]))} (${Number(runnerUp[metricCol]).toLocaleString()})` : 'N/A'}</div>
-                        <div class="kpi-stat-sub">Second largest category</div>
                     </div>
                 `);
             } else if (isRating) {
@@ -777,22 +774,17 @@ $(document).ready(function () {
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-star-half-stroke text-gold"></i> Mean Rating</div>
                         <div class="kpi-stat-val">${meanRating} ★</div>
-                        <div class="kpi-stat-sub">Average across ${rows.length} points</div>
+                        <div class="kpi-stat-sub">Average across ${rows.length} entries</div>
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-award text-gold"></i> Highest Rated</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toFixed(1)} ★)</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(peakLabel))} (${peakVal.toFixed(1)} ★)</div>
                         <div class="kpi-stat-sub">Peak critical mark</div>
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-arrow-down-short-wide text-cyan"></i> Lowest Mark</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(minLabel))} (${minVal.toFixed(1)} ★)</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(minLabel))} (${minVal.toFixed(1)} ★)</div>
                         <div class="kpi-stat-sub">Minimum score recorded</div>
-                    </div>
-                    <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-chart-line text-cyan"></i> Evaluated Data</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Periods</div>
-                        <div class="kpi-stat-sub">Analyzed intervals</div>
                     </div>
                 `);
             } else {
@@ -805,18 +797,13 @@ $(document).ready(function () {
                     </div>
                     <div class="kpi-stat-card">
                         <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Leading Entry</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
                         <div class="kpi-stat-sub">${peakPct}% of overall volume</div>
                     </div>
                     <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-list-ol text-cyan"></i> Groups</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Categories</div>
+                        <div class="kpi-stat-label"><i class="fa-solid fa-list-ol text-cyan"></i> Categories</div>
+                        <div class="kpi-stat-val" style="font-size: 1.45rem;">${rows.length} Groups</div>
                         <div class="kpi-stat-sub">Unique classified entities</div>
-                    </div>
-                    <div class="kpi-stat-card">
-                        <div class="kpi-stat-label"><i class="fa-solid fa-scale-balanced text-cyan"></i> Group Average</div>
-                        <div class="kpi-stat-val" style="font-size: 1.4rem;">~${avgPace} titles</div>
-                        <div class="kpi-stat-sub">Mean output per category</div>
                     </div>
                 `);
             }

@@ -404,6 +404,12 @@ def optimize_generated_sql(sql_query):
             flags=re.IGNORECASE
         )
 
+    # 4. For yearly/temporal aggregations, ensure NULL release years are excluded
+    if re.search(r"\bGROUP\s+BY\s+.*?\b(?:premiered|year)\b", sql_query, flags=re.IGNORECASE):
+        if not re.search(r"\bpremiered\s+IS\s+NOT\s+NULL\b", sql_query, flags=re.IGNORECASE):
+            if re.search(r"\bWHERE\b", sql_query, flags=re.IGNORECASE):
+                sql_query = re.sub(r"\bWHERE\b", "WHERE t.premiered IS NOT NULL AND", sql_query, count=1, flags=re.IGNORECASE)
+
     return sql_query
 
 
@@ -945,6 +951,7 @@ RULES:
 12. Analytical, Quantitative, and Aggregation Queries:
     - When the user asks "how many", "count", "per year", "for each year", "average rating", "trend", "distribution", "breakdown", or "ranking":
     - Group by the appropriate column (e.g. GROUP BY t.premiered for yearly trends, or GROUP BY t.genres).
+    - For yearly/temporal trends, ALWAYS add `WHERE t.premiered IS NOT NULL` (or `AND t.premiered IS NOT NULL`) so unreleased or undated titles do not create a null year bucket.
     - Always use meaningful, standard column aliases: 'year', 'movie_count', 'avg_rating', 'total_movies', 'total_titles'.
     - Always count distinct titles using COUNT(DISTINCT t.title_id) AS movie_count so multiple roles or joins do not inflate film counts.
     - Chronological ordering: For yearly trends, use ORDER BY year ASC (or premiered ASC).
