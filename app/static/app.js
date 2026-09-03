@@ -197,7 +197,7 @@ $(document).ready(function () {
             $query.val('').focus();
             toggleClearButton(false);
             $('#heroCollapsible').removeClass('collapsed');
-            $('#resultsContainer, #mobileResultsFeed, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner, #analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
+            $('#resultsContainer, #mobileResultsFeed, #resultsMeta, #noResultsState, #errorState, #loadingState, #correctionBanner, #disambiguationBanner, #analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
             $('#suggestedChipsSection').removeClass('d-none');
             history.pushState({}, '', window.location.pathname);
         });
@@ -205,9 +205,24 @@ $(document).ready(function () {
         // Cancel / Abort buttons
         $abortBtn.on('click', cancelActiveSearch);
 
-        // Dismiss correction banner
+        // Dismiss correction & disambiguation banners
         $dismissCorrBtn.on('click', function () {
             $('#correctionBanner').addClass('d-none');
+        });
+
+        $('#dismissDisambiguationBtn').on('click', function () {
+            $('#disambiguationBanner').addClass('d-none');
+        });
+
+        // Click handler for disambiguation suggestion chips
+        $(document).on('click', '.disambig-chip', function (e) {
+            e.preventDefault();
+            const targetQuery = $(this).attr('data-query');
+            if (targetQuery) {
+                $query.val(targetQuery);
+                $('#disambiguationBanner').addClass('d-none');
+                $form.submit();
+            }
         });
 
         // Global '/' shortcut to focus search input, 'Escape' to abort/clear
@@ -524,10 +539,22 @@ $(document).ready(function () {
                     $('#correctionBanner').addClass('d-none');
                 }
 
+                // Show Disambiguation Ribbon if alternative candidates exist
+                if (event.disambiguation && event.disambiguation.alternatives && event.disambiguation.alternatives.length > 0) {
+                    renderDisambiguation(event.disambiguation);
+                } else {
+                    $('#disambiguationBanner').addClass('d-none');
+                }
+
             } else if (event.success && event.row_count === 0) {
                 allResults = [];
                 hideResultsMeta();
                 showNoResults(event);
+                if (event.disambiguation && event.disambiguation.alternatives && event.disambiguation.alternatives.length > 0) {
+                    renderDisambiguation(event.disambiguation);
+                } else {
+                    $('#disambiguationBanner').addClass('d-none');
+                }
             } else {
                 showError(event.error || 'No matching movies or shows found.', event.suggestions);
             }
@@ -538,10 +565,45 @@ $(document).ready(function () {
         }
     }
 
+    function renderDisambiguation(disambigData) {
+        if (!disambigData || !disambigData.alternatives || disambigData.alternatives.length === 0) {
+            $('#disambiguationBanner').addClass('d-none');
+            return;
+        }
+
+        const label = disambigData.primary_label || disambigData.primary_entity || disambigData.term;
+        $('#disambigSelectedName').text(label);
+
+        const $chips = $('#disambiguationChips');
+        $chips.empty();
+
+        disambigData.alternatives.forEach(alt => {
+            let metaText = '';
+            if (alt.credits) {
+                metaText = `${alt.credits} titles`;
+            } else if (alt.role) {
+                metaText = alt.role;
+            }
+
+            const metaBadge = metaText ? `<span class="disambig-meta-badge ms-1">${escapeHtml(metaText)}</span>` : '';
+            const queryTarget = alt.query || `${alt.name} movies`;
+            const chipHtml = `
+                <button type="button" class="disambig-chip" data-query="${escapeHtml(queryTarget)}" title="Search for ${escapeHtml(alt.name)}">
+                    <i class="fa-solid fa-user-tag text-gold"></i>
+                    <span class="disambig-name">${escapeHtml(alt.name)}</span>
+                    ${metaBadge}
+                </button>
+            `;
+            $chips.append(chipHtml);
+        });
+
+        $('#disambiguationBanner').removeClass('d-none');
+    }
+
     function showLoading() {
         $('#heroCollapsible').addClass('collapsed');
         $('#loadingState').removeClass('d-none');
-        $('#errorState, #noResultsState, #resultsContainer, #mobileResultsFeed, #resultsMeta, #suggestedChipsSection, #analyticsSection, #viewModeTabs, #drilldownFilterNotice').addClass('d-none');
+        $('#errorState, #noResultsState, #resultsContainer, #mobileResultsFeed, #resultsMeta, #suggestedChipsSection, #analyticsSection, #viewModeTabs, #drilldownFilterNotice, #disambiguationBanner').addClass('d-none');
         $('#searchBtn').prop('disabled', true).html('<i class="fa-solid fa-circle-notch fa-spin me-1"></i> <span>Searching...</span>');
         $('#clearQueryBtn').addClass('d-none');
     }

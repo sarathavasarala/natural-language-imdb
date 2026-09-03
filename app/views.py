@@ -656,6 +656,190 @@ def probe_duckdb_entities(literals):
 
     return probe_results
 
+# ══════════════════════════════════════════════════════════════════════
+# Disambiguation & Entity Aliasing Knowledge Layer
+# ══════════════════════════════════════════════════════════════════════
+
+DISAMBIGUATION_REGISTRY = {
+    "vijay": {
+        "term": "Vijay",
+        "primary_entity": "Joseph Vijay",
+        "primary_label": "Joseph Vijay (Thalapathy)",
+        "exclusion_tokens": ["sethupathi", "deverakonda", "antony", "raaz", "patkar", "chavan", "chiranjeevi", "joseph"],
+        "alternatives": [
+            {"name": "Vijay Sethupathi", "credits": 110, "query": "Vijay Sethupathi movies", "role": "Actor / Producer"},
+            {"name": "Vijay Deverakonda", "credits": 31, "query": "Vijay Deverakonda movies", "role": "Actor"},
+            {"name": "Vijay Antony", "credits": 108, "query": "Vijay Antony movies", "role": "Actor / Music Director"},
+            {"name": "Vijay Raaz", "credits": 123, "query": "Vijay Raaz movies", "role": "Actor"}
+        ]
+    },
+    "steve mcqueen": {
+        "term": "Steve McQueen",
+        "primary_entity": "Steve McQueen",
+        "primary_label": "Steve McQueen",
+        "exclusion_tokens": ["director", "slave", "hunger", "shame", "escape", "bullitt", "papillon", "magnificent seven"],
+        "alternatives": [
+            {"name": "Steve McQueen (Director)", "query": "12 Years a Slave directed by Steve McQueen", "role": "Director (12 Years a Slave, Shame)"},
+            {"name": "Steve McQueen (Actor)", "query": "Movies starring Steve McQueen 1960s", "role": "Actor (The Great Escape, Bullitt)"}
+        ]
+    },
+    "khan": {
+        "term": "Khan",
+        "primary_entity": "Shah Rukh Khan",
+        "primary_label": "Shah Rukh Khan (SRK)",
+        "exclusion_tokens": ["shah rukh", "srk", "salman", "aamir", "saif", "irrfan", "fardeen", "zayed", "genghis"],
+        "alternatives": [
+            {"name": "Salman Khan", "credits": 140, "query": "Salman Khan movies", "role": "Actor / Producer"},
+            {"name": "Aamir Khan", "credits": 65, "query": "Aamir Khan movies", "role": "Actor / Director"},
+            {"name": "Saif Ali Khan", "credits": 75, "query": "Saif Ali Khan movies", "role": "Actor"},
+            {"name": "Irrfan Khan", "credits": 150, "query": "Irrfan Khan movies", "role": "Actor"}
+        ]
+    },
+    "kapoor": {
+        "term": "Kapoor",
+        "primary_entity": "Ranbir Kapoor",
+        "primary_label": "Ranbir Kapoor",
+        "exclusion_tokens": ["ranbir", "raj", "kareena", "anil", "rishi", "shraddha", "karisma", "boney", "sanjay"],
+        "alternatives": [
+            {"name": "Raj Kapoor", "credits": 80, "query": "Raj Kapoor movies", "role": "Actor / Director"},
+            {"name": "Kareena Kapoor", "credits": 75, "query": "Kareena Kapoor movies", "role": "Actress"},
+            {"name": "Anil Kapoor", "credits": 145, "query": "Anil Kapoor movies", "role": "Actor / Producer"},
+            {"name": "Rishi Kapoor", "credits": 160, "query": "Rishi Kapoor movies", "role": "Actor"}
+        ]
+    },
+    "dune": {
+        "term": "Dune",
+        "primary_entity": "Dune (2021)",
+        "primary_label": "Dune (2021 Denis Villeneuve)",
+        "exclusion_tokens": ["1984", "lynch", "two", "part 2", "part two", "miniseries"],
+        "alternatives": [
+            {"name": "Dune (1984)", "query": "Dune 1984 David Lynch", "role": "David Lynch classic"},
+            {"name": "Dune: Part Two (2024)", "query": "Dune Part Two 2024", "role": "Denis Villeneuve sequel"}
+        ]
+    },
+    "avatar": {
+        "term": "Avatar",
+        "primary_entity": "Avatar (2009)",
+        "primary_label": "Avatar (2009 James Cameron)",
+        "exclusion_tokens": ["2022", "water", "airbender", "last airbender", "korra"],
+        "alternatives": [
+            {"name": "Avatar: The Way of Water (2022)", "query": "Avatar The Way of Water 2022", "role": "James Cameron sequel"},
+            {"name": "The Last Airbender", "query": "The Last Airbender", "role": "Franchise adaptation"}
+        ]
+    },
+    "batman": {
+        "term": "Batman",
+        "primary_entity": "Batman (1989)",
+        "primary_label": "Batman (1989)",
+        "exclusion_tokens": ["nolan", "bale", "dark knight", "pattinson", "keaton", "begins", "rises", "1989", "2022"],
+        "alternatives": [
+            {"name": "The Dark Knight Trilogy", "query": "Christopher Nolan Batman movies", "role": "Christian Bale / Nolan"},
+            {"name": "The Batman (2022)", "query": "The Batman 2022 Robert Pattinson", "role": "Robert Pattinson / Matt Reeves"},
+            {"name": "Batman (1989)", "query": "Batman 1989 Tim Burton", "role": "Michael Keaton / Tim Burton"}
+        ]
+    }
+}
+
+CANONICAL_ALIASES = {
+    "srk": "Shah Rukh Khan",
+    "king khan": "Shah Rukh Khan",
+    "big b": "Amitabh Bachchan",
+    "thala": "Ajith Kumar",
+    "thalapathy": "Joseph Vijay",
+    "thalapathy vijay": "Joseph Vijay",
+    "superstar rajini": "Rajinikanth",
+    "thalaivar": "Rajinikanth",
+    "megastar chiranjeevi": "Chiranjeevi",
+    "chiru": "Chiranjeevi",
+    "power star": "Pawan Kalyan",
+    "powerstar": "Pawan Kalyan",
+    "rebel star": "Prabhas",
+}
+
+def detect_disambiguation(user_query, sql_query=""):
+    """
+    Detect if the user query refers to an ambiguous cinema entity
+    (e.g., 'Vijay', 'Steve McQueen', 'Khan', 'Kapoor', 'Dune')
+    and returns disambiguation metadata with alternative candidates.
+    Does not trigger if the user has already specified a distinct disambiguating sub-entity or qualifier.
+    """
+    if not user_query:
+        return None
+
+    norm_q = user_query.lower().strip()
+    words = set(re.findall(r'[a-zA-Z0-9]+', norm_q))
+
+    # 1. Check Static Registry for known collision words
+    for key, item in DISAMBIGUATION_REGISTRY.items():
+        key_words = key.split()
+        if all(kw in words for kw in key_words):
+            # Check exclusions (e.g. if user already asked for 'Vijay Sethupathi', don't trigger 'Vijay')
+            if any(exc in norm_q for exc in item.get("exclusion_tokens", [])):
+                continue
+            return {
+                "term": item["term"],
+                "primary_entity": item["primary_entity"],
+                "primary_label": item["primary_label"],
+                "alternatives": item["alternatives"]
+            }
+
+    # 2. Check Aliases (e.g. 'SRK movies' -> 'Shah Rukh Khan')
+    for alias_key, target_name in CANONICAL_ALIASES.items():
+        alias_words = alias_key.split()
+        if all(aw in words for aw in alias_words):
+            return {
+                "term": alias_key.upper(),
+                "primary_entity": target_name,
+                "primary_label": f"{target_name} ({alias_key.upper()})",
+                "alternatives": []
+            }
+
+    # 3. Dynamic candidate probe for single surname / mononym queries
+    stop_tokens = {
+        'movie', 'movies', 'film', 'films', 'actor', 'actress', 'directed', 'by', 
+        'starring', 'in', 'the', 'best', 'top', 'all', 'of', 'show', 'shows', 'series'
+    }
+    candidate_tokens = [w for w in re.findall(r'[a-zA-Z]+', norm_q) if w not in stop_tokens and len(w) >= 4]
+    if len(candidate_tokens) == 1:
+        token = candidate_tokens[0]
+        try:
+            cursor = get_database_connection()
+            safe_tok = token.replace("'", "''")
+            query = f"""
+                SELECT p.name, count(c.title_id) as credits, p.born
+                FROM people p
+                JOIN crew_lookup c ON c.person_id = p.person_id
+                WHERE lower(p.name) = '{safe_tok}'
+                   OR lower(p.name) LIKE '{safe_tok} %'
+                   OR lower(p.name) LIKE '% {safe_tok}'
+                GROUP BY p.name, p.born
+                HAVING credits >= 25
+                ORDER BY credits DESC
+                LIMIT 5
+            """
+            rows = cursor.execute(query).fetchall()
+            if len(rows) >= 2:
+                primary = rows[0]
+                alternatives = []
+                for r in rows[1:]:
+                    role_desc = f"Born {r[2]}" if r[2] else "Cinema Artist"
+                    alternatives.append({
+                        "name": r[0],
+                        "credits": int(r[1]),
+                        "query": f"{r[0]} movies",
+                        "role": role_desc
+                    })
+                return {
+                    "term": token.capitalize(),
+                    "primary_entity": primary[0],
+                    "primary_label": primary[0],
+                    "alternatives": alternatives
+                }
+        except Exception as e:
+            logger.warning(f"Error in dynamic candidate probe for '{token}': {e}")
+
+    return None
+
 def _responses_api_completion(client, model_name, messages):
     """Call Responses API while preserving system instructions and message roles."""
     system_messages = [message["content"] for message in messages if message["role"] == "system"]
@@ -957,6 +1141,17 @@ RULES:
     - Chronological ordering: For yearly trends, use ORDER BY year ASC (or premiered ASC).
     - For single-number scalar questions (e.g. "how many movies has Christopher Nolan directed?"), return 1 row: SELECT COUNT(DISTINCT t.title_id) AS total_movies ...
     - Do NOT select poster_path, title_id, or primary_title in the top-level SELECT when producing an aggregate summary.
+13. Entity Disambiguation, Popular Aliases, and Homonyms:
+    - In IMDb, "Thalapathy Vijay" or generic "Vijay" (Tamil cinema superstar) is officially registered as 'Joseph Vijay' (person_id nm0897201). NEVER use WHERE name = 'Vijay' for Thalapathy Vijay. Only use 'Vijay Sethupathi' if Sethupathi is specified, or 'Vijay Deverakonda' if Deverakonda is specified.
+    - For "Steve McQueen": For directing or modern films (e.g. "12 Years a Slave", "Hunger", "Shame"), use director credits (nm2588606, born 1969). For classic 1960s-1970s acting ("Bullitt", "The Great Escape"), use actor credits (nm0000537).
+    - Map popular aliases and mononyms to their canonical IMDb people.name:
+      * "SRK" or "King Khan" -> 'Shah Rukh Khan'
+      * "Big B" -> 'Amitabh Bachchan'
+      * "Thala" -> 'Ajith Kumar'
+      * "Superstar" or "Thalaivar" -> 'Rajinikanth'
+      * "Megastar" or "Chiru" -> 'Chiranjeevi'
+      * "Power Star" -> 'Pawan Kalyan'
+      * "Rebel Star" -> 'Prabhas'
 
 EXAMPLES:
 
@@ -970,6 +1165,51 @@ WITH matched_people AS MATERIALIZED (
 SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
 FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
+
+User: Vijay movies
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Joseph Vijay'
+)
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
+
+User: Vijay Sethupathi movies
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Vijay Sethupathi'
+)
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
+JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
+LEFT JOIN ratings r ON r.title_id = t.title_id
+ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+LIMIT 100;
+
+User: SRK movies
+SQL:
+WITH matched_people AS MATERIALIZED (
+    SELECT person_id
+    FROM people
+    WHERE name = 'Shah Rukh Khan'
+)
+SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path
+FROM matched_people p
+JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
 ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
@@ -1276,6 +1516,7 @@ def api_search_stream():
                 prep_msg = f"Found {total_rows:,} matching cinema titles..."
                 
             yield f"data: {json.dumps({'type': 'status', 'stage': 'compiling', 'title': 'Preparing Results', 'message': prep_msg})}\n\n"
+            disambig_data = detect_disambiguation(user_query, sql_query)
             result_payload = {
                 'type': 'result',
                 'success': True,
@@ -1290,7 +1531,8 @@ def api_search_stream():
                 'is_aggregate': is_aggregate,
                 'drilldown_results': drilldown_results,
                 'drilldown_columns': drilldown_cols,
-                'drilldown_sql': drilldown_sql
+                'drilldown_sql': drilldown_sql,
+                'disambiguation': disambig_data
             }
             yield f"data: {json.dumps(result_payload)}\n\n"
             return
@@ -1346,6 +1588,7 @@ def api_search_stream():
                                 logger.warning(f"[{request_id}] Re-query drilldown failed: {e}")
 
                     logger.info(f"[{request_id}] Auto-corrected search success: {retry_rows} rows in {execution_time}s")
+                    retry_disambig_data = detect_disambiguation(user_query, corrected_sql)
                     retry_result_payload = {
                         'type': 'result',
                         'success': True,
@@ -1364,7 +1607,8 @@ def api_search_stream():
                         'is_aggregate': retry_is_agg,
                         'drilldown_results': retry_dd_results,
                         'drilldown_columns': retry_dd_cols,
-                        'drilldown_sql': retry_dd_sql
+                        'drilldown_sql': retry_dd_sql,
+                        'disambiguation': retry_disambig_data
                     }
                     yield f"data: {json.dumps(retry_result_payload)}\n\n"
                     return
@@ -1373,6 +1617,7 @@ def api_search_stream():
 
         # If still 0 results or genuine empty
         execution_time = round(time.time() - start_time, 2)
+        empty_disambig_data = detect_disambiguation(user_query, sql_query)
         empty_payload = {
             'type': 'result',
             'success': True,
@@ -1385,7 +1630,8 @@ def api_search_stream():
             'diagnosis': diagnosis,
             'query': user_query,
             'stage': 'completed',
-            'is_aggregate': False
+            'is_aggregate': False,
+            'disambiguation': empty_disambig_data
         }
         yield f"data: {json.dumps(empty_payload)}\n\n"
 
@@ -1483,6 +1729,7 @@ def api_search():
 
         logger.info(f"[{request_id}] Search returned {total_rows} rows ({query_type}) in {execution_time}s")
         
+        disambig_data = detect_disambiguation(user_query, sql_query)
         return jsonify({
             'success': True,
             'results': results_dicts,
@@ -1498,7 +1745,8 @@ def api_search():
             'is_aggregate': is_aggregate,
             'drilldown_results': drilldown_results,
             'drilldown_columns': drilldown_cols,
-            'drilldown_sql': drilldown_sql
+            'drilldown_sql': drilldown_sql,
+            'disambiguation': disambig_data
         })
         
     except Exception as e:

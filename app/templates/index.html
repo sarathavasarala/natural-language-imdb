@@ -150,6 +150,33 @@
                 </div>
             </div>
 
+            <!-- Entity Disambiguation Ribbon -->
+            <div id="disambiguationBanner" class="disambiguation-banner-cinema d-none mb-3">
+                <div class="p-3">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+                            <div class="disambig-icon-box flex-shrink-0">
+                                <i class="fa-solid fa-masks-theater text-gold"></i>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                    <span class="badge badge-disambig">Disambiguation</span>
+                                    <span class="disambig-headline text-white" id="disambigHeadline">
+                                        Showing titles for <strong id="disambigSelectedName"></strong>. Did you mean:
+                                    </span>
+                                </div>
+                                <div class="disambig-chips-wrapper d-flex flex-wrap gap-2" id="disambiguationChips">
+                                    <!-- Dynamic candidate chips injected here -->
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close-cinema btn-sm flex-shrink-0" id="dismissDisambiguationBtn" aria-label="Close">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Auto-Correction / Did You Mean Notice -->
             <div id="correctionBanner" class="correction-banner-cinema d-none mb-3">
                 <div class="d-flex align-items-center justify-content-between p-3">

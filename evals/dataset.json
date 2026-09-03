@@ -252,6 +252,42 @@
     }
   },
   {
+    "id": "disambig_vijay_movies",
+    "category": "disambiguation",
+    "query": "Vijay movies",
+    "description": "Disambiguate mononym Vijay to Tamil cinema superstar Joseph Vijay (nm0897201)",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Joseph Vijay') SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress') JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie') LEFT JOIN ratings r ON r.title_id = t.title_id ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST LIMIT 100;",
+    "assertions": {
+      "must_include_title_ids": ["tt6827298", "tt2325915"],
+      "min_rows": 20,
+      "is_read_only": true
+    }
+  },
+  {
+    "id": "disambig_vijay_sethupathi",
+    "category": "disambiguation",
+    "query": "Vijay Sethupathi movies",
+    "description": "Disambiguate Vijay Sethupathi (nm4043111)",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Vijay Sethupathi') SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress') JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie') LEFT JOIN ratings r ON r.title_id = t.title_id ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST LIMIT 100;",
+    "assertions": {
+      "must_include_title_ids": ["tt9179430", "tt7019842"],
+      "min_rows": 20,
+      "is_read_only": true
+    }
+  },
+  {
+    "id": "disambig_srk_alias",
+    "category": "disambiguation",
+    "query": "SRK movies",
+    "description": "Disambiguate common mononym alias SRK to Shah Rukh Khan (nm0451307)",
+    "gold_sql": "WITH matched_people AS MATERIALIZED (SELECT person_id FROM people WHERE name = 'Shah Rukh Khan') SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path FROM matched_people p JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress') JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie') LEFT JOIN ratings r ON r.title_id = t.title_id ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST LIMIT 100;",
+    "assertions": {
+      "must_include_title_ids": ["tt0367110", "tt0112870"],
+      "min_rows": 20,
+      "is_read_only": true
+    }
+  },
+  {
     "id": "regional_telugu_action",
     "category": "regional_cinema",
     "query": "Top rated Telugu action movies",
