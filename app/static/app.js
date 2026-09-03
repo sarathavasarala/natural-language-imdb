@@ -152,6 +152,7 @@ $(document).ready(function () {
     let chartInstance = null;
     let currentDrilldownTitles = [];
     let currentDrilldownCols = [];
+    let currentDrilldownSql = null;
     let activeDrilldownYear = null;
 
     initializeSettingsModal();
@@ -635,6 +636,7 @@ $(document).ready(function () {
         $('#clearDrilldownFilterBtn').on('click', function () {
             activeDrilldownYear = null;
             $('#drilldownFilterNotice').addClass('d-none');
+            $('#titlesTabCountBadge').text(currentDrilldownTitles.length);
             applyTitlesDisplay(currentDrilldownTitles);
         });
     }
@@ -666,6 +668,7 @@ $(document).ready(function () {
         const cols = event.column_names || [];
         currentDrilldownTitles = event.drilldown_results || [];
         currentDrilldownCols = event.drilldown_columns || [];
+        currentDrilldownSql = event.drilldown_sql || null;
         activeDrilldownYear = null;
         $('#drilldownFilterNotice').addClass('d-none');
 
@@ -673,12 +676,14 @@ $(document).ready(function () {
         const groupCol = cols.find(c => ['year', 'premiered', 'genres', 'genre', 'name', 'country', 'language', 'category'].includes(c.toLowerCase())) || cols[0];
         const metricCol = cols.find(c => ['movie_count', 'count', 'total_movies', 'total_titles', 'avg_rating', 'votes'].includes(c.toLowerCase())) || (cols.length > 1 ? cols[1] : cols[0]);
 
-        // 1. Render KPI Stat Ribbon
+        // 1. Dynamic Context-Aware KPI Stat Ribbon
         const $ribbon = $('#analyticsKpiRibbon').empty();
         
         let totalCount = 0;
         let peakVal = -Infinity;
         let peakLabel = '';
+        let minVal = Infinity;
+        let minLabel = '';
 
         rows.forEach(r => {
             const v = parseFloat(r[metricCol]) || 0;
@@ -686,6 +691,10 @@ $(document).ready(function () {
             if (v > peakVal) {
                 peakVal = v;
                 peakLabel = r[groupCol];
+            }
+            if (v < minVal) {
+                minVal = v;
+                minLabel = r[groupCol];
             }
         });
 
@@ -700,29 +709,117 @@ $(document).ready(function () {
                 </div>
             `);
         } else {
-            // Multiple grouped rows
             const isYear = (groupCol.toLowerCase() === 'year' || groupCol.toLowerCase() === 'premiered');
-            const totalLabel = isYear ? 'Total Films' : 'Total Count';
-            const spanLabel = isYear && rows.length > 0 ? `${rows[0][groupCol]} – ${rows[rows.length - 1][groupCol]}` : `${rows.length} Categories`;
-            const peakText = isYear ? `${peakLabel} (${peakVal.toLocaleString()} films)` : `${peakLabel} (${peakVal.toLocaleString()})`;
+            const isGenre = groupCol.toLowerCase().includes('genre');
+            const isRating = metricCol.toLowerCase().includes('rating') || metricCol.toLowerCase().includes('score');
 
-            $ribbon.append(`
-                <div class="kpi-stat-card">
-                    <div class="kpi-stat-label"><i class="fa-solid fa-clapperboard text-gold"></i> ${totalLabel}</div>
-                    <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
-                    <div class="kpi-stat-sub">Across ${rows.length} ${isYear ? 'years' : 'groups'}</div>
-                </div>
-                <div class="kpi-stat-card">
-                    <div class="kpi-stat-label"><i class="fa-regular fa-calendar text-cyan"></i> Era / Span</div>
-                    <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(spanLabel)}</div>
-                    <div class="kpi-stat-sub">Active coverage window</div>
-                </div>
-                <div class="kpi-stat-card">
-                    <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Peak Period</div>
-                    <div class="kpi-stat-val" style="font-size: 1.45rem;">${escapeHtml(peakText)}</div>
-                    <div class="kpi-stat-sub">Highest density output</div>
-                </div>
-            `);
+            const sortedByVal = [...rows].sort((a, b) => (parseFloat(b[metricCol]) || 0) - (parseFloat(a[metricCol]) || 0));
+            const runnerUp = sortedByVal.length > 1 ? sortedByVal[1] : null;
+            const avgPace = rows.length > 0 ? (totalCount / rows.length).toFixed(1) : 0;
+            const peakPct = totalCount > 0 ? ((peakVal / totalCount) * 100).toFixed(1) : 0;
+
+            if (isYear) {
+                // Temporal trend analysis
+                const minYear = rows[0][groupCol];
+                const maxYear = rows[rows.length - 1][groupCol];
+                const yearSpan = (parseInt(maxYear) && parseInt(minYear)) ? (parseInt(maxYear) - parseInt(minYear) + 1) : rows.length;
+
+                $ribbon.append(`
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-clapperboard text-gold"></i> Total Films</div>
+                        <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
+                        <div class="kpi-stat-sub">Across ${rows.length} active years</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-regular fa-calendar-days text-cyan"></i> Career Span</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(minYear))} – ${escapeHtml(String(maxYear))}</div>
+                        <div class="kpi-stat-sub">${yearSpan}-year active window</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Peak Year</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()} films)</div>
+                        <div class="kpi-stat-sub">${peakPct}% of career output</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-gauge-high text-cyan"></i> Annual Pace</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">~${avgPace} films / yr</div>
+                        <div class="kpi-stat-sub">Average release velocity</div>
+                    </div>
+                `);
+            } else if (isGenre) {
+                // Genre distribution analysis
+                $ribbon.append(`
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-film text-gold"></i> Total Classified</div>
+                        <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
+                        <div class="kpi-stat-sub">Across ${rows.length} categories</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-star text-gold"></i> Top Genre</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
+                        <div class="kpi-stat-sub">${peakPct}% share of filmography</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-shapes text-cyan"></i> Genre Breadth</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Genres</div>
+                        <div class="kpi-stat-sub">Distinct repertoire genres</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-chart-pie text-cyan"></i> Secondary Focus</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${runnerUp ? `${escapeHtml(String(runnerUp[groupCol]))} (${Number(runnerUp[metricCol]).toLocaleString()})` : 'N/A'}</div>
+                        <div class="kpi-stat-sub">Second largest category</div>
+                    </div>
+                `);
+            } else if (isRating) {
+                // Rating and reception analysis
+                const meanRating = (totalCount / rows.length).toFixed(2);
+                $ribbon.append(`
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-star-half-stroke text-gold"></i> Mean Rating</div>
+                        <div class="kpi-stat-val">${meanRating} ★</div>
+                        <div class="kpi-stat-sub">Average across ${rows.length} points</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-award text-gold"></i> Highest Rated</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toFixed(1)} ★)</div>
+                        <div class="kpi-stat-sub">Peak critical mark</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-arrow-down-short-wide text-cyan"></i> Lowest Mark</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(minLabel))} (${minVal.toFixed(1)} ★)</div>
+                        <div class="kpi-stat-sub">Minimum score recorded</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-chart-line text-cyan"></i> Evaluated Data</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Periods</div>
+                        <div class="kpi-stat-sub">Analyzed intervals</div>
+                    </div>
+                `);
+            } else {
+                // General aggregation (actors, directors, countries)
+                $ribbon.append(`
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-layer-group text-gold"></i> Total Output</div>
+                        <div class="kpi-stat-val">${Number(totalCount).toLocaleString()}</div>
+                        <div class="kpi-stat-sub">Total across all groups</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-trophy text-gold"></i> Leading Entry</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${escapeHtml(String(peakLabel))} (${peakVal.toLocaleString()})</div>
+                        <div class="kpi-stat-sub">${peakPct}% of overall volume</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-list-ol text-cyan"></i> Groups</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">${rows.length} Categories</div>
+                        <div class="kpi-stat-sub">Unique classified entities</div>
+                    </div>
+                    <div class="kpi-stat-card">
+                        <div class="kpi-stat-label"><i class="fa-solid fa-scale-balanced text-cyan"></i> Group Average</div>
+                        <div class="kpi-stat-val" style="font-size: 1.4rem;">~${avgPace} titles</div>
+                        <div class="kpi-stat-sub">Mean output per category</div>
+                    </div>
+                `);
+            }
         }
 
         // 2. Render Interactive Chart.js
@@ -799,7 +896,7 @@ $(document).ready(function () {
                             }
                         },
                         onClick: function (evt, elements) {
-                            if (elements && elements.length > 0 && currentDrilldownTitles.length > 0) {
+                            if (elements && elements.length > 0) {
                                 const index = elements[0].index;
                                 const clickedLabel = labels[index];
                                 drilldownByGroup(clickedLabel, groupCol);
@@ -820,7 +917,7 @@ $(document).ready(function () {
             <th>${escapeHtml(groupCol.replace(/_/g, ' ').toUpperCase())}</th>
             <th>${escapeHtml(metricCol.replace(/_/g, ' ').toUpperCase())}</th>
             <th>% SHARE</th>
-            ${currentDrilldownTitles.length > 0 ? '<th class="text-end">ACTION</th>' : ''}
+            <th class="text-end">ACTION</th>
         `);
 
         rows.forEach(r => {
@@ -828,9 +925,7 @@ $(document).ready(function () {
             const mVal = parseFloat(r[metricCol]) || 0;
             const pct = totalCount > 0 ? ((mVal / totalCount) * 100).toFixed(1) : '100';
 
-            const actionHtml = currentDrilldownTitles.length > 0
-                ? `<td class="text-end"><button type="button" class="btn-agg-action" data-filter="${escapeHtml(String(gVal))}"><i class="fa-solid fa-eye me-1"></i> View ${mVal} Titles &rarr;</button></td>`
-                : '';
+            const actionHtml = `<td class="text-end"><button type="button" class="btn-agg-action" data-filter="${escapeHtml(String(gVal))}"><i class="fa-solid fa-eye me-1"></i> View ${mVal} Titles &rarr;</button></td>`;
 
             $aggBody.append(`
                 <tr>
@@ -849,10 +944,12 @@ $(document).ready(function () {
         });
 
         // 4. Setup View Mode Switcher and Drilldown data
-        if (currentDrilldownTitles.length > 0) {
-            $('#titlesTabCountBadge').text(currentDrilldownTitles.length);
+        if (currentDrilldownTitles.length > 0 || currentDrilldownSql) {
+            $('#titlesTabCountBadge').text(currentDrilldownTitles.length || 'Explore');
             $('#viewModeTabs').removeClass('d-none');
-            applyTitlesDisplay(currentDrilldownTitles);
+            if (currentDrilldownTitles.length > 0) {
+                applyTitlesDisplay(currentDrilldownTitles);
+            }
         } else {
             $('#viewModeTabs').addClass('d-none');
         }
@@ -864,30 +961,60 @@ $(document).ready(function () {
         $('#resultsContainer, #mobileResultsFeed').addClass('d-none');
     }
 
-    function drilldownByGroup(val, groupCol) {
-        if (!currentDrilldownTitles || currentDrilldownTitles.length === 0) return;
+    async function drilldownByGroup(val, groupCol) {
+        if (!val) return;
         activeDrilldownYear = val;
 
+        // Visual loading state
+        $('#drilldownFilterLabel').html(`<i class="fa-solid fa-circle-notch fa-spin me-1"></i> Loading ${escapeHtml(String(val))}...`);
+        $('#drilldownFilterNotice').removeClass('d-none');
+
+        // Immediately switch tab to 'Explore Titles' so user sees reaction
+        $('#tabTitlesBtn').addClass('active');
+        $('#tabAnalyticsBtn').removeClass('active');
+        $('#analyticsSection').addClass('d-none');
+        $('#resultsContainer, #mobileResultsFeed').removeClass('d-none');
+        document.getElementById('viewModeTabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Targeted fetch via DuckDB backend drilldown
+        if (currentDrilldownSql) {
+            try {
+                const resp = await fetch('/api/analytics/drilldown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        drilldown_sql: currentDrilldownSql,
+                        filter_col: groupCol,
+                        filter_val: val
+                    })
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.success && data.results && data.results.length > 0) {
+                        $('#titlesTabCountBadge').text(data.results.length);
+                        $('#drilldownFilterLabel').text(`Showing: ${val} (${data.results.length} titles)`);
+                        applyTitlesDisplay(data.results);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('Backend drilldown fetch failed, falling back to client cache:', err);
+            }
+        }
+
+        // Fallback: client-side cache filter
         const isYear = (groupCol.toLowerCase() === 'year' || groupCol.toLowerCase() === 'premiered');
         let filtered = currentDrilldownTitles;
 
         if (isYear) {
             filtered = currentDrilldownTitles.filter(t => String(t.premiered) === String(val));
+        } else {
+            filtered = currentDrilldownTitles.filter(t => String(t[groupCol] || t.genres || '').toLowerCase().includes(String(val).toLowerCase()));
         }
 
+        $('#titlesTabCountBadge').text(filtered.length);
         $('#drilldownFilterLabel').text(`Showing: ${val} (${filtered.length} titles)`);
-        $('#drilldownFilterNotice').removeClass('d-none');
-
         applyTitlesDisplay(filtered);
-
-        // Switch to Titles Tab
-        $('#tabTitlesBtn').addClass('active');
-        $('#tabAnalyticsBtn').removeClass('active');
-        $('#analyticsSection').addClass('d-none');
-        $('#resultsContainer, #mobileResultsFeed').removeClass('d-none');
-
-        // Scroll smoothly to titles
-        document.getElementById('resultsContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // ── Table Rendering with DataTables (Desktop View) ───────────

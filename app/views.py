@@ -484,7 +484,7 @@ def derive_detail_sql(sql_query):
                 from_clause = from_clause + ' LEFT JOIN ratings r ON r.title_id = t.title_id'
                 
         detail_select = 'SELECT DISTINCT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.poster_path'
-        order_clause = 'ORDER BY t.premiered ASC NULLS LAST, r.votes DESC NULLS LAST, r.rating DESC NULLS LAST LIMIT 250'
+        order_clause = 'ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST LIMIT 500'
         
         prefix = (cte_part + '\n') if cte_part else ''
         detail_sql = f"{prefix}{detail_select}\nFROM {from_clause}\n{order_clause};"
@@ -1624,3 +1624,70 @@ def api_generate_summary():
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@main.route('/api/analytics/drilldown', methods=['POST'])
+def api_analytics_drilldown():
+    """
+    High-speed targeted drilldown endpoint for analytical queries.
+    Given base detail SQL and a filter value (e.g. year=2016),
+    executes an optimized DuckDB query to retrieve exact title records.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        base_sql = data.get('drilldown_sql', '').strip()
+        filter_col = data.get('filter_col', 'premiered').strip()
+        filter_val = data.get('filter_val')
+
+        if not base_sql:
+            return jsonify({'success': False, 'error': 'Missing drilldown SQL'}), 400
+
+        if filter_val is None:
+            return jsonify({'success': False, 'error': 'Missing filter value'}), 400
+
+        # Clean base SQL
+        sql_clean = base_sql.rstrip(';')
+        sql_clean = re.sub(r'\s+LIMIT\s+\d+\s*$', '', sql_clean, flags=re.IGNORECASE)
+        sql_clean = re.sub(r'\s+ORDER\s+BY\s+[\s\S]+?$', '', sql_clean, flags=re.IGNORECASE)
+
+        # Build condition
+        is_year = filter_col.lower() in ('year', 'premiered', 'release_year')
+        if is_year or (isinstance(filter_val, str) and filter_val.strip().isdigit()) or isinstance(filter_val, (int, float)):
+            target_col = 'premiered'
+            condition = f"{target_col} = {int(filter_val)}"
+        else:
+            safe_str = str(filter_val).replace("'", "''")
+            safe_col = 'genres' if 'genre' in filter_col.lower() else 'primary_title'
+            condition = f"{safe_col} LIKE '%{safe_str}%'"
+
+        targeted_sql = f"""
+        WITH base_titles AS (
+            {sql_clean}
+        )
+        SELECT * FROM base_titles
+        WHERE {condition}
+        ORDER BY votes DESC NULLS LAST, rating DESC NULLS LAST
+        LIMIT 250;
+        """
+
+        if not validate_sql_query(targeted_sql):
+            return jsonify({'success': False, 'error': 'Query validation failed'}), 400
+
+        start_time = time.time()
+        rows, cols = execute_sql_query(targeted_sql, max_rows=250)
+        exec_time = round(time.time() - start_time, 3)
+
+        results = [dict(zip(cols, row)) for row in rows]
+        return jsonify({
+            'success': True,
+            'filter_col': filter_col,
+            'filter_val': filter_val,
+            'row_count': len(results),
+            'execution_time': exec_time,
+            'results': results,
+            'columns': cols,
+            'sql': targeted_sql
+        })
+    except Exception as e:
+        logger.error(f"Drilldown query failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
