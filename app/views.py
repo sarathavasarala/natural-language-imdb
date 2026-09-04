@@ -1350,8 +1350,7 @@ def get_suggested_queries():
         "Tom Hanks movies",
         "Best 2010s sci-fi",
         "Christopher Nolan films",
-        "DiCaprio & Winslet movies",
-        "Top movies of 2024"
+        "DiCaprio & Winslet movies"
     ]
 
 def get_title_info(title_id):

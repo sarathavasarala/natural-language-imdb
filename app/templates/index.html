@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>IMDb Intelligence | Natural Language Cinema Search</title>
-    <meta name="description" content="Search the complete 10M+ IMDb catalog using natural language. Fast, intelligent movie and TV show discovery.">
+    <meta name="description" content="Search the complete 10M+ IMDb catalog using natural language. Fast, intelligent cinema and movie discovery.">
     
     <!-- App icons -->
     <meta name="theme-color" content="#07090E">
@@ -69,7 +69,7 @@
                         Discover cinema through <span class="highlight-gold">natural language</span>
                     </h1>
                     <p class="hero-desc">
-                        Search by actor pairings, memorable plots, release eras, or ratings. Ask any movie or TV question in plain English.
+                        Search by actor pairings, memorable plots, release eras, or ratings.
                     </p>
                 </div>
 
@@ -85,7 +85,7 @@
                                    placeholder="Search movies, actors, genres..." 
                                    autocomplete="off" 
                                    spellcheck="false" 
-                                   aria-label="Search movies, TV shows, actors, and directors"
+                                   aria-label="Search movies, actors, and directors"
                                    required>
                             <div class="search-action-group">
                                 <button type="button" class="btn-clear-query d-none" id="clearQueryBtn" title="Clear query (Esc)" aria-label="Clear query">
@@ -134,7 +134,7 @@
                     </div>
                     
                     <p class="agent-current-step text-white fw-semibold mb-3" id="agentCurrentStepMsg">
-                        Finding matching movies &amp; shows across cinema catalog...
+                        Finding matching movies across cinema catalog...
                     </p>
 
                     <!-- Real-Time Activity Feed Timeline (Connected Rail) -->
@@ -410,7 +410,7 @@
                 <div class="no-results-icon-box mb-3">
                     <i class="fa-solid fa-film"></i>
                 </div>
-                <h5 class="no-results-title" id="noResultsHeading">No matching movies or TV shows found</h5>
+                <h5 class="no-results-title" id="noResultsHeading">No matching movies found</h5>
                 <p class="no-results-subtitle mb-3" id="noResultsMessage">Try checking your spelling, using different actor/genre keywords, or picking one of the suggested searches above.</p>
                 <div id="noResultsDiagnosisBox" class="d-none mx-auto p-3 diagnosis-card" style="max-width: 580px;">
                     <div class="d-flex align-items-center gap-2 mb-1">

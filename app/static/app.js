@@ -269,8 +269,7 @@ $(document).ready(function () {
             'e.g., Best 2010s sci-fi',
             'e.g., Christopher Nolan films',
             'e.g., DiCaprio & Winslet',
-            'e.g., 90s crime thrillers',
-            'e.g., Top movies of 2024'
+            'e.g., 90s crime thrillers'
         ];
 
         let currentIndex = 0;
@@ -556,7 +555,7 @@ $(document).ready(function () {
                     $('#disambiguationBanner').addClass('d-none');
                 }
             } else {
-                showError(event.error || 'No matching movies or shows found.', event.suggestions);
+                showError(event.error || 'No matching movies found.', event.suggestions);
             }
 
         } else if (event.type === 'error') {
@@ -1266,7 +1265,7 @@ $(document).ready(function () {
                 lengthMenu: 'Show _MENU_',
                 info: 'Showing _START_ to _END_ of _TOTAL_',
                 paginate: { first: '«', last: '»', next: '›', previous: '‹' },
-                emptyTable: 'No matching movies or shows found',
+                emptyTable: 'No matching movies found',
                 zeroRecords: 'No matching records'
             },
             columnDefs: columnDefs,
