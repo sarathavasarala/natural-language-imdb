@@ -1131,7 +1131,7 @@ RULES:
    - Countries: India ('IN'), France ('FR'), Japan ('JP'), South Korea ('KR'), Mexico ('MX'), Canada ('CA'), Germany ('DE'), Italy ('IT'), Spain ('ES'), United Kingdom ('GB'), United States ('US').
    - When searching by language (e.g. 'Telugu movies', 'Spanish thrillers', 'Korean cinema', 'Japanese anime'): use t.original_language = '<LANG_CODE>'.
    - When searching by country (e.g. 'movies from France', 'movies from India', 'Canadian movies'): use t.origin_country = '<COUNTRY_CODE>'.
-10. Add a deterministic ORDER BY and LIMIT 100 for title discovery searches. For aggregate, trend, or ranking queries, omit LIMIT unless top-N is explicitly asked (e.g. LIMIT 10).
+10. Default Sort: For all general title discovery and filmography searches (e.g. 'Christopher Nolan movies', '90s comedies', 'Aishwarya Rai Bachchan movies'), ALWAYS default to sorting by vote count descending: ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST LIMIT 100. Only sort by r.rating DESC when the user explicitly requests top/highest rated, or by t.premiered DESC when the user asks for latest/recent/newest.
 11. Escape apostrophes inside string literals by doubling them (e.g. 'Schindler''s List').
 12. Analytical, Quantitative, and Aggregation Queries:
     - When the user asks "how many", "count", "per year", "for each year", "average rating", "trend", "distribution", "breakdown", or "ranking":
@@ -1169,7 +1169,7 @@ FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category = 'director'
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: Vijay movies
@@ -1184,7 +1184,7 @@ FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: Vijay Sethupathi movies
@@ -1199,7 +1199,7 @@ FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: SRK movies
@@ -1214,7 +1214,7 @@ FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: how many movies did Brahmanandam act in for each year between 2020 and 2025
@@ -1256,7 +1256,7 @@ FROM matched_people p
 JOIN crew_lookup c ON c.person_id = p.person_id AND c.category IN ('actor', 'actress')
 JOIN titles t ON t.title_id = c.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: Martin Scorsese movies starring Robert De Niro
@@ -1279,7 +1279,7 @@ SELECT t.title_id, t.primary_title, t.premiered, t.genres, r.rating, r.votes, t.
 FROM shared_titles s
 JOIN titles t ON t.title_id = s.title_id AND t.type IN ('movie', 'tvMovie')
 LEFT JOIN ratings r ON r.title_id = t.title_id
-ORDER BY r.rating DESC NULLS LAST, r.votes DESC NULLS LAST, t.premiered DESC
+ORDER BY r.votes DESC NULLS LAST, r.rating DESC NULLS LAST, t.premiered DESC NULLS LAST
 LIMIT 100;
 
 User: Top rated Telugu action movies

@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/2.0.3/css/dataTables.bootstrap5.min.css">
     
     <!-- Custom Application CSS -->
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}?v=2.2.0" rel="stylesheet">
 </head>
 <body class="cinema-body">
     <!-- Top Ambient Glow Aura -->
@@ -610,6 +610,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <!-- Application Logic -->
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=2.2.0"></script>
 </body>
 </html>
