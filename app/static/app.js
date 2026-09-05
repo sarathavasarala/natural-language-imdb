@@ -529,10 +529,11 @@ $(document).ready(function () {
                 }
 
                 // Show Auto-Correction Banner if intent reflection was applied
-                if (event.correction_note || event.corrected_entity) {
-                    const entityLabel = event.corrected_entity ? `<strong>${escapeHtml(event.corrected_entity)}</strong>` : 'closest match';
-                    const noteText = event.correction_note ? ` &bull; ${escapeHtml(event.correction_note)}` : '';
-                    $('#correctionMessage').html(`Showing results for ${entityLabel} (searched for "<em>${escapeHtml(event.query)}</em>")${noteText}`);
+                if (event.corrected_entity) {
+                    $('#correctionMessage').html(`Showing results for <strong>${escapeHtml(event.corrected_entity)}</strong>`);
+                    $('#correctionBanner').removeClass('d-none');
+                } else if (event.correction_note) {
+                    $('#correctionMessage').text(event.correction_note);
                     $('#correctionBanner').removeClass('d-none');
                 } else {
                     $('#correctionBanner').addClass('d-none');
@@ -1123,27 +1124,32 @@ $(document).ready(function () {
             $head.append(th);
         });
 
-        if ($.fn.dataTable && $.fn.dataTable.ext && !$.fn.dataTable.ext.type.order['num-nulls-last-pre']) {
-            $.fn.dataTable.ext.type.order['num-nulls-last-pre'] = function (data) {
-                if (data === null || data === undefined || data === '' || data === '—') {
-                    return -1;
-                }
-                const n = parseFloat(String(data).replace(/[^0-9.-]/g, ''));
-                return isNaN(n) ? -1 : n;
+        if ($.fn.dataTable && $.fn.dataTable.ext && !$.fn.dataTable.ext.type.order['num-nulls-last-asc']) {
+            const parseNum = function (val) {
+                if (val === null || val === undefined || val === '' || val === '—') return null;
+                if (typeof val === 'number') return isNaN(val) ? null : val;
+                const n = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+                return isNaN(n) ? null : n;
             };
 
+            $.fn.dataTable.ext.type.order['num-nulls-last-pre'] = parseNum;
+
             $.fn.dataTable.ext.type.order['num-nulls-last-asc'] = function (a, b) {
-                if (a === -1 && b === -1) return 0;
-                if (a === -1) return 1;
-                if (b === -1) return -1;
-                return a < b ? -1 : (a > b ? 1 : 0);
+                const x = parseNum(a);
+                const y = parseNum(b);
+                if (x === null && y === null) return 0;
+                if (x === null) return 1;
+                if (y === null) return -1;
+                return x < y ? -1 : (x > y ? 1 : 0);
             };
 
             $.fn.dataTable.ext.type.order['num-nulls-last-desc'] = function (a, b) {
-                if (a === -1 && b === -1) return 0;
-                if (a === -1) return 1;
-                if (b === -1) return -1;
-                return a < b ? 1 : (a > b ? -1 : 0);
+                const x = parseNum(a);
+                const y = parseNum(b);
+                if (x === null && y === null) return 0;
+                if (x === null) return 1;
+                if (y === null) return -1;
+                return x < y ? 1 : (x > y ? -1 : 0);
             };
         }
 

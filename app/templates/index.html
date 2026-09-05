@@ -178,17 +178,17 @@
 
             <!-- Auto-Correction / Did You Mean Notice -->
             <div id="correctionBanner" class="correction-banner-cinema d-none mb-3">
-                <div class="d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center justify-content-between py-2 px-3">
                     <div class="d-flex align-items-center gap-2">
                         <div class="correction-icon-box">
                             <i class="fa-solid fa-wand-magic-sparkles text-gold"></i>
                         </div>
-                        <div>
-                            <span class="badge badge-intent me-2">Auto-Matched</span>
+                        <div class="d-flex align-items-center flex-wrap gap-1">
+                            <span class="badge badge-intent me-1">Auto-Matched</span>
                             <span class="correction-text" id="correctionMessage"></span>
                         </div>
                     </div>
-                    <button type="button" class="btn-close-cinema btn-sm" id="dismissCorrectionBtn" aria-label="Close">
+                    <button type="button" class="btn-close-cinema btn-sm ms-2" id="dismissCorrectionBtn" aria-label="Close">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>

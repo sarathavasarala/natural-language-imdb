@@ -1035,7 +1035,7 @@ Analyze whether the 0 results were caused by:
 RESPOND STRICTLY IN VALID JSON with the following schema:
 {{
   "diagnosis": "MISSPELLED_ENTITY" | "OVERLY_STRICT_FILTER" | "GENUINE_EMPTY",
-  "explanation": "Clear, concise user-facing message explaining the finding",
+  "explanation": "Clear, user-friendly 1-sentence message. For MISSPELLED_ENTITY, provide a clean note like 'Showing results for <Name>' and NEVER use technical developer jargon like 'zero results were caused by name mismatch'. For GENUINE_EMPTY, politely explain that no matching records were found.",
   "corrected_entity": "The corrected entity string (e.g. 'George Clooney') or null",
   "corrected_sql": "Valid DuckDB SQL query string incorporating the correction, or null if GENUINE_EMPTY"
 }}
@@ -1153,6 +1153,7 @@ RULES:
       * "Megastar" or "Chiru" -> 'Chiranjeevi'
       * "Power Star" -> 'Pawan Kalyan'
       * "Rebel Star" -> 'Prabhas'
+    - Names with Initials: In IMDb, initials are stored without interior spaces (e.g. 'S.S. Rajamouli', 'M. Night Shyamalan', 'K. Balachander', 'P.T. Anderson', 'J.J. Abrams'). Always map informal variations like 'SS Rajamouli', 'Ss Rajamouli', or 'S. S. Rajamouli' directly to 'S.S. Rajamouli'.
 
 EXAMPLES:
 
