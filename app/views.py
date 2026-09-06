@@ -798,9 +798,11 @@ def detect_disambiguation(user_query, sql_query=""):
     # 3. Dynamic candidate probe for single surname / mononym queries
     stop_tokens = {
         'movie', 'movies', 'film', 'films', 'actor', 'actress', 'directed', 'by', 
-        'starring', 'in', 'the', 'best', 'top', 'all', 'of', 'show', 'shows', 'series'
+        'starring', 'in', 'the', 'best', 'top', 'all', 'of', 'show', 'shows', 'series',
+        'a', 'an', 'and', 'or', 'for', 'with', 'about', 'from', 'to', 'at', 'on', 'is', 'are',
+        'who', 'what', 'where', 'which', 'tv', 'me', 'my', 'find', 'give', 'list', 'search'
     }
-    candidate_tokens = [w for w in re.findall(r'[a-zA-Z]+', norm_q) if w not in stop_tokens and len(w) >= 4]
+    candidate_tokens = [w for w in re.findall(r'[a-zA-Z]+', norm_q) if w not in stop_tokens and len(w) >= 2]
     if len(candidate_tokens) == 1:
         token = candidate_tokens[0]
         try:
@@ -820,6 +822,12 @@ def detect_disambiguation(user_query, sql_query=""):
             """
             rows = cursor.execute(query).fetchall()
             if len(rows) >= 2:
+                # If the user query already specifies any of the matched people by full name, do not disambiguate
+                for r in rows:
+                    person_tokens = set(re.findall(r'[a-zA-Z]+', r[0].lower()))
+                    if person_tokens and person_tokens.issubset(words):
+                        return None
+
                 primary = rows[0]
                 alternatives = []
                 for r in rows[1:]:

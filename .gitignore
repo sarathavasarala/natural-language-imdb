@@ -69,3 +69,10 @@ scratch/
 
 # Virtual environment
 imdb_env/
+
+# Media files
+*.mp4
+*.mov
+*.mp3
+*.wav
+
