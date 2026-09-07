@@ -103,13 +103,13 @@ The repository includes a comprehensive evaluation suite with 47 curated benchma
 
 ### Benchmark Categories
 
-- **Plain & Easy**: Conversational multi-predicate queries filtering by release era, genres, rating thresholds, and vote minimums.
-- **Disambiguation & Homonyms**: Resolving name collisions between different individuals and handling multi-role figures (e.g. actors who direct).
-- **Regional & World Cinema**: Searching authentic foreign cinema via TMDb original language and country metadata rather than localized dubs.
-- **Multi-Hop Relational Joins**: Intersecting multiple cast and crew relationships (e.g. shared credits between actors and directors).
-- **Typos & Semantic Reflection**: Tolerating misspellings and fuzzy celebrity names using pre-execution entity probing and dynamic repair.
-- **Security & Plan Invariants**: Validating AST read-only compliance, blocking SQL injection attempts, and bounding execution limits.
-- **Aggregations & Analytics**: Generating temporal trends, yearly counts, and quantitative breakdowns that power interactive visual charts.
+- **Plain & Easy**: Conversational multi-predicate queries filtering by release era, genres, rating thresholds, and vote minimums *(e.g. "top rated sci-fi movies of the 2010s with over 100k votes")*.
+- **Disambiguation & Homonyms**: Resolving name collisions between different individuals and distinguishing multi-role figures *(e.g. "movies directed by Clint Eastwood" vs. films he acted in, or "Michael B. Jordan movies" vs. Michael Jordan)*.
+- **Regional & World Cinema**: Searching authentic foreign cinema via TMDb original language and country metadata rather than localized dubs *(e.g. "best Korean thriller movies released after 2015" or "Spanish horror movies with rating above 7.5")*.
+- **Multi-Hop Relational Joins**: Intersecting multiple cast and crew relationships across credit records *(e.g. "movies where Leonardo DiCaprio and Kate Winslet worked together" or "films directed by Christopher Nolan starring Christian Bale")*.
+- **Typos & Semantic Reflection**: Tolerating misspellings and fuzzy celebrity names using pre-execution entity probing and dynamic repair *(e.g. "Christoper Nolan movies" or "Tarantno films")*.
+- **Security & Plan Invariants**: Validating AST read-only compliance, blocking SQL injection attempts, and bounding execution limits *(e.g. attempts like "DROP TABLE titles;" or unbounded scans without a limit)*.
+- **Aggregations & Analytics**: Generating temporal trends, yearly counts, and quantitative breakdowns that power interactive visual charts *(e.g. "how many movies did Brahmanandam act in each year between 2020 and 2025?" or "which genres has Tarantino directed the most?")*.
 
 ### Running the Evaluations
 
